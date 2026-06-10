@@ -1,4 +1,4 @@
-package com.example.smartrailos_app
+package com.archy.smartrailos_app
 
 import io.flutter.embedding.android.FlutterActivity
 
