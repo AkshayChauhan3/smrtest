@@ -2,89 +2,173 @@ import pandas as pd
 import numpy as np
 import os
 
-# Ensure reproducibility
+# Set seed for reproducibility
 np.random.seed(42)
 
-def generate_smartrail_dataset():
-    # 1. Base grid generation (365 days of 2025)
+def generate_metro_dataset():
+    print("Initializing Ahmedabad Metro network definitions...")
+    
+    # Blue Line stations
+    blue_stations = [
+        ("BL01", "Vastral Gam"),
+        ("BL02", "Nirant Cross Road"),
+        ("BL03", "Vastral"),
+        ("BL04", "Rabari Colony"),
+        ("BL05", "Amraiwadi"),
+        ("BL06", "Apparel Park"),
+        ("BL07", "Kankaria East"),
+        ("BL08", "Kalupur Metro Station"),
+        ("BL09", "Ghee Kanta"),
+        ("BL10", "Shahpur"),
+        ("BL11", "Old High Court"),
+        ("BL12", "S P Stadium"),
+        ("BL13", "Commerce Six Road"),
+        ("BL14", "Gujarat University"),
+        ("BL15", "Gurukul Road"),
+        ("BL16", "Doordarshan Kendra"),
+        ("BL17", "Thaltej"),
+        ("BL18", "Thaltej Gam")
+    ]
+
+    # Red Line stations
+    red_stations = [
+        ("RL01", "APMC"),
+        ("RL02", "Jivraj Park"),
+        ("RL03", "Rajivnagar"),
+        ("RL04", "Shreyas"),
+        ("RL05", "Paldi"),
+        ("RL06", "Gandhigram"),
+        ("RL07", "Old High Court"),
+        ("RL08", "Usmanpura"),
+        ("RL09", "Vijay Nagar"),
+        ("RL10", "Vadaj"),
+        ("RL11", "Ranip"),
+        ("RL12", "Sabarmati Rly Station"),
+        ("RL13", "AEC"),
+        ("RL14", "Sabarmati"),
+        ("RL15", "Motera Stadium")
+    ]
+
+    # Trains configuration
+    trains_config = {
+        # Blue Line UP
+        "BL-UP-01": {"line": "Blue", "direction": "UP", "route": blue_stations, "offset": 0},
+        "BL-UP-02": {"line": "Blue", "direction": "UP", "route": blue_stations, "offset": 3},
+        "BL-UP-03": {"line": "Blue", "direction": "UP", "route": blue_stations, "offset": 6},
+        "BL-UP-04": {"line": "Blue", "direction": "UP", "route": blue_stations, "offset": 9},
+        "BL-UP-05": {"line": "Blue", "direction": "UP", "route": blue_stations, "offset": 12},
+        "BL-UP-06": {"line": "Blue", "direction": "UP", "route": blue_stations, "offset": 15},
+        
+        # Blue Line DOWN
+        "BL-DO-01": {"line": "Blue", "direction": "DOWN", "route": list(reversed(blue_stations)), "offset": 1},
+        "BL-DO-02": {"line": "Blue", "direction": "DOWN", "route": list(reversed(blue_stations)), "offset": 4},
+        "BL-DO-03": {"line": "Blue", "direction": "DOWN", "route": list(reversed(blue_stations)), "offset": 7},
+        "BL-DO-04": {"line": "Blue", "direction": "DOWN", "route": list(reversed(blue_stations)), "offset": 10},
+        "BL-DO-05": {"line": "Blue", "direction": "DOWN", "route": list(reversed(blue_stations)), "offset": 13},
+        
+        # Red Line UP
+        "RL-UP-01": {"line": "Red", "direction": "UP", "route": red_stations, "offset": 0},
+        "RL-UP-02": {"line": "Red", "direction": "UP", "route": red_stations, "offset": 3},
+        "RL-UP-03": {"line": "Red", "direction": "UP", "route": red_stations, "offset": 6},
+        "RL-UP-04": {"line": "Red", "direction": "UP", "route": red_stations, "offset": 9},
+        "RL-UP-05": {"line": "Red", "direction": "UP", "route": red_stations, "offset": 12},
+        
+        # Red Line DOWN
+        "RL-DO-01": {"line": "Red", "direction": "DOWN", "route": list(reversed(red_stations)), "offset": 1},
+        "RL-DO-02": {"line": "Red", "direction": "DOWN", "route": list(reversed(red_stations)), "offset": 4},
+        "RL-DO-03": {"line": "Red", "direction": "DOWN", "route": list(reversed(red_stations)), "offset": 7},
+        "RL-DO-04": {"line": "Red", "direction": "DOWN", "route": list(reversed(red_stations)), "offset": 10},
+        "RL-DO-05": {"line": "Red", "direction": "DOWN", "route": list(reversed(red_stations)), "offset": 13},
+    }
+
     dates = pd.date_range(start="2025-01-01 00:00:00", end="2025-12-31 23:00:00", freq="h")
-    stations = ["Vadodara", "Ahmedabad", "Surat", "Mumbai Central", "Anand", "Nadiad", "Bharuch", "Vapi", "Rajkot", "Gandhinagar"]
-    coaches = ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8"]
+    train_ids = list(trains_config.keys())
+    coaches = ["C1", "C2", "C3"]
 
-    print("Generating base index combinations...")
-    index = pd.MultiIndex.from_product([dates, stations, coaches], names=["Timestamp", "Station", "Coach"])
+    print("Generating base index combinations (551,880 rows)...")
+    index = pd.MultiIndex.from_product([dates, train_ids, coaches], names=["Timestamp", "Train_ID", "Coach_ID"])
     df = pd.DataFrame(index=index).reset_index()
-    print(f"Base dataframe created with {len(df):,} rows.")
 
-    # 2. Extract timestamp properties
+    # Extract timestamp properties
     hours = df["Timestamp"].dt.hour.values
     months = df["Timestamp"].dt.month.values
     day_of_week = df["Timestamp"].dt.dayofweek.values
-    
-    # 3. Station indexes and popularity
-    station_to_idx = {s: i for i, s in enumerate(stations)}
-    station_indices = df["Station"].map(station_to_idx).values
-    
-    popularity_mapping = {
-        "Mumbai Central": "Highest",
-        "Ahmedabad": "High",
-        "Surat": "High",
-        "Vadodara": "High",
-        "Anand": "Medium",
-        "Nadiad": "Medium",
-        "Bharuch": "Medium",
-        "Vapi": "Medium",
-        "Rajkot": "Medium",
-        "Gandhinagar": "Medium"
-    }
-    popularity_scores = {
-        "Mumbai Central": 0.95,
-        "Ahmedabad": 0.85,
-        "Surat": 0.80,
-        "Vadodara": 0.75,
-        "Anand": 0.55,
-        "Nadiad": 0.50,
-        "Bharuch": 0.50,
-        "Vapi": 0.55,
-        "Rajkot": 0.60,
-        "Gandhinagar": 0.55
-    }
-    df["Station_Popularity"] = df["Station"].map(popularity_mapping)
-    pop_scores = df["Station"].map(popularity_scores).values
+    hours_since_start = ((df["Timestamp"] - dates[0]).dt.total_seconds() // 3600).astype(int).values
 
-    # 4. Train_ID generation (deterministic mapping per hour and station)
-    trains = [
-        "TR-12901", "TR-12009", "TR-20901", "TR-12925", "TR-12951",
-        "TR-19015", "TR-22953", "TR-12933", "TR-19217", "TR-22961"
-    ]
-    hours_since_start = ((df["Timestamp"] - dates[0]).dt.total_seconds() // 3600).astype(int)
-    train_idx = (hours_since_start + station_indices) % len(trains)
-    df["Train_ID"] = np.array(trains)[train_idx]
+    # Map static train configuration
+    line_map = {t: trains_config[t]["line"] for t in train_ids}
+    dir_map = {t: trains_config[t]["direction"] for t in train_ids}
+    offset_map = {t: trains_config[t]["offset"] for t in train_ids}
 
-    # 5. Platform Number (realistic constraints)
-    platform_limits = {
-        "Mumbai Central": 8,
-        "Ahmedabad": 6,
-        "Surat": 4,
-        "Vadodara": 4,
-        "Anand": 3,
-        "Nadiad": 3,
-        "Bharuch": 3,
-        "Vapi": 3,
-        "Rajkot": 4,
-        "Gandhinagar": 3
-    }
-    platform_max = df["Station"].map(platform_limits).values
-    df["Platform_Number"] = ((station_indices * 3 + train_idx) % platform_max + 1).astype(int)
+    df["Line"] = df["Train_ID"].map(line_map).astype("category")
+    df["Direction"] = df["Train_ID"].map(dir_map).astype("category")
+    offsets = df["Train_ID"].map(offset_map).values
 
-    # 6. Capacity
-    df["Capacity"] = 80
+    # Determine Station_ID, Station_Name, Next_Station vectorially
+    print("Mapping stations along route configurations...")
+    mask_blue_up = (df["Line"] == "Blue") & (df["Direction"] == "UP")
+    mask_blue_do = (df["Line"] == "Blue") & (df["Direction"] == "DOWN")
+    mask_red_up = (df["Line"] == "Red") & (df["Direction"] == "UP")
+    mask_red_do = (df["Line"] == "Red") & (df["Direction"] == "DOWN")
 
-    # 7. Day Type
+    blue_up_route = blue_stations
+    blue_do_route = list(reversed(blue_stations))
+    red_up_route = red_stations
+    red_do_route = list(reversed(red_stations))
+
+    station_ids = np.empty(len(df), dtype=object)
+    station_names = np.empty(len(df), dtype=object)
+    next_stations = np.empty(len(df), dtype=object)
+
+    for mask, route in zip(
+        [mask_blue_up, mask_blue_do, mask_red_up, mask_red_do],
+        [blue_up_route, blue_do_route, red_up_route, red_do_route]
+    ):
+        idx_in_mask = df.index[mask]
+        if len(idx_in_mask) == 0:
+            continue
+        
+        h_since = hours_since_start[mask]
+        offs = offsets[mask]
+        
+        station_idx = (h_since + offs) % len(route)
+        next_idx = (station_idx + 1) % len(route)
+        
+        station_ids[idx_in_mask] = [route[i][0] for i in station_idx]
+        station_names[idx_in_mask] = [route[i][1] for i in station_idx]
+        next_stations[idx_in_mask] = [route[i][1] for i in next_idx]
+
+    df["Station_ID"] = station_ids
+    df["Station_ID"] = df["Station_ID"].astype("category")
+    df["Station_Name"] = station_names
+    df["Station_Name"] = df["Station_Name"].astype("category")
+    df["Next_Station"] = next_stations
+    df["Next_Station"] = df["Next_Station"].astype("category")
+
+    # Event State cycle: BOARDING, ALIGHTING, IN_TRANSIT
+    print("Generating event states...")
+    event_idx = (hours_since_start + offsets) % 3
+    event_states_list = ["BOARDING", "ALIGHTING", "IN_TRANSIT"]
+    df["Event_State"] = np.array(event_states_list)[event_idx]
+    df["Event_State"] = df["Event_State"].astype("category")
+
+    # ETA minutes
+    eta = np.zeros(len(df), dtype=np.int8)
+    is_transit = (df["Event_State"] == "IN_TRANSIT").values
+    eta[is_transit] = np.random.randint(1, 3, size=np.sum(is_transit))
+    eta[~is_transit] = np.random.randint(2, 5, size=np.sum(~is_transit))
+    df["ETA_Minutes"] = eta
+
+    # Coach configurations
+    df["Coach_Type"] = np.where(df["Coach_ID"] == "C2", "Ladies", "General")
+    df["Coach_Type"] = df["Coach_Type"].astype("category")
+    df["Coach_Capacity"] = np.int16(400)
+
+    # Day Type and Festivals
     df["Day_Type"] = np.where(day_of_week >= 5, "Weekend", "Weekday")
+    df["Day_Type"] = df["Day_Type"].astype("category")
     is_weekend = (df["Day_Type"] == "Weekend").values
 
-    # 8. Festival Logic
     festival_mapping = {
         "2025-03-14": "Holi",
         "2025-08-15": "Independence Day",
@@ -93,203 +177,161 @@ def generate_smartrail_dataset():
         "2025-12-25": "Christmas"
     }
     df["Festival"] = df["Timestamp"].dt.strftime("%Y-%m-%d").map(festival_mapping).fillna("None")
+    df["Festival"] = df["Festival"].astype("category")
     is_festival = (df["Festival"] != "None").values
 
-    # 9. Weather Logic (Monsoon seasonal probability)
+    # Weather Logic
     print("Simulating weather and temperature...")
     weather_rand = np.random.rand(len(df))
     weather = np.empty(len(df), dtype=object)
     monsoon_mask = (months >= 6) & (months <= 9)
-    
-    # Monsoon: Rainy 65%, Cloudy 25%, Sunny 10%
+
     weather[monsoon_mask] = np.select(
-        [weather_rand[monsoon_mask] < 0.65, weather_rand[monsoon_mask] < 0.90],
+        [weather_rand[monsoon_mask] < 0.60, weather_rand[monsoon_mask] < 0.90],
         ["Rainy", "Cloudy"],
         default="Sunny"
     )
-    # Non-monsoon: Sunny 75%, Cloudy 20%, Rainy 5%
     weather[~monsoon_mask] = np.select(
         [weather_rand[~monsoon_mask] < 0.75, weather_rand[~monsoon_mask] < 0.95],
         ["Sunny", "Cloudy"],
         default="Rainy"
     )
     df["Weather"] = weather
+    df["Weather"] = df["Weather"].astype("category")
 
-    # 10. Temperature Logic
+    # Temperature Logic (regional for Ahmedabad)
     temp_base = np.select(
         [(months >= 3) & (months <= 5), (months >= 6) & (months <= 9)],
-        [35.0, 29.0],  # Summer, Monsoon
-        default=22.0   # Winter
+        [37.0, 30.0],
+        default=21.0
     )
-    # Hourly temp wave (peak 14h, min 5h)
-    hourly_var = 7.0 * np.sin((hours - 8) * np.pi / 12)
+    hourly_var = 8.0 * np.sin((hours - 8) * np.pi / 12)
     temp_noise = np.random.normal(0, 1.5, size=len(df))
     temperature = temp_base + hourly_var + temp_noise
-    # Cool down during rains
     temperature = np.where(df["Weather"] == "Rainy", temperature - 3.0, temperature)
-    df["Temperature"] = np.round(temperature, 1)
+    df["Temperature"] = np.round(temperature, 1).astype(np.float32)
 
-    # 11. Delay Minutes
-    print("Calculating delay minutes...")
-    base_delay = np.random.exponential(scale=3.0, size=len(df)).astype(int)
-    base_delay = np.clip(base_delay, 0, 15)
-    rainy_addon = np.where(df["Weather"] == "Rainy", np.random.randint(15, 45, size=len(df)), 0)
-    festival_addon = np.where(is_festival, np.random.randint(5, 20, size=len(df)), 0)
-    df["Delay_Minutes"] = base_delay + rainy_addon + festival_addon
+    # Delay Minutes
+    base_delay = np.random.exponential(scale=2.0, size=len(df)).astype(int)
+    base_delay = np.clip(base_delay, 0, 10)
+    rainy_addon = np.where(df["Weather"] == "Rainy", np.random.randint(10, 30, size=len(df)), 0)
+    festival_addon = np.where(is_festival, np.random.randint(5, 15, size=len(df)), 0)
+    df["Delay_Minutes"] = (base_delay + rainy_addon + festival_addon).astype(np.int16)
 
-    # 12. Occupancy Logic
-    print("Generating passenger occupancy patterns...")
+    # Peak hour & Weekend Base occupancy logic
+    print("Generating realistic passengers occupancy profiles...")
     hour_min_pct = np.zeros(24)
     hour_max_pct = np.zeros(24)
-    
-    # Morning Rush (07:00–10:00)
+
+    # Morning Peak (07:00 - 10:00)
     hour_min_pct[7:11] = 0.70
-    hour_max_pct[7:11] = 1.00
-    # Afternoon (11:00–16:00)
+    hour_max_pct[7:11] = 0.95
+    # Afternoon (11:00 - 16:00)
     hour_min_pct[11:17] = 0.30
-    hour_max_pct[11:17] = 0.60
-    # Evening Rush (17:00–21:00)
+    hour_max_pct[11:17] = 0.55
+    # Evening Peak (17:00 - 21:00)
     hour_min_pct[17:22] = 0.75
-    hour_max_pct[17:22] = 1.00
-    # Late Night (22:00–05:00)
-    hour_min_pct[[22, 23, 0, 1, 2, 3, 4, 5]] = 0.10
-    hour_max_pct[[22, 23, 0, 1, 2, 3, 4, 5]] = 0.40
-    # Transition hour 6:00
-    hour_min_pct[6] = 0.25
-    hour_max_pct[6] = 0.50
+    hour_max_pct[17:22] = 0.98
+    # Late Night (22:00 - 05:00)
+    hour_min_pct[[22, 23, 0, 1, 2, 3, 4, 5]] = 0.05
+    hour_max_pct[[22, 23, 0, 1, 2, 3, 4, 5]] = 0.25
+    # Transition hour 6
+    hour_min_pct[6] = 0.20
+    hour_max_pct[6] = 0.40
 
     base_min = hour_min_pct[hours]
     base_max = hour_max_pct[hours]
 
-    # Weekend adjustments
-    is_rush = ((hours >= 7) & (hours <= 10)) | ((hours >= 17) & (hours <= 21))
-    weekend_min = np.where(is_weekend, base_min * 0.75, base_min)
-    weekend_max = np.where(is_weekend, base_max * 0.75, base_max)
-    # Bumps for leisure hours on weekends
-    weekend_min = np.where(is_weekend & ~is_rush, weekend_min * 1.15, weekend_min)
-    weekend_max = np.where(is_weekend & ~is_rush, weekend_max * 1.15, weekend_max)
+    # Weekend changes
+    is_peak = ((hours >= 7) & (hours <= 10)) | ((hours >= 17) & (hours <= 21))
+    weekend_min = np.where(is_weekend, base_min * 0.70, base_min)
+    weekend_max = np.where(is_weekend, base_max * 0.70, base_max)
+    weekend_min = np.where(is_weekend & ~is_peak, weekend_min * 1.2, weekend_min)
+    weekend_max = np.where(is_weekend & ~is_peak, weekend_max * 1.2, weekend_max)
 
-    # Station Popularity adjustment
-    pop_factor = 0.7 + 0.3 * pop_scores
-    pop_min = weekend_min * pop_factor
-    pop_max = weekend_max * pop_factor
-
-    # Festival adjustments
+    # Festival multiplier
     festival_mult = np.where(is_festival, np.random.uniform(1.2, 1.4, size=len(df)), 1.0)
-    final_min = pop_min * festival_mult
-    final_max = pop_max * festival_mult
+    final_min = weekend_min * festival_mult
+    final_max = weekend_max * festival_mult
 
-    # Clip to physical limits
-    final_min = np.clip(final_min, 0.05, 0.95)
-    final_max = np.clip(final_max, 0.10, 1.00)
+    final_min = np.clip(final_min, 0.02, 0.95)
+    final_max = np.clip(final_max, 0.05, 1.00)
 
-    # Generate occupancy percentage
-    occupancy_pct = np.random.uniform(final_min, final_max)
+    train_occ_base = np.random.uniform(final_min, final_max)
 
-    # Coach-level adjustments (middle coaches are typically more crowded)
-    coach_multipliers = {
-        "C1": 0.85, "C2": 0.90, "C3": 1.05, "C4": 1.10,
-        "C5": 1.10, "C6": 1.05, "C7": 0.95, "C8": 0.80
-    }
-    coach_mult = df["Coach"].map(coach_multipliers).values
-    occupancy_pct = occupancy_pct * coach_mult
-    occupancy_pct = np.clip(occupancy_pct, 0.05, 1.00)
+    # Coach specific multipliers (Ladies vs General)
+    coach_mult = np.ones(len(df))
+    coach_mult[df["Coach_ID"] == "C1"] = np.random.uniform(1.0, 1.15, size=np.sum(df["Coach_ID"] == "C1"))
+    coach_mult[df["Coach_ID"] == "C3"] = np.random.uniform(1.0, 1.15, size=np.sum(df["Coach_ID"] == "C3"))
+    coach_mult[df["Coach_ID"] == "C2"] = np.random.uniform(0.5, 0.65, size=np.sum(df["Coach_ID"] == "C2"))
 
-    df["Occupancy"] = np.round(occupancy_pct * df["Capacity"]).astype(int)
+    passengers = np.round(train_occ_base * 400 * coach_mult).astype(int)
+    passengers = np.clip(passengers, 0, 400)
+    df["Passengers"] = passengers.astype(np.int16)
 
-    # Boarding and deboarding passenger exchanges
-    deboard_fraction = np.random.uniform(0.10, 0.40, size=len(df)) * (0.8 + 0.4 * pop_scores)
-    deboard_fraction = np.clip(deboard_fraction, 0.05, 0.80)
-    df["Deboarding"] = np.round(df["Occupancy"] * deboard_fraction).astype(int)
-
-    board_fraction = np.random.uniform(0.15, 0.45, size=len(df)) * (0.8 + 0.4 * pop_scores)
-    board_fraction = np.clip(board_fraction, 0.05, 0.80)
-    df["Boarding"] = np.round(df["Occupancy"] * board_fraction).astype(int)
-
-    # Cleanups
-    df["Boarding"] = np.maximum(df["Boarding"], np.random.randint(1, 4, size=len(df)))
-    df["Deboarding"] = np.minimum(df["Deboarding"], df["Occupancy"])
-    df["Deboarding"] = np.maximum(df["Deboarding"], np.random.randint(1, 3, size=len(df)))
-    df["Deboarding"] = np.minimum(df["Deboarding"], df["Occupancy"])
-
-    # 13. Anomaly Injection (~1% of data)
-    print("Injecting anomalies (1% target)...")
-    df["Anomaly_Flag"] = 0
+    # Anomalies (1% target)
+    print("Injecting operational anomalies...")
+    df["Anomaly_Flag"] = np.int8(0)
     anomaly_indices = np.random.choice(df.index, size=int(len(df) * 0.01), replace=False)
-    df.loc[anomaly_indices, "Anomaly_Flag"] = 1
+    df.loc[anomaly_indices, "Anomaly_Flag"] = np.int8(1)
 
     num_anomalies = len(anomaly_indices)
-    type_size = num_anomalies // 4
+    type_size = num_anomalies // 3
     idx_surge = anomaly_indices[:type_size]
     idx_overcrowd = anomaly_indices[type_size:2*type_size]
-    idx_door_malfunction = anomaly_indices[2*type_size:3*type_size]
-    idx_crowd_spike = anomaly_indices[3*type_size:]
+    idx_delay_spike = anomaly_indices[2*type_size:]
 
-    # Type 1: Sudden passenger surge (occupancy exceeds capacity)
-    df.loc[idx_surge, "Occupancy"] = np.random.randint(84, 100, size=len(idx_surge))
-    df.loc[idx_surge, "Boarding"] = np.random.randint(40, 60, size=len(idx_surge))
-    df.loc[idx_surge, "Delay_Minutes"] += np.random.randint(10, 30, size=len(idx_surge))
+    # Anomaly 1: Sudden passenger surge (exceed capacity in General coaches)
+    is_c2 = (df.loc[idx_surge, "Coach_ID"] == "C2").values
+    df.loc[idx_surge, "Passengers"] = np.where(
+        is_c2,
+        np.random.randint(250, 320, size=len(idx_surge)),
+        np.random.randint(410, 460, size=len(idx_surge))
+    ).astype(np.int16)
 
-    # Type 2: Unusual overcrowding
-    df.loc[idx_overcrowd, "Occupancy"] = np.random.randint(75, 80, size=len(idx_overcrowd))
-    df.loc[idx_overcrowd, "Boarding"] = np.random.randint(30, 45, size=len(idx_overcrowd))
+    # Anomaly 2: Unexpected overcrowding at night
+    df.loc[idx_overcrowd, "Passengers"] = np.random.randint(300, 390, size=len(idx_overcrowd)).astype(np.int16)
 
-    # Type 3: Door malfunction simulation
-    df.loc[idx_door_malfunction, "Delay_Minutes"] = np.random.randint(90, 180, size=len(idx_door_malfunction))
-    df.loc[idx_door_malfunction, "Deboarding"] = np.random.randint(0, 3, size=len(idx_door_malfunction))
-    df.loc[idx_door_malfunction, "Boarding"] = np.random.randint(0, 3, size=len(idx_door_malfunction))
+    # Anomaly 3: High delay spike + platform congestion
+    df.loc[idx_delay_spike, "Delay_Minutes"] = np.random.randint(60, 150, size=len(idx_delay_spike)).astype(np.int16)
+    df.loc[idx_delay_spike, "Passengers"] = np.minimum(
+        np.round(df.loc[idx_delay_spike, "Passengers"] * 1.3).astype(int), 400
+    ).astype(np.int16)
 
-    # Type 4: Unexpected crowd spike at night
-    df.loc[idx_crowd_spike, "Occupancy"] = np.random.randint(65, 80, size=len(idx_crowd_spike))
-    df.loc[idx_crowd_spike, "Boarding"] = np.random.randint(25, 40, size=len(idx_crowd_spike))
+    # Compute occupancy percentages
+    df["Coach_Occupancy_Percentage"] = np.round((df["Passengers"] / df["Coach_Capacity"]) * 100, 2).astype(np.float32)
 
-    # Recalculate percentages post-anomaly
-    df["Occupancy_Percentage"] = np.round((df["Occupancy"] / df["Capacity"]) * 100, 2)
-    df["Passenger_Density_Score"] = np.round((df["Occupancy"] / df["Capacity"]) * 100, 2)
+    # Train-level summaries
+    print("Aggregating coach counts to train levels...")
+    train_sums = df.groupby(["Timestamp", "Train_ID"])["Passengers"].transform("sum")
+    df["Train_Total_Passengers"] = train_sums.astype(np.int16)
+    df["Train_Total_Capacity"] = np.int16(1200)
+    df["Train_Occupancy_Percentage"] = np.round((df["Train_Total_Passengers"] / df["Train_Total_Capacity"]) * 100, 2).astype(np.float32)
 
-    # 14. Crowd Level Classification
-    pct_vals = df["Occupancy_Percentage"].values
+    # Crowd Level Classification
+    pct_vals = df["Coach_Occupancy_Percentage"].values
     df["Crowd_Level"] = np.select(
-        [pct_vals <= 40.0, pct_vals <= 70.0, pct_vals <= 90.0],
-        ["Low", "Medium", "High"],
-        default="Critical"
+        [pct_vals <= 20.0, pct_vals <= 50.0, pct_vals <= 85.0],
+        ["EMPTY", "MODERATE", "CROWDED"],
+        default="VERY_CROWDED"
     )
-
-    # 15. Predicted Next Stop Occupancy
-    print("Simulating next stop prediction...")
-    current_occ = df["Occupancy"].values
-    change = np.random.normal(loc=0.0, scale=8.0, size=len(df))
-    change = np.where(current_occ > 60, change - 10.0, change)
-    change = np.where((current_occ < 40) & is_rush, change + 12.0, change)
-    change = np.where(pop_scores > 0.75, change + 5.0, change - 3.0)
-    next_occ = np.round(current_occ + change).astype(int)
-    max_allowed = np.where(df["Anomaly_Flag"] == 1, 100, 80)
-    df["Predicted_Next_Stop_Occupancy"] = np.clip(next_occ, 0, max_allowed)
-
-    # 16. Coach Heatmap Index
-    coach_offsets = {
-        "C1": -0.06, "C2": -0.02, "C3": 0.02, "C4": 0.05,
-        "C5": 0.05, "C6": 0.02, "C7": -0.02, "C8": -0.06
-    }
-    offsets = df["Coach"].map(coach_offsets).values
-    noise = np.random.normal(0, 0.04, size=len(df))
-    heatmap_idx = (df["Occupancy_Percentage"] / 100.0) + offsets + noise
-    df["Coach_Heatmap_Index"] = np.round(np.clip(heatmap_idx, 0.0, 1.0), 3)
+    df["Crowd_Level"] = df["Crowd_Level"].astype("category")
 
     # Reorder columns as requested
     required_cols = [
-        "Timestamp", "Train_ID", "Station", "Platform_Number", "Coach",
-        "Boarding", "Deboarding", "Occupancy", "Capacity", "Occupancy_Percentage",
-        "Weather", "Temperature", "Day_Type", "Festival", "Delay_Minutes",
-        "Crowd_Level", "Predicted_Next_Stop_Occupancy", "Anomaly_Flag",
-        "Station_Popularity", "Passenger_Density_Score", "Coach_Heatmap_Index"
+        "Timestamp", "Train_ID", "Line", "Direction", "Station_ID", "Station_Name",
+        "Coach_ID", "Coach_Type", "Passengers", "Coach_Capacity", "Coach_Occupancy_Percentage",
+        "Train_Total_Passengers", "Train_Total_Capacity", "Train_Occupancy_Percentage",
+        "Crowd_Level", "Weather", "Temperature", "Day_Type", "Festival", "Delay_Minutes",
+        "Event_State", "Next_Station", "ETA_Minutes", "Anomaly_Flag"
     ]
     df = df[required_cols]
 
-    print("Generation complete! Saving to CSV...")
-    csv_filename = "SmartRail_1Year_Data.csv"
+    # Save to CSV
+    csv_filename = "SmartRail_AhmedabadMetro_1Year.csv"
+    print(f"Saving new dataset to {csv_filename}...")
     df.to_csv(csv_filename, index=False)
-    print(f"Dataset successfully saved as '{csv_filename}'.\n")
+    print(f"Dataset successfully saved.\n")
 
     # Output stats
     print("--- df.head() ---")
@@ -300,13 +342,10 @@ def generate_smartrail_dataset():
     print(df.describe())
 
     total_rows = len(df)
-    total_cols = len(df.columns)
     file_size_mb = os.path.getsize(csv_filename) / (1024 * 1024)
-
     print("\n--- Summary Metrics ---")
     print(f"Total Rows: {total_rows}")
-    print(f"Total Columns: {total_cols}")
     print(f"CSV File Size: {file_size_mb:.2f} MB")
 
 if __name__ == "__main__":
-    generate_smartrail_dataset()
+    generate_metro_dataset()
