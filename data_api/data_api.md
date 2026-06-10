@@ -7,6 +7,69 @@ It does not read from a real feed or database. Instead, it builds a deterministi
 train timetable in memory and computes the current train state from the requested
 time.
 
+Core facts
+
+- Total lines modeled: 2
+- Total stations modeled: 33
+- Total trains modeled: 21
+- Station data includes a unique station ID for every stop
+- Train data includes a unique train ID for every active service
+
+Network summary
+
+- Blue Line
+  - Route: Vastral Gam to Thaltej Gam
+  - Stations: 18
+  - Trains: 11
+- Red Line
+  - Route: APMC to Motera Stadium
+  - Stations: 15
+  - Trains: 10
+
+Train ID format
+
+Train IDs are grouped by line and direction:
+
+- Blue Line UP: `BL-UP-01` to `BL-UP-06`
+- Blue Line DOWN: `BL-DO-01` to `BL-DO-05`
+- Red Line UP: `RL-UP-01` to `RL-UP-05`
+- Red Line DOWN: `RL-DO-01` to `RL-DO-05`
+
+Train inventory
+
+- Blue Line UP
+  - `BL-UP-01`
+  - `BL-UP-02`
+  - `BL-UP-03`
+  - `BL-UP-04`
+  - `BL-UP-05`
+  - `BL-UP-06`
+- Blue Line DOWN
+  - `BL-DO-01`
+  - `BL-DO-02`
+  - `BL-DO-03`
+  - `BL-DO-04`
+  - `BL-DO-05`
+- Red Line UP
+  - `RL-UP-01`
+  - `RL-UP-02`
+  - `RL-UP-03`
+  - `RL-UP-04`
+  - `RL-UP-05`
+- Red Line DOWN
+  - `RL-DO-01`
+  - `RL-DO-02`
+  - `RL-DO-03`
+  - `RL-DO-04`
+  - `RL-DO-05`
+
+Station ID format
+
+Station IDs use the line prefix plus a station number:
+
+- Blue Line: `BL01` to `BL18`
+- Red Line: `RL01` to `RL15`
+
 The API is designed for:
 - showing all trains on both lines,
 - looking up one train or one station,
@@ -52,6 +115,44 @@ Lines modeled
   - 10 trains
 
 The service simulates 21 trains total.
+
+Basic inventory
+
+- Blue Line station IDs:
+  - `BL01` Vastral Gam
+  - `BL02` Nirant Cross Road
+  - `BL03` Vastral
+  - `BL04` Rabari Colony
+  - `BL05` Amraivadi
+  - `BL06` Apparel Park
+  - `BL07` Kankaria East
+  - `BL08` Kalupur Metro Station
+  - `BL09` Ghee Kanta
+  - `BL10` Shahpur
+  - `BL11` Old High Court
+  - `BL12` S P Stadium
+  - `BL13` Commerce Six Road
+  - `BL14` Gujarat University
+  - `BL15` Gurukul Road
+  - `BL16` Doordarshan Kendra
+  - `BL17` Thaltej
+  - `BL18` Thaltej Gam
+- Red Line station IDs:
+  - `RL01` APMC
+  - `RL02` Jivraj Park
+  - `RL03` Rajivnagar
+  - `RL04` Shreyas
+  - `RL05` Paldi
+  - `RL06` Gandhigram
+  - `RL07` Old High Court
+  - `RL08` Usmanpura
+  - `RL09` Vijay Nagar
+  - `RL10` Vadaj
+  - `RL11` Ranip
+  - `RL12` Sabarmati Rly Station
+  - `RL13` AEC
+  - `RL14` Sabarmati
+  - `RL15` Motera Stadium
 
 Running the API
 
