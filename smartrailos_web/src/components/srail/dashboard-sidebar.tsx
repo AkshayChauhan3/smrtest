@@ -33,8 +33,8 @@ export function DashboardSidebar() {
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-white/5 bg-obsidian-900 lg:flex">
       <div className="flex items-center gap-3 border-b border-white/5 px-6 py-5">
-        <div className="grid size-9 place-items-center rounded-md bg-white p-1">
-          <TrainFront className="size-full text-obsidian-900" />
+          <div className="grid size-9 place-items-center rounded-md bg-white p-1">
+          <img src={smartRailLogo} alt="SmartRail logo" className="size-full object-contain" />
         </div>
         <div className="leading-tight">
           <div className="text-sm font-extrabold uppercase tracking-wider text-white">SmartRail</div>
