@@ -90,7 +90,7 @@ print(f"Mean Absolute Error: {mae:.2f}")
 
 # getting current weather data
 
-API_KEY = "105ad2bcbd2d0dc73c4fcf2e1bf41f57"
+API_KEY = "YOUR_OPENWEATHERMAP_API_KEY"  # TODO: Move to .env
 
 city = "Ahmedabad"
 
