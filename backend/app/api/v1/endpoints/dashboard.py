@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query, Depends
 
+from app.schemas.rail import AlertOut, IncomingTrainOut, StationCrowdPredictionOut, TrainAtStationOut
 from app.schemas.realtime import DashboardSnapshot
 from app.services.domain.dashboard_service import DashboardService, get_dashboard_service
 

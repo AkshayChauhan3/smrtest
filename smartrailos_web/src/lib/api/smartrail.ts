@@ -1,0 +1,210 @@
+// Backend (FastAPI) response shapes — mirror app/schemas/{rail,realtime}.py
+// Adapters below convert them into the frontend's existing UI types
+// (Train, Alert, Station, Recommendation, KPI) so we don't have to refactor
+// every dashboard component.
+
+import {
+  type Alert,
+  type Coach,
+  type LineId,
+  type Recommendation,
+  type Station,
+  type Train,
+  KPI as MOCK_KPI,
+} from "@/lib/mock/data";
+
+// ---------- Backend types ----------
+
+export interface BackendStation {
+  id: string;
+  name: string;
+  code: string;
+  line_name: string;
+  is_interchange?: boolean;
+}
+
+export interface BackendCoach {
+  coach_number: string;
+  coach_type: string;
+  capacity: number;
+  current_passenger_count: number;
+  occupancy_percentage: number;
+  occupancy_status: string;
+}
+
+export interface BackendTrainAtStation {
+  train_id: string;
+  train_name: string;
+  line_name: string;
+  direction: string;
+  arrival_time: string;
+  departure_time: string;
+  current_station: string;
+  next_station: string;
+  coaches: BackendCoach[];
+}
+
+export interface BackendIncomingTrain {
+  train_id: string;
+  train_name: string;
+  line_name: string;
+  eta_minutes: number;
+  route: string;
+  current_occupancy: number;
+  predicted_occupancy_at_station: number;
+  predicted_boarding_count: number;
+  predicted_deboarding_count: number;
+}
+
+export interface BackendCrowdPrediction {
+  current_station_crowd: number;
+  predicted_5_min: number;
+  predicted_15_min: number;
+  predicted_30_min: number;
+}
+
+export interface BackendAlert {
+  id: string;
+  alert_type: string;
+  severity: string;
+  title: string;
+  message: string;
+  station_name?: string | null;
+  train_id?: string | null;
+  created_at: string; // ISO
+}
+
+export interface BackendDashboardSnapshot {
+  station_name: string;
+  current_trains: BackendTrainAtStation[];
+  incoming_trains: BackendIncomingTrain[];
+  crowd_prediction: BackendCrowdPrediction;
+  recommendations: string[];
+  alerts: BackendAlert[];
+}
+
+// ---------- Adapters ----------
+
+function lineFromName(name: string): LineId {
+  return name.toLowerCase().includes("red") ? "red" : "blue";
+}
+
+export function adaptStation(s: BackendStation, index: number): Station {
+  return {
+    id: s.id,
+    name: s.name,
+    line: lineFromName(s.line_name),
+    order: index + 1,
+  };
+}
+
+function adaptCoach(c: BackendCoach, i: number): Coach {
+  return {
+    id: `c${c.coach_number || i + 1}`,
+    label:
+      c.coach_type?.toLowerCase() === "ladies"
+        ? "Ladies Coach"
+        : `Coach ${c.coach_number || i + 1}`,
+    capacity: c.capacity,
+    occupancy: c.occupancy_percentage,
+  };
+}
+
+export function adaptTrain(t: BackendTrainAtStation): Train {
+  return {
+    id: t.train_id,
+    name: `${t.train_id} · ${t.train_name}`,
+    line: lineFromName(t.line_name),
+    direction: t.direction,
+    originId: "",
+    destinationId: "",
+    currentStationId: t.current_station,
+    nextStationId: t.next_station,
+    arrival: t.arrival_time,
+    departure: t.departure_time,
+    etaSeconds: 0,
+    predictedBoarding: 0,
+    predictedDeboarding: 0,
+    status: "At Station",
+    coaches: t.coaches.map(adaptCoach),
+  };
+}
+
+// Backend severity strings → frontend Alert["severity"] union
+const SEVERITY_MAP: Record<string, Alert["severity"]> = {
+  critical: "Emergency",
+  emergency: "Emergency",
+  high: "Overcrowding",
+  medium: "Platform Congestion",
+  warning: "System Warning",
+  low: "System Warning",
+  info: "System Warning",
+};
+
+const TYPE_MAP: Record<string, Alert["severity"]> = {
+  platform_congestion: "Platform Congestion",
+  coach_full: "Coach Full",
+  overcrowding: "Overcrowding",
+  sensor_failure: "Sensor Failure",
+  system_warning: "System Warning",
+  emergency: "Emergency",
+};
+
+export function adaptAlert(a: BackendAlert): Alert {
+  const severity =
+    TYPE_MAP[a.alert_type?.toLowerCase()] ??
+    SEVERITY_MAP[a.severity?.toLowerCase()] ??
+    "System Warning";
+  const time = a.created_at
+    ? new Date(a.created_at).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })
+    : "";
+  return {
+    id: a.id,
+    severity,
+    title: a.title,
+    description: a.message,
+    time,
+    resolved: false,
+  };
+}
+
+export function adaptRecommendations(items: string[]): Recommendation[] {
+  return items.map((msg, i) => ({
+    id: `srec-${i}`,
+    title: msg,
+    body: "Live recommendation from the SmartRail OS backend.",
+    priority: i === 0 ? "action" : "info",
+    action: "Acknowledge",
+  }));
+}
+
+export function kpiFromSnapshot(snap: BackendDashboardSnapshot): typeof MOCK_KPI {
+  const trains = snap.current_trains;
+  const avg =
+    trains.length > 0
+      ? Math.round(
+          trains
+            .flatMap((t) => t.coaches.map((c) => c.occupancy_percentage))
+            .reduce((a, b) => a + b, 0) /
+            Math.max(
+              1,
+              trains.flatMap((t) => t.coaches).length,
+            ),
+        )
+      : snap.crowd_prediction.current_station_crowd;
+  const activeAlerts = snap.alerts.length;
+  return {
+    currentTrains: trains.length + snap.incoming_trains.length,
+    passengersInStation: snap.crowd_prediction.current_station_crowd * 20,
+    passengersInTransit: trains
+      .flatMap((t) => t.coaches)
+      .reduce((a, c) => a + c.current_passenger_count, 0),
+    avgOccupancy: avg,
+    activeAlerts,
+    predictedNextHour: snap.crowd_prediction.predicted_30_min * 25,
+  };
+}
