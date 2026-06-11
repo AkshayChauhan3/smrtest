@@ -80,24 +80,30 @@ class TrainService:
 
     async def get_trains(self) -> List[TrainCatalogueOut]:
         """Get all trains from DB or simulation."""
-        # Try DB first
+        # Try DB first - only use DB if trains have location data (from ingestion)
+        # Otherwise fallback to simulation so frontend doesn't break
         trains_db = await self.train_repo.get_all_active()
-        if trains_db:
-            # Convert DB models to API schemas
+        
+        # Check if we have active location data by checking the first train
+        if trains_db and trains_db[0].current_station_id:
             result = []
             for train in trains_db:
                 coaches = await self._get_train_coaches(train.train_id)
+                station = await self.station_repo.get_by_id(train.current_station_id) if train.current_station_id else None
+                next_station = await self.station_repo.get_by_id(train.next_station_id) if train.next_station_id else None
+                occupancy_db = await self.occupancy_repo.get_latest_by_train(train.train_id)
+                
                 result.append(
                     TrainCatalogueOut(
                         train_id=train.train_id,
                         train_name=train.train_name,
-                        line_name=f"{train.line_id} Line",  # TODO: join with line
+                        line_name=f"{'Blue Line' if train.line_id == 'BL' else 'Red Line'}",
                         direction=train.direction,
-                        current_station="",  # TODO: resolve station ID
-                        next_station="",  # TODO: resolve station ID
+                        current_station=station.name if station else "",
+                        next_station=next_station.name if next_station else "",
                         arrival_time=train.created_at.isoformat(),
                         departure_time=train.created_at.isoformat(),
-                        current_occupancy=0,  # TODO: get from occupancy snapshot
+                        current_occupancy=occupancy_db.total_passengers if occupancy_db else 0,
                         coaches=coaches,
                     )
                 )
@@ -143,10 +149,17 @@ class TrainService:
         # TODO: Implement when TrainCoach model is populated
         return []
 
+    async def get_trains_at_station(self, station_name: str, sim_time: str | None = None) -> List:
+        """Get trains at a specific station (uses simulation for ETA)."""
+        now = self.sim_service.parse_sim_time(sim_time)
+        return self.sim_service.get_trains_at_station(station_name, now)
+
+
+from app.db.session import get_db
 
 # Dependency for FastAPI
 async def get_train_service(
-    db: AsyncSession = Depends(),  # from app.db.session
+    db: AsyncSession = Depends(get_db),  # from app.db.session
 ) -> TrainService:
     """Get train service instance."""
     return TrainService(

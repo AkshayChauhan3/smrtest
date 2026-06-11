@@ -47,14 +47,23 @@ class OccupancyService:
                 occupancy_db.station_id
             ) if occupancy_db.station_id else None
 
+            line_name = f"{'Blue Line' if train.line_id == 'BL' else 'Red Line'}" if train else ""
+            direction = train.direction if train else ""
+            
+            # Simple coach mapping
+            coaches_out = []
+            if occupancy_db.coach_data:
+                for c_data in occupancy_db.coach_data:
+                    coaches_out.append(CoachOccupancyOut(**c_data))
+
             return TrainOccupancyOut(
                 train_id=occupancy_db.train_id,
                 train_name=train.train_name if train else "",
                 station_name=station.name if station else "",
-                line_name="",  # TODO: resolve from train.line_id
-                direction="",  # TODO: resolve from train.direction
+                line_name=line_name,
+                direction=direction,
                 current_station_crowd=occupancy_db.total_passengers,
-                coaches=[],  # TODO: expand coach_data JSON
+                coaches=coaches_out,
                 updated_at=occupancy_db.timestamp,
             )
         # Fallback to simulation
@@ -96,20 +105,30 @@ class OccupancyService:
         train = await self.train_repo.get_by_train_id(train_id)
         station = await self.station_repo.get_by_id(station_id)
 
+        line_name = f"{'Blue Line' if train.line_id == 'BL' else 'Red Line'}" if train else ""
+        direction = train.direction if train else ""
+        
+        coaches_out = []
+        if snapshot.coach_data:
+            for c_data in snapshot.coach_data:
+                coaches_out.append(CoachOccupancyOut(**c_data))
+
         return TrainOccupancyOut(
             train_id=snapshot.train_id,
             train_name=train.train_name if train else "",
             station_name=station.name if station else "",
-            line_name="",
-            direction="",
+            line_name=line_name,
+            direction=direction,
             current_station_crowd=snapshot.total_passengers,
-            coaches=[],
+            coaches=coaches_out,
             updated_at=snapshot.timestamp,
         )
 
 
+from app.db.session import get_db
+
 async def get_occupancy_service(
-    db: AsyncSession = Depends(),
+    db: AsyncSession = Depends(get_db),
 ) -> OccupancyService:
     """Get occupancy service instance."""
     return OccupancyService(
