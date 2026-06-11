@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import smartRailLogo from "@/components/assets/smartrail-logo.png";
 import {
   LayoutDashboard,
   TrainFront,
