@@ -10,6 +10,43 @@ class StationOut(BaseModel):
     line_name: str
     is_interchange: bool = False
 
+class LineOut(BaseModel):
+    id: str
+    name: str
+    color: str
+    description: str | None = None
+
+class RouteStopOut(BaseModel):
+    station_name: str
+    stop_order: int
+    arrival_offset_minutes: int
+    departure_offset_minutes: int
+
+class RouteOut(BaseModel):
+    id: str
+    line_name: str
+    origin_station: str
+    destination_station: str
+    stops: list[RouteStopOut]
+
+class CoachOut(BaseModel):
+    coach_number: str
+    coach_type: str
+    capacity: int
+    description: str | None = None
+
+class TrainCatalogueOut(BaseModel):
+    train_id: str
+    train_name: str
+    line_name: str
+    direction: str
+    current_station: str
+    next_station: str
+    arrival_time: str
+    departure_time: str
+    current_occupancy: int
+    coaches: list[CoachOut]
+
 
 class TrainCoachOut(BaseModel):
     coach_number: str

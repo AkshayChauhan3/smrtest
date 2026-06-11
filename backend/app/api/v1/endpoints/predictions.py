@@ -24,7 +24,7 @@ async def predict_train_occupancy(
     current_passengers = train_occupancy.current_station_crowd
     
     # 2. Generate Prediction
-    prediction = prediction_service.get_train_occupancy_prediction(
+    prediction = await prediction_service.get_train_occupancy_prediction(
         train_id=request.train_id,
         current_passengers=current_passengers,
         forecast_minutes=request.forecast_minutes

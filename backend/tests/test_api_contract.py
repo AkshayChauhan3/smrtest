@@ -74,8 +74,8 @@ def test_station_crowd_dashboard_and_station_lookup() -> None:
     assert isinstance(station_trains.json(), list)
 
 
-def test_invalid_sim_time_returns_400() -> None:
+def test_invalid_sim_time_returns_422() -> None:
     with TestClient(app) as client:
         response = client.get("/api/v1/occupancy/trains", params={"sim_time": "9am"})
 
-    assert response.status_code == 400
+    assert response.status_code == 422

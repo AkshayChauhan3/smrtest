@@ -43,7 +43,7 @@ class DashboardService:
                 current_crowd = crowd.current_station_crowd
                 break
                 
-        crowd_prediction = self.prediction_service.get_station_crowd_prediction(current_crowd, now)
+        crowd_prediction = await self.prediction_service.get_station_crowd_prediction(current_crowd, now)
 
         if not self.sim_service.station_exists(station_name):
             raise HTTPException(status_code=404, detail=f"Station '{station_name}' not found.")
