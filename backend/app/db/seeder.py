@@ -31,6 +31,8 @@ async def seed_database(db: AsyncSession) -> None:
             is_busy=busy, cumulative_km=km, sort_order=idx,
         ))
     for idx, (sid, name, km, busy) in enumerate(RED_LINE_STATIONS):
+        if name == "Old High Court":
+            continue  # Already added in Blue Line
         db.add(Station(
             station_id=sid, name=name, line_id="RL",
             is_interchange=(name in ("Old High Court", "Sabarmati Rly Station")),
