@@ -16,8 +16,8 @@ A modern, real-time dashboard for railway operations built with TanStack Start, 
 ### 1. Clone the repository
 
 ```bash
-git clone <repo-url>
-cd tanstack_start_ts
+git clone https://github.com/krish-2195/SmartRail-OS.git
+cd SmartRail-OS-main/smartrailos_web
 ```
 
 ### 2. Install dependencies

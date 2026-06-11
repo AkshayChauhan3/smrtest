@@ -1,0 +1,13 @@
+# Dependencies:
+Node.js (18+)
+npm
+
+# Setup Commands:
+# 1. Install dependencies
+npm install
+
+# 2. Run the frontend development server
+npm run dev
+
+# 3. Build the frontend for production
+npm run build
