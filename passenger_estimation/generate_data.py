@@ -328,7 +328,7 @@ def generate_metro_dataset():
     df = df[required_cols]
 
     # Save to CSV
-    csv_filename = "SmartRail_AhmedabadMetro_1Year.csv"
+    csv_filename = "metro.csv"
     print(f"Saving new dataset to {csv_filename}...")
     df.to_csv(csv_filename, index=False)
     print(f"Dataset successfully saved.\n")
