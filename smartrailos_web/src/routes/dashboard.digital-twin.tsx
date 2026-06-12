@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SectionHeader } from "./dashboard.index";
 import { OccupancyBar } from "@/components/srail/occupancy-bar";
-import { TRAINS } from "@/lib/mock/data";
+import { useTrains, useKpi } from "@/lib/api/hooks";
+import { useState } from "react";
 import { Box, Radar } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard/digital-twin")({
@@ -15,7 +16,21 @@ export const Route = createFileRoute("/dashboard/digital-twin")({
 });
 
 function DigitalTwin() {
-  const train = TRAINS[0];
+  const trainsQ = useTrains();
+  const kpiQ = useKpi();
+  const trains = trainsQ.data ?? [];
+  const kpi = kpiQ.data;
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const blueTrains = trains.filter(t => t.line === "blue");
+  const redTrains  = trains.filter(t => t.line === "red");
+
+  const selectedTrain = trains.find(t => t.id === selectedId) ?? trains[0] ?? null;
+
+  const totalPax = kpi?.passengersInTransit ?? 0;
+  const dotCount = Math.min(80, Math.max(4, Math.round(totalPax / 40)));
+
   return (
     <div className="space-y-6 px-4 py-6 md:px-8 md:py-8">
       <SectionHeader title="Digital Twin · Concourse Level" right="LIVE FEED · 30 fps" />
@@ -39,21 +54,53 @@ function DigitalTwin() {
             <text x="92" y="212" fill="#64748b" fontSize="10" fontFamily="JetBrains Mono">CONCOURSE</text>
 
             {/* Crowd dots */}
-            {Array.from({ length: 48 }).map((_, i) => {
+            {Array.from({ length: dotCount }).map((_, i) => {
               const x = 100 + (i * 13) % 620;
               const y = 230 + ((i * 7) % 20);
               return <circle key={i} cx={x} cy={y} r={1.6} fill="#2dd4bf" opacity={0.55} />;
             })}
 
-            {/* Trains */}
-            <g>
-              <rect x="200" y="130" width="280" height="40" rx="6" fill="#3b82f6" opacity="0.85" />
-              <text x="210" y="155" fill="white" fontSize="11" fontWeight="700" fontFamily="JetBrains Mono">BL-DN-014 · AT STATION</text>
-            </g>
-            <g>
-              <rect x="380" y="310" width="280" height="40" rx="6" fill="#f43f5e" opacity="0.85" />
-              <text x="390" y="335" fill="white" fontSize="11" fontWeight="700" fontFamily="JetBrains Mono">RL-DN-009 · DEPARTING</text>
-            </g>
+            {/* Blue Line trains on Platform 1 (y=130) */}
+            {blueTrains.map((t) => {
+              const x = Math.min(460, Math.max(80, 80 + ((t.journey_completed_pct ?? 50) / 100) * 480));
+              const isSelected = t.id === (selectedTrain?.id);
+              const avg = Math.round(t.coaches.reduce((s, c) => s + c.occupancy, 0) / Math.max(1, t.coaches.length));
+              const color = avg > 85 ? "#ef4444" : avg > 65 ? "#f59e0b" : "#3b82f6";
+              return (
+                <g key={t.id} onClick={() => setSelectedId(t.id)} style={{ cursor: "pointer" }}>
+                  <rect x={x} y={130} width={180} height={40} rx={6} fill={color}
+                    opacity={isSelected ? 1 : 0.75}
+                    stroke={isSelected ? "#fff" : "none"} strokeWidth={isSelected ? 1.5 : 0} />
+                  <text x={x + 8} y={155} fill="white" fontSize={10} fontWeight={700} fontFamily="JetBrains Mono">
+                    {t.id} · {avg}%
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* Red Line trains on Platform 2 (y=310) */}
+            {redTrains.map((t) => {
+              const x = Math.min(460, Math.max(80, 80 + ((t.journey_completed_pct ?? 50) / 100) * 480));
+              const isSelected = t.id === (selectedTrain?.id);
+              const avg = Math.round(t.coaches.reduce((s, c) => s + c.occupancy, 0) / Math.max(1, t.coaches.length));
+              const color = avg > 85 ? "#ef4444" : avg > 65 ? "#f59e0b" : "#f43f5e";
+              return (
+                <g key={t.id} onClick={() => setSelectedId(t.id)} style={{ cursor: "pointer" }}>
+                  <rect x={x} y={310} width={180} height={40} rx={6} fill={color}
+                    opacity={isSelected ? 1 : 0.75}
+                    stroke={isSelected ? "#fff" : "none"} strokeWidth={isSelected ? 1.5 : 0} />
+                  <text x={x + 8} y={335} fill="white" fontSize={10} fontWeight={700} fontFamily="JetBrains Mono">
+                    {t.id} · {avg}%
+                  </text>
+                </g>
+              );
+            })}
+
+            {trains.length === 0 && (
+              <text x={400} y={240} fill="#475569" fontSize={12} textAnchor="middle" fontFamily="JetBrains Mono">
+                NO ACTIVE TRAINS · OFF-PEAK PERIOD
+              </text>
+            )}
 
             {/* Gates */}
             {[120, 240, 360, 480, 600].map((x, i) => (
@@ -71,21 +118,27 @@ function DigitalTwin() {
           </svg>
 
           <div className="border-t border-white/5 bg-obsidian-950/60 px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-            <span className="text-accent-cyan">●</span> Live · {TRAINS.length} entities tracked · 1,248 occupants
+            <span className="text-accent-cyan">●</span> Live · {trains.length} {trains.length === 1 ? "train" : "trains"} tracked · {totalPax.toLocaleString()} occupants
           </div>
         </div>
 
         <aside className="space-y-4">
           <div className="rounded-xl border border-white/5 bg-obsidian-900 p-5">
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-300">
-              <Radar className="size-3 text-accent-cyan" /> Train · {train.id}
-            </div>
-            <h4 className="mt-2 text-sm font-bold text-white">{train.direction}</h4>
-            <div className="mt-4 space-y-3">
-              {train.coaches.map((c) => (
-                <OccupancyBar key={c.id} label={c.label} value={c.occupancy} />
-              ))}
-            </div>
+            {selectedTrain ? (
+              <>
+                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-300">
+                  <Radar className="size-3 text-accent-cyan" /> Train · {selectedTrain.id}
+                </div>
+                <h4 className="mt-2 text-sm font-bold text-white">{selectedTrain.direction}</h4>
+                <div className="mt-4 space-y-3">
+                  {selectedTrain.coaches.map((c) => (
+                    <OccupancyBar key={c.id} label={c.label} value={c.occupancy} />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="py-4 text-center text-xs text-slate-500">No trains active.<br />Click a train to inspect.</div>
+            )}
           </div>
 
           <div className="rounded-xl border border-white/5 bg-obsidian-900 p-5">

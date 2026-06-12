@@ -12,6 +12,7 @@ import {
   type BackendTrainAtStation,
   type StationCurrentData,
   type StationFeatureData,
+  type BackendKpiHistory,
 } from "./smartrail";
 import {
   TRAINS,
@@ -45,6 +46,7 @@ export const queryKeys = {
   stationCurrent: (stationId: string) => ["stations", stationId, "current"] as const,
   stationFeature: (stationId: string) => ["stations", stationId, "feature"] as const,
   snapshot: ["dashboard", "snapshot"] as const,
+  kpiHistory: ["kpi", "history"] as const,
   crowdForecast: ["crowd", "forecast"] as const,
   hourlyFlow: ["analytics", "hourly"] as const,
   weeklyTrend: ["analytics", "weekly"] as const,
@@ -94,6 +96,16 @@ export const kpiQuery = queryOptions<typeof KPI>({
     return kpiFromSnapshot(snap);
   },
   refetchInterval: LIVE_REFETCH_MS,
+});
+
+export const kpiHistoryQuery = queryOptions<BackendKpiHistory | null>({
+  queryKey: queryKeys.kpiHistory,
+  queryFn: () =>
+    USE_MOCK
+      ? mockAsync(null)
+      : apiFetch<BackendKpiHistory>("/dashboard/kpi-history").catch(() => null),
+  refetchInterval: 60_000, // once per minute is enough
+  staleTime: 55_000,
 });
 
 export const alertsQuery = queryOptions<Alert[]>({

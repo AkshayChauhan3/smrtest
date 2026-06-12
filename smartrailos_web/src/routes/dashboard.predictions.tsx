@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SectionHeader } from "./dashboard.index";
-import { HOURLY_FLOW, TRAINS, riskFor } from "@/lib/mock/data";
+import { HOURLY_FLOW, riskFor } from "@/lib/mock/data";
+import { useTrains } from "@/lib/api/hooks";
 import { Sparkles, TrendingUp } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 
@@ -15,15 +16,51 @@ export const Route = createFileRoute("/dashboard/predictions")({
 });
 
 function Predictions() {
+  const trainsQ = useTrains();
+  const trains = trainsQ.data ?? [];
+
+  const sorted = [...trains].sort((a, b) => {
+    const avgA = a.coaches.reduce((s, c) => s + c.occupancy, 0) / Math.max(1, a.coaches.length);
+    const avgB = b.coaches.reduce((s, c) => s + c.occupancy, 0) / Math.max(1, b.coaches.length);
+    return avgB - avgA;
+  });
+  const busiest = sorted[0];
+  const busiestAvg = busiest
+    ? Math.round(busiest.coaches.reduce((s, c) => s + c.occupancy, 0) / busiest.coaches.length)
+    : 0;
+
+  const bestCoach = trains
+    .flatMap(t => t.coaches.map(c => ({ ...c, trainId: t.id })))
+    .sort((a, b) => a.occupancy - b.occupancy)[0];
+
+  const mostBoardingTrain = [...trains].sort((a, b) => (b.predictedBoarding || 0) - (a.predictedBoarding || 0))[0];
+
   const forecast = HOURLY_FLOW.slice(14, 22).map((d) => ({ ...d, predicted: Math.round(d.inflow * 1.08) }));
+  
+  if (trainsQ.isLoading) {
+    return <div className="py-20 text-center text-sm text-slate-500">Loading live predictions…</div>;
+  }
+
   return (
     <div className="space-y-6 px-4 py-6 md:px-8 md:py-8">
       <SectionHeader title="Predictive Intelligence" right="Horizon · 60 min" />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <PredCard title="Stadium Discharge Surge" eta="24 min" value="+4,500 pax/hr" tone="text-warning" />
-        <PredCard title="Platform 2 Saturation" eta="12 min" value="89% density" tone="text-danger" />
-        <PredCard title="Optimal Coach (BL-UP-001)" eta="2 min" value="Coach 1 · 38%" tone="text-success" />
+        {busiest ? (
+          <PredCard title={`Train ${busiest.id}`} eta="Next Stop" value={`${busiestAvg}% capacity`} tone={busiestAvg > 85 ? "text-danger" : "text-warning"} />
+        ) : (
+          <PredCard title="System Load" eta="Live" value="Off-Peak" tone="text-success" />
+        )}
+        {mostBoardingTrain ? (
+          <PredCard title="Predicted Boarding Surge" eta="Next Station" value={`+${mostBoardingTrain.predictedBoarding} pax`} tone="text-warning" />
+        ) : (
+          <PredCard title="Platform Load" eta="Live" value="Optimal" tone="text-success" />
+        )}
+        {bestCoach ? (
+          <PredCard title={`Optimal Coach (${bestCoach.trainId})`} eta="En Route" value={`${bestCoach.label} · ${bestCoach.occupancy}%`} tone="text-success" />
+        ) : (
+          <PredCard title="Optimal Route" eta="Live" value="Any" tone="text-success" />
+        )}
       </div>
 
       <div className="rounded-xl border border-white/5 bg-obsidian-900 p-5">
@@ -50,9 +87,11 @@ function Predictions() {
       <div className="rounded-xl border border-white/5 bg-obsidian-900 p-5">
         <h3 className="text-sm font-bold text-white">Per-Train Forecast</h3>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-          {TRAINS.map((t) => {
+          {trains.length === 0 ? (
+            <div className="py-8 text-center text-sm text-slate-500 md:col-span-2">No active trains right now</div>
+          ) : trains.map((t) => {
             const avg = Math.round(t.coaches.reduce((s, c) => s + c.occupancy, 0) / t.coaches.length);
-            const pred = Math.min(99, avg + 8);
+            const pred = Math.min(99, avg + Math.round(avg * 0.08));
             return (
               <div key={t.id} className="rounded-lg border border-white/5 bg-obsidian-800/40 p-4">
                 <div className="flex items-baseline justify-between">

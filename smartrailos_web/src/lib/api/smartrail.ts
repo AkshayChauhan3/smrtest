@@ -249,3 +249,42 @@ export interface StationFeatureData {
   coaches: BackendCoachEstimationStateOut[];
 }
 
+// ---------- KPI History ----------
+
+export interface BackendKpiSnapshot {
+  active_trains: number;
+  passengers_in_transit: number;
+  avg_occupancy_pct: number;
+  total_station_crowd: number;
+  captured_at: string;
+}
+
+export interface BackendKpiHistory {
+  current: BackendKpiSnapshot;
+  hour_ago: BackendKpiSnapshot | null;
+}
+
+/** Returns a formatted delta string and a tone for a KPI card. */
+export function computeDelta(
+  current: number,
+  hourAgo: number | undefined,
+  unit: string = "",
+  higherIsBad = false
+): { label: string; tone: "positive" | "negative" | "warning" | "neutral" } {
+  if (hourAgo === undefined) return { label: "— no history", tone: "neutral" };
+  const diff = current - hourAgo;
+  if (Math.abs(diff) < 1) return { label: "Stable vs 1h ago", tone: "neutral" };
+  const sign = diff > 0 ? "+" : "";
+  const label = `${sign}${Math.round(diff)}${unit} vs 1h ago`;
+  const tone = diff === 0
+    ? "neutral"
+    : (diff > 0) === higherIsBad ? "negative" : "positive";
+  return { label, tone };
+}
+
+/** Classify occupancy % into a human string + tone. */
+export function occupancyBand(pct: number): { label: string; tone: "positive" | "warning" | "negative" } {
+  if (pct >= 85) return { label: `Critical · ${Math.round(pct)}%`, tone: "negative" };
+  if (pct >= 65) return { label: `Moderate · ${Math.round(pct)}%`, tone: "warning" };
+  return { label: `Optimal · ${Math.round(pct)}%`, tone: "positive" };
+}

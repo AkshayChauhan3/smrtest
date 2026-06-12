@@ -6,6 +6,7 @@ import {
   crowdForecastQuery,
   hourlyFlowQuery,
   kpiQuery,
+  kpiHistoryQuery,
   notificationsQuery,
   platformHeatmapQuery,
   queryKeys,
@@ -21,6 +22,7 @@ import {
 export const useTrains = () => useQuery(trainsQuery);
 export const useTrain = (id: string) => useQuery(trainQuery(id));
 export const useKpi = () => useQuery(kpiQuery);
+export const useKpiHistory = () => useQuery(kpiHistoryQuery);
 export const useAlerts = () => useQuery(alertsQuery);
 export const useRecommendations = () => useQuery(recommendationsQuery);
 export const useAnnouncements = () => useQuery(announcementsQuery);

@@ -15,7 +15,9 @@ import {
   useAlerts,
   useKpi,
   useTrains,
+  useKpiHistory,
 } from "@/lib/api/hooks";
+import { computeDelta, occupancyBand } from "@/lib/api/smartrail";
 import { USE_MOCK } from "@/lib/api/client";
 import { jitter, useLiveTick } from "@/lib/use-live-tick";
 import {
@@ -42,6 +44,7 @@ function Overview() {
   const trainsQ = useTrains();
   const kpiQ = useKpi();
   const alertsQ = useAlerts();
+  const histQ = useKpiHistory();
 
   // Initial skeleton: wait for the first query to resolve when real backend
   // is wired; in mock mode fall back to the original 700ms shimmer so the UX
@@ -76,6 +79,9 @@ function Overview() {
   const trains = trainsQ.data && trainsQ.data.length > 0 ? trainsQ.data : TRAINS;
   const alerts = alertsQ.data && alertsQ.data.length > 0 ? alertsQ.data : ALERTS;
   const visible = trains.slice(0, 3);
+  
+  const hist = histQ.data;
+  const ago = hist?.hour_ago ?? undefined;
 
   return (
     <div className="animate-fade-in-up space-y-8 px-4 py-6 md:px-8 md:py-8">
@@ -83,29 +89,26 @@ function Overview() {
         <KpiCard
           label="Current Trains"
           value={<AnimatedNumber value={kpi.currentTrains} format={(n) => String(Math.round(n)).padStart(2, "0")} />}
-          delta="+2 vs avg"
-          deltaTone="positive"
+          {...computeDelta(kpi.currentTrains, ago?.active_trains)}
           icon={<TrainFront className="size-4" />}
         />
         <KpiCard
           label="In Station"
           value={<AnimatedNumber value={kpi.passengersInStation} />}
-          delta="Rising"
-          deltaTone="warning"
+          {...computeDelta(kpi.passengersInStation, ago?.total_station_crowd, " pax", true)}
           icon={<Users className="size-4" />}
         />
         <KpiCard
           label="In Transit"
           value={<AnimatedNumber value={kpi.passengersInTransit} />}
-          delta="Optimal"
-          deltaTone="positive"
+          {...computeDelta(kpi.passengersInTransit, ago?.passengers_in_transit, " pax")}
           icon={<Activity className="size-4" />}
         />
         <KpiCard
           label="Avg Occupancy"
           value={<AnimatedNumber value={kpi.avgOccupancy} format={(n) => `${Math.round(n)}%`} />}
-          delta="Yellow band"
-          deltaTone="warning"
+          delta={occupancyBand(kpi.avgOccupancy).label}
+          deltaTone={occupancyBand(kpi.avgOccupancy).tone}
           icon={<Gauge className="size-4" />}
         />
         <KpiCard
@@ -118,8 +121,8 @@ function Overview() {
         <KpiCard
           label="Next-Hour Crowd"
           value={<AnimatedNumber value={kpi.predictedNextHour} />}
-          delta="Surge expected"
-          deltaTone="warning"
+          delta={kpi.predictedNextHour > (ago?.total_station_crowd ?? 0) * 1.15 ? "Surge expected" : "Stable"}
+          deltaTone={kpi.predictedNextHour > (ago?.total_station_crowd ?? 0) * 1.15 ? "warning" : "positive"}
           icon={<Sparkles className="size-4" />}
         />
       </section>

@@ -181,3 +181,18 @@ class StationFeatureStateResponse(BaseModel):
     estimated_boarding: int | None = None
     estimated_station_passenger_count: int | None = None
     coaches: list[CoachEstimationStateOut] = []
+
+
+class KpiSnapshot(BaseModel):
+    """A single point-in-time KPI reading."""
+    active_trains: int
+    passengers_in_transit: int
+    avg_occupancy_pct: float
+    total_station_crowd: int
+    captured_at: datetime
+
+
+class KpiHistoryOut(BaseModel):
+    """Current vs 60-min-ago KPI for delta computation."""
+    current: KpiSnapshot
+    hour_ago: KpiSnapshot | None = None  # None if DB has < 60 min of data
