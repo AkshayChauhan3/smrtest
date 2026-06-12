@@ -8,13 +8,11 @@ import 'mock_train_service.dart';
 
 // api_service.dart
 // ─────────────────────────────────────────────────────────────────
-// THIS FILE IS FOR THE BACKEND DEVELOPER.
-// All methods here currently delegate to the mock services.
-// When the backend is live:
-//   1. Set AppConfig.baseUrl to the real server URL.
-//   2. Replace each mock call below with the HTTP call shown in the
-//      BACKEND comment above each method.
-//   3. Remove the mock service imports.
+// FOR BACKEND IMPLEMENTATION:
+// THIS FILE IS THE MAIN DATA GATEWAY.
+// 1. Replace mock service calls with real http requests.
+// 2. Use AppConfig.baseUrl for the endpoint root.
+// 3. Ensure proper error handling (try/catch) for network issues.
 // ─────────────────────────────────────────────────────────────────
 
 class ApiService {
@@ -22,24 +20,50 @@ class ApiService {
   final MockTrainService _mockTrain = MockTrainService();
 
   // AUTH
+  
+  // FOR BACKEND IMPLEMENTATION:
+  // POST /api/v1/auth/login
+  // Payload: { "email": email, "password": password }
   Future<UserModel> login(String email, String password) => _mockAuth.login(email, password);
+  
+  // FOR BACKEND IMPLEMENTATION:
+  // POST /api/v1/auth/register
+  // Payload: { "name": name, "email": email, "password": password }
   Future<UserModel> register(String name, String email, String password) => _mockAuth.register(name, email, password);
+  
+  // FOR BACKEND IMPLEMENTATION:
+  // Perform any necessary cleanup (e.g., invalidate token on server)
   Future<void> logout() => _mockAuth.logout();
+  
+  // FOR BACKEND IMPLEMENTATION:
+  // GET /api/v1/auth/me
+  // Use authHeaders(token) for Bearer auth
   Future<UserModel?> checkAuth() => _mockAuth.checkAuth();
 
   // TRAINS
+
+  // FOR BACKEND IMPLEMENTATION:
+  // GET /api/v1/trains/upcoming?lineId=<line>&fromStationId=<fromStationId>&toStationId=<toStationId>
   Future<List<TrainModel>> getUpcomingTrains(MetroLine line, String fromStationId, String toStationId) =>
       _mockTrain.getUpcomingTrains(line, fromStationId, toStationId);
+  
+  // FOR BACKEND IMPLEMENTATION:
+  // GET /api/v1/trains/:trainId
   Future<TrainModel> getTrainDetail(String trainId) => _mockTrain.getTrainDetail(trainId);
+  
+  // FOR BACKEND IMPLEMENTATION:
+  // GET /api/v1/trains/:trainId/coaches
   Future<List<CoachModel>> getCoachOccupancy(String trainId) => _mockTrain.getCoachOccupancy(trainId);
+  
+  // FOR BACKEND IMPLEMENTATION:
+  // GET /api/v1/announcements/active?stationId=<stationId>
   Future<List<AnnouncementModel>> getActiveAnnouncements(String stationId) =>
       _mockTrain.getActiveAnnouncements(stationId);
 
   // USER DATA (SAVED ROUTES)
-  // BACKEND: Fetch saved routes for the user
-  // Method:  GET
-  // URL:     /api/v1/users/:userId/saved-routes
-  // Returns: List<{ lineId, fromStationId, toStationId, label }>
+  
+  // FOR BACKEND IMPLEMENTATION:
+  // GET /api/v1/users/saved-routes
   Future<List<dynamic>> getSavedRoutes() async {
     // Mock: return pre-populated for test user
     final auth = await checkAuth();
@@ -56,9 +80,8 @@ class ApiService {
     return [];
   }
 
-  // BACKEND: Save a new route
-  // Method:  POST
-  // URL:     /api/v1/users/:userId/saved-routes
-  // Payload: { lineId, fromStationId, toStationId, label }
+  // FOR BACKEND IMPLEMENTATION:
+  // POST /api/v1/users/saved-routes
+  // Payload: { "lineId": ..., "fromStationId": ..., "toStationId": ..., "label": ... }
   Future<void> saveRoute(dynamic route) async {}
 }

@@ -1,8 +1,11 @@
 class AppConfig {
-  // BACKEND: Replace with actual deployed server URL before release
-  // Method:  N/A (config only)
-  // URL:     Set baseUrl to your server, e.g. 'https://metro-admin.example.com'
-  static const String baseUrl = 'http://10.0.2.2:8000'; // Android emulator localhost
+  // FOR BACKEND IMPLEMENTATION:
+  // Replace with actual deployed server URL before release.
+  // Examples:
+  //   - Production: 'https://api.smartrail.os'
+  //   - Local Dev (Android): 'http://10.0.2.2:8000'
+  //   - Local Dev (iOS): 'http://localhost:8000'
+  static const String baseUrl = 'http://10.0.2.2:8000';
 
   static Map<String, String> authHeaders(String token) => {
     'Content-Type': 'application/json',
