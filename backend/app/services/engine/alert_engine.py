@@ -25,11 +25,22 @@ class AlertEngine:
         return False
 
     async def _has_active_alert_for_train(self, train_id: str, alert_type: AlertType) -> bool:
-        active_alerts = await self.alert_repo.get_active_alerts(limit=100)
-        for alert in active_alerts:
-            if alert.train_id == train_id and alert.alert_type == alert_type:
-                return True
-        return False
+        """Check if an unresolved alert of this type was created for this train in the last 2 hours."""
+        from datetime import timedelta
+        from sqlalchemy import select
+        cutoff = datetime.now() - timedelta(hours=2)
+        try:
+            result = await self.db.execute(
+                select(Alert).where(
+                    Alert.train_id == train_id,
+                    Alert.alert_type == alert_type,
+                    Alert.resolved_at == None,
+                    Alert.created_at >= cutoff
+                ).limit(1)
+            )
+            return result.scalar_one_or_none() is not None
+        except Exception:
+            return False
 
     async def evaluate_occupancy_snapshot(self, event: SensorEvent, total_passengers: int):
         """Evaluate real-time ingestion data against operational rules."""

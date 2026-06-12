@@ -168,7 +168,8 @@ export function adaptAlert(a: BackendAlert): Alert {
     title: a.title,
     description: a.message,
     time,
-    resolved: false,
+    resolved: (a as any).resolved ?? false,
+    acknowledged: (a as any).acknowledged ?? false,
   };
 }
 

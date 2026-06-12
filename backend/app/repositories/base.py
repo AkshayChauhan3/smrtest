@@ -140,8 +140,16 @@ class AlertRepository(BaseRepository):
         self.model = Alert
 
     async def get_active_alerts(self, limit: int = 50) -> list[Alert]:
+        from datetime import timedelta
+        cutoff = datetime.utcnow() - timedelta(hours=24)
         try:
-            result = await self.db.execute(select(Alert).where(Alert.resolved_at == None).order_by(Alert.created_at.desc()).limit(limit))
+            result = await self.db.execute(
+                select(Alert)
+                .where(Alert.resolved_at == None)
+                .where(Alert.created_at >= cutoff)
+                .order_by(Alert.created_at.desc())
+                .limit(limit)
+            )
             return list(result.scalars().all())
         except OperationalError:
             return []

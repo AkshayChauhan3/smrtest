@@ -100,16 +100,8 @@ export const alertsQuery = queryOptions<Alert[]>({
   queryKey: queryKeys.alerts,
   queryFn: async () => {
     if (USE_MOCK) return mockAsync(ALERTS);
-    // Backend has both /alerts (currently empty) and snapshot.alerts.
-    // Prefer the snapshot stream since it carries real demo data.
-    const [own, snap] = await Promise.all([
-      apiFetch<BackendAlert[]>("/alerts").catch(() => [] as BackendAlert[]),
-      apiFetch<BackendDashboardSnapshot>("/dashboard/snapshot").catch(
-        () => null,
-      ),
-    ]);
-    const merged = [...(snap?.alerts ?? []), ...own];
-    return merged.map(adaptAlert);
+    const list = await apiFetch<BackendAlert[]>("/alerts").catch(() => [] as BackendAlert[]);
+    return list.map(adaptAlert);
   },
   refetchInterval: LIVE_REFETCH_MS,
 });

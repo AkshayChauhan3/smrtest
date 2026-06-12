@@ -250,6 +250,7 @@ export interface Alert {
   description: string;
   time: string;
   resolved: boolean;
+  acknowledged?: boolean;
 }
 
 export const ALERTS: Alert[] = [
