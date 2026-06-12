@@ -76,7 +76,15 @@ function Overview() {
   if (loading) return <OverviewSkeleton />;
 
   const kpi = kpiQ.data ?? mockKpi;
-  const trains = trainsQ.data && trainsQ.data.length > 0 ? trainsQ.data : TRAINS;
+  const trainsRaw = trainsQ.data ?? TRAINS;
+  
+  // Prioritize ESP32_DEMO
+  const trains = [...trainsRaw].sort((a, b) => {
+    if (a.id === "ESP32_DEMO") return -1;
+    if (b.id === "ESP32_DEMO") return 1;
+    return 0;
+  });
+
   const alerts = alertsQ.data && alertsQ.data.length > 0 ? alertsQ.data : ALERTS;
   const visible = trains.slice(0, 3);
   
@@ -132,11 +140,19 @@ function Overview() {
           <section>
             <SectionHeader title="Live Train Status" right={`${visible.length} of ${trains.length} active`} />
             <div className="mt-4 space-y-4">
-              {visible.map((t, i) => (
-                <div key={t.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 80}ms` }}>
-                  <TrainCard train={t} />
+              {trains.length === 0 ? (
+                <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-obsidian-900/50 text-center">
+                  <TrainFront className="mb-2 size-6 text-slate-500" />
+                  <p className="text-sm font-medium text-slate-300">System Offline</p>
+                  <p className="text-xs text-slate-500">Trains are not available right now. Operations resume at 06:00 AM.</p>
                 </div>
-              ))}
+              ) : (
+                visible.map((t, i) => (
+                  <div key={t.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 80}ms` }}>
+                    <TrainCard train={t} />
+                  </div>
+                ))
+              )}
             </div>
           </section>
 
