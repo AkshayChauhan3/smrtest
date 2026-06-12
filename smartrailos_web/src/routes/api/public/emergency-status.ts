@@ -1,4 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+
+/**
+ * Public endpoint reporting whether an emergency is currently active.
+ * Replace this stub with real state (DB row, KV flag, incident system, etc).
+ * Set EMERGENCY_ACTIVE=true in env to make the Emergency button blink.
+ */
 export const Route = createFileRoute("/api/public/emergency-status")({
   server: {
     handlers: {

@@ -7,6 +7,7 @@ from app.models.coach import Coach
 from app.models.alert import Alert
 from app.models.prediction import Prediction
 from app.models.saved_route import SavedRoute
+from app.models.announcement import Announcement
 
 # Import models here so metadata can discover them.
 __all__ = [

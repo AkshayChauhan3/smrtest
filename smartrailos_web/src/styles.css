@@ -165,6 +165,7 @@
   }
 }
 
+
 @utility animate-pulse-soft {
   animation: pulse-soft 2s ease-in-out infinite;
 }
@@ -177,7 +178,6 @@
 @utility animate-shimmer {
   animation: shimmer 2.4s linear infinite;
 }
-
 @utility animate-emergency-blink {
   animation: emergency-blink 0.9s ease-in-out infinite;
 }

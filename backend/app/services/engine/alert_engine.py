@@ -17,53 +17,62 @@ class AlertEngine:
         self.db = db
         self.alert_repo = alert_repo
 
+    async def _has_active_alert(self, station_id: str, alert_type: AlertType) -> bool:
+        active_alerts = await self.alert_repo.get_active_alerts(limit=100)
+        for alert in active_alerts:
+            if alert.station_id == station_id and alert.alert_type == alert_type:
+                return True
+        return False
+
     async def evaluate_occupancy_snapshot(self, event: SensorEvent, total_passengers: int):
         """Evaluate real-time ingestion data against operational rules."""
         
         # 1. Platform Congestion Rule
         if total_passengers > 500:
-            alert_id = f"alt-{uuid.uuid4().hex[:8]}"
-            alert = Alert(
-                id=alert_id,
-                alert_type=AlertType.PLATFORM_CONGESTION,
-                severity=SeverityLevel.HIGH,
-                title="Platform Congestion",
-                message=f"Crowd exceeded 500 passengers ({total_passengers}). Deploy additional staff.",
-                station_id=event.station_id,
-                train_id=event.train_id,
-                created_at=datetime.utcnow()
-            )
-            await self.alert_repo.create(alert)
-            logger.info(f"Generated alert: {alert_id} for Platform Congestion")
-            
-            # Broadcast over WebSocket
-            await manager.broadcast({
-                "event_type": "alert_issued",
-                "data": {
-                    "id": alert.id,
-                    "alert_type": alert.alert_type.value,
-                    "severity": alert.severity.value,
-                    "title": alert.title,
-                    "message": alert.message,
-                    "station_name": alert.station_id,
-                    "train_id": alert.train_id,
-                    "created_at": alert.created_at.isoformat()
-                }
-            })
+            if not await self._has_active_alert(event.station_id, AlertType.PLATFORM_CONGESTION):
+                alert_id = f"alt-{uuid.uuid4().hex[:8]}"
+                alert = Alert(
+                    id=alert_id,
+                    alert_type=AlertType.PLATFORM_CONGESTION,
+                    severity=SeverityLevel.HIGH,
+                    title="Platform Congestion",
+                    message=f"Crowd exceeded 500 passengers ({total_passengers}). Deploy additional staff.",
+                    station_id=event.station_id,
+                    train_id=event.train_id,
+                    created_at=datetime.utcnow()
+                )
+                await self.alert_repo.create(alert)
+                logger.info(f"Generated alert: {alert_id} for Platform Congestion")
+                
+                # Broadcast over WebSocket
+                await manager.broadcast({
+                    "event_type": "alert_issued",
+                    "data": {
+                        "id": alert.id,
+                        "alert_type": alert.alert_type.value,
+                        "severity": alert.severity.value,
+                        "title": alert.title,
+                        "message": alert.message,
+                        "station_name": alert.station_id,
+                        "train_id": alert.train_id,
+                        "created_at": alert.created_at.isoformat()
+                    }
+                })
 
         # 2. Train Delay Rule
         if event.delay_minutes and event.delay_minutes > 5:
-            alert_id = f"alt-{uuid.uuid4().hex[:8]}"
-            alert = Alert(
-                id=alert_id,
-                alert_type=AlertType.TRAIN_DELAY,
-                severity=SeverityLevel.MEDIUM,
-                title="Train Delayed",
-                message=f"Train delayed by {event.delay_minutes} minutes.",
-                station_id=event.station_id,
-                train_id=event.train_id,
-                created_at=datetime.utcnow()
-            )
+            if not await self._has_active_alert(event.station_id, AlertType.TRAIN_DELAY):
+                alert_id = f"alt-{uuid.uuid4().hex[:8]}"
+                alert = Alert(
+                    id=alert_id,
+                    alert_type=AlertType.TRAIN_DELAY,
+                    severity=SeverityLevel.MEDIUM,
+                    title="Train Delayed",
+                    message=f"Train delayed by {event.delay_minutes} minutes.",
+                    station_id=event.station_id,
+                    train_id=event.train_id,
+                    created_at=datetime.utcnow()
+                )
             await self.alert_repo.create(alert)
             logger.info(f"Generated alert: {alert_id} for Train Delay")
             

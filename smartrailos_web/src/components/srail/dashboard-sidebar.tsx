@@ -1,5 +1,4 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import smartRailLogo from "@/components/assets/smartrail-logo.png";
 import {
   LayoutDashboard,
   TrainFront,
@@ -14,6 +13,7 @@ import {
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import smartRailLogo from "@/assets/smartrail-logo.png";
 
 const NAV: { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean }[] = [
   { to: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
@@ -32,9 +32,9 @@ const NAV: { to: string; label: string; icon: typeof LayoutDashboard; exact?: bo
 export function DashboardSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-white/5 bg-obsidian-900 lg:flex">
+    <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col border-r border-white/5 bg-obsidian-900 lg:flex">
       <div className="flex items-center gap-3 border-b border-white/5 px-6 py-5">
-          <div className="grid size-9 place-items-center rounded-md bg-white p-1">
+        <div className="grid size-9 place-items-center rounded-md bg-white p-1">
           <img src={smartRailLogo} alt="SmartRail logo" className="size-full object-contain" />
         </div>
         <div className="leading-tight">

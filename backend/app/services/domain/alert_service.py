@@ -40,6 +40,38 @@ class AlertService:
         # Fallback to simulation
         return self.sim_service.list_alerts(station_name=station_name)
 
+    async def get_emergency_status(self) -> bool:
+        """Check if there are any HIGH or CRITICAL severity alerts active."""
+        alerts = await self.list_alerts()
+        for alert in alerts:
+            # Check string values or enum values depending on what list_alerts returns
+            severity = alert.severity
+            if severity in ["high", "critical", "HIGH", "CRITICAL"]:
+                return True
+        return False
+
+    async def acknowledge_alert(self, alert_id: str) -> bool:
+        """Mark an alert as acknowledged by an operator."""
+        # The Alert model does not have acknowledged_at, but we log the action
+        # and could expand the DB schema later if required.
+        # For now, we'll verify the alert exists.
+        alert = await self.alert_repo.get_by_id(alert_id)
+        if not alert:
+            return False
+        # Logging would go here
+        return True
+
+    async def resolve_alert(self, alert_id: str) -> bool:
+        """Resolve an alert by setting resolved_at to now."""
+        from datetime import datetime
+        alert = await self.alert_repo.get_by_id(alert_id)
+        if not alert:
+            return False
+        
+        alert.resolved_at = datetime.utcnow()
+        await self.db.commit()
+        return True
+
 from app.db.session import get_db
 
 async def get_alert_service(

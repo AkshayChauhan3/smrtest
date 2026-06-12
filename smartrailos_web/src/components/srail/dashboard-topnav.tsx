@@ -58,6 +58,7 @@ export function DashboardTopNav() {
           <span className="hidden sm:inline">{emergencyActive ? "Emergency!" : "Emergency"}</span>
         </button>
 
+
         {/* Avatar — always visible */}
         <div className="ml-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-obsidian-800 text-xs font-bold text-slate-300 ring-1 ring-white/10 md:size-9">
           OP

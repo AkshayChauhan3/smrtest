@@ -102,3 +102,20 @@ class AlertOut(BaseModel):
     station_name: str | None = None
     train_id: str | None = None
     created_at: datetime
+
+
+class ActionExecuteRequest(BaseModel):
+    action_id: str
+    action_type: str = "recommendation"
+    payload: dict | None = None
+
+class AnnouncementCreate(BaseModel):
+    text: str
+    context_info: str
+
+class AnnouncementOut(BaseModel):
+    id: str
+    text: str
+    context: str
+    is_active: bool
+    created_at: datetime
