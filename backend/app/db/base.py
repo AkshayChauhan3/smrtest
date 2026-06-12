@@ -6,7 +6,6 @@ from app.models.route import Route, RouteStop, StationCrowdSnapshot
 from app.models.alert import Alert
 from app.models.prediction import Prediction
 from app.models.saved_route import SavedRoute
-from app.models.estimation import Estimation
 
 # Import models here so metadata can discover them.
 __all__ = [

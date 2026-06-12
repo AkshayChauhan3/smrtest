@@ -17,6 +17,13 @@ class AlertEngine:
         self.db = db
         self.alert_repo = alert_repo
 
+    async def _has_active_alert(self, station_id: str, alert_type: AlertType) -> bool:
+        active_alerts = await self.alert_repo.get_active_alerts(limit=100)
+        for alert in active_alerts:
+            if alert.station_id == station_id and alert.alert_type == alert_type:
+                return True
+        return False
+
     async def evaluate_occupancy_snapshot(self, event: SensorEvent, total_passengers: int):
         """Evaluate real-time ingestion data against operational rules."""
         
@@ -65,7 +72,7 @@ class AlertEngine:
                 message=f"Train delayed by {event.delay_minutes} minutes.",
                 station_id=event.station_id,
                 train_id=event.train_id,
-                created_at=datetime.now()
+                created_at=datetime.utcnow()
             )
             await self.alert_repo.create(alert)
             await self.db.commit()

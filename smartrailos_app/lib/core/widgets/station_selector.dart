@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/metro_data.dart';
+import '../constants/theme.dart';
 
 class StationSelector extends StatelessWidget {
   final List<Station> stations;
@@ -20,12 +21,17 @@ class StationSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<Station>(
-      initialValue: selectedStation,
+      value: selectedStation,
+      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.textMuted),
+      dropdownColor: AppTheme.surfaceElevated,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      style: const TextStyle(
+        color: AppTheme.textPrimary,
+        fontWeight: FontWeight.bold,
+        fontSize: 16,
       ),
       items: stations.map((station) {
         return DropdownMenuItem<Station>(

@@ -15,7 +15,7 @@ export const Route = createFileRoute("/dashboard")({
 
 function DashboardLayout() {
   return (
-    <div className="flex min-h-screen w-full bg-obsidian-950 text-slate-300">
+    <div className="flex min-h-screen w-full bg-obsidian-950 pl-0 text-slate-300 lg:pl-64">
       <DashboardSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <DashboardTopNav />

@@ -24,6 +24,7 @@ import { Route as DashboardAnalyticsRouteImport } from './routes/dashboard.analy
 import { Route as DashboardAlertsRouteImport } from './routes/dashboard.alerts'
 import { Route as DashboardStationsIndexRouteImport } from './routes/dashboard.stations.index'
 import { Route as DashboardStationsStationIdRouteImport } from './routes/dashboard.stations.$stationId'
+import { Route as ApiPublicEmergencyStatusRouteImport } from './routes/api/public/emergency-status'
 
 const WallRoute = WallRouteImport.update({
   id: '/wall',
@@ -101,6 +102,12 @@ const DashboardStationsStationIdRoute =
     path: '/stations/$stationId',
     getParentRoute: () => DashboardRoute,
   } as any)
+const ApiPublicEmergencyStatusRoute =
+  ApiPublicEmergencyStatusRouteImport.update({
+    id: '/api/public/emergency-status',
+    path: '/api/public/emergency-status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -116,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/predictions': typeof DashboardPredictionsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/api/public/emergency-status': typeof ApiPublicEmergencyStatusRoute
   '/dashboard/stations/$stationId': typeof DashboardStationsStationIdRoute
   '/dashboard/stations/': typeof DashboardStationsIndexRoute
 }
@@ -132,6 +140,7 @@ export interface FileRoutesByTo {
   '/dashboard/predictions': typeof DashboardPredictionsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/api/public/emergency-status': typeof ApiPublicEmergencyStatusRoute
   '/dashboard/stations/$stationId': typeof DashboardStationsStationIdRoute
   '/dashboard/stations': typeof DashboardStationsIndexRoute
 }
@@ -150,6 +159,7 @@ export interface FileRoutesById {
   '/dashboard/predictions': typeof DashboardPredictionsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/api/public/emergency-status': typeof ApiPublicEmergencyStatusRoute
   '/dashboard/stations/$stationId': typeof DashboardStationsStationIdRoute
   '/dashboard/stations/': typeof DashboardStationsIndexRoute
 }
@@ -169,6 +179,7 @@ export interface FileRouteTypes {
     | '/dashboard/predictions'
     | '/dashboard/settings'
     | '/dashboard/'
+    | '/api/public/emergency-status'
     | '/dashboard/stations/$stationId'
     | '/dashboard/stations/'
   fileRoutesByTo: FileRoutesByTo
@@ -185,6 +196,7 @@ export interface FileRouteTypes {
     | '/dashboard/predictions'
     | '/dashboard/settings'
     | '/dashboard'
+    | '/api/public/emergency-status'
     | '/dashboard/stations/$stationId'
     | '/dashboard/stations'
   id:
@@ -202,6 +214,7 @@ export interface FileRouteTypes {
     | '/dashboard/predictions'
     | '/dashboard/settings'
     | '/dashboard/'
+    | '/api/public/emergency-status'
     | '/dashboard/stations/$stationId'
     | '/dashboard/stations/'
   fileRoutesById: FileRoutesById
@@ -210,6 +223,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRouteWithChildren
   WallRoute: typeof WallRoute
+  ApiPublicEmergencyStatusRoute: typeof ApiPublicEmergencyStatusRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -319,6 +333,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardStationsStationIdRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/api/public/emergency-status': {
+      id: '/api/public/emergency-status'
+      path: '/api/public/emergency-status'
+      fullPath: '/api/public/emergency-status'
+      preLoaderRoute: typeof ApiPublicEmergencyStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -360,6 +381,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRouteWithChildren,
   WallRoute: WallRoute,
+  ApiPublicEmergencyStatusRoute: ApiPublicEmergencyStatusRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

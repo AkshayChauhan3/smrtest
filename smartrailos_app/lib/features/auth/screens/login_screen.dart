@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/constants/theme.dart';
 import '../providers/auth_provider.dart';
 
@@ -46,71 +47,96 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(Icons.directions_subway, size: 64, color: AppTheme.blueLineColor),
-              const SizedBox(height: 24),
-              Text(
-                'Welcome Back',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Sign in to your account',
-                style: TextStyle(color: AppTheme.textSecondary),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 48),
-              TextField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  hintText: 'test@smartrail.os',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.email_outlined),
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  hintText: 'SmartRail@123',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock_outline),
-                ),
-                obscureText: true,
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _handleLogin,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.blueLineColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: _isLoading
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Login', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 60),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('Don\'t have an account? '),
-                  TextButton(
-                    onPressed: () => context.push('/register'),
-                    child: const Text('Register', style: TextStyle(color: AppTheme.blueLineColor, fontWeight: FontWeight.bold)),
-                  ),
+                  Container(
+                    width: 12,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppTheme.blueLine,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ).animate().scaleY(begin: 0, duration: 600.ms, curve: Curves.easeOutBack),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 12,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppTheme.redLine,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ).animate().scaleY(begin: 0, duration: 600.ms, delay: 200.ms, curve: Curves.easeOutBack),
                 ],
               ),
+              const SizedBox(height: 32),
+              Text(
+                'SMARTRAIL OS',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2.0,
+                ),
+                textAlign: TextAlign.center,
+              ).animate().fadeIn(delay: 400.ms),
+              const SizedBox(height: 8),
+              const Text(
+                'Sign in to access live transit data',
+                style: TextStyle(color: AppTheme.textMuted),
+                textAlign: TextAlign.center,
+              ).animate().fadeIn(delay: 600.ms),
+              const SizedBox(height: 60),
+              TextField(
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'EMAIL',
+                  hintText: 'test@smartrail.os',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ).animate().fadeIn(delay: 800.ms).slideY(begin: 0.1, end: 0),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _passwordController,
+                decoration: const InputDecoration(
+                  labelText: 'PASSWORD',
+                  hintText: '••••••••',
+                  prefixIcon: Icon(Icons.lock_outline),
+                ),
+                obscureText: true,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ).animate().fadeIn(delay: 900.ms).slideY(begin: 0.1, end: 0),
+              const SizedBox(height: 40),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _handleLogin,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.blueLine,
+                  minimumSize: const Size.fromHeight(56),
+                ),
+                child: _isLoading
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('SIGN IN'),
+              ).animate().fadeIn(delay: 1000.ms).scale(begin: const Offset(0.9, 0.9)),
+              const SizedBox(height: 32),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('NEW TO SMARTRAIL? ', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                  TextButton(
+                    onPressed: () => context.push('/register'),
+                    child: const Text(
+                      'CREATE ACCOUNT', 
+                      style: TextStyle(color: AppTheme.blueLine, fontWeight: FontWeight.bold, fontSize: 12)
+                    ),
+                  ),
+                ],
+              ).animate().fadeIn(delay: 1200.ms),
             ],
           ),
         ),

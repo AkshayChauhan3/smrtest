@@ -4,6 +4,8 @@ import '../../features/trains/models/train_model.dart';
 import '../../features/trains/models/coach_model.dart';
 import '../../features/trains/models/announcement_model.dart';
 
+// DEPRECATED: This class is for prototyping only. 
+// FOR BACKEND IMPLEMENTATION: Replace usages of this class in ApiService with real HTTP calls.
 class MockTrainService {
   final Random _random = Random();
 

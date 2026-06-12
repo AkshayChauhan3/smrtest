@@ -11,6 +11,7 @@ from app.models.station import Station
 from app.models.route import Route, RouteStop, StationCrowdSnapshot
 from app.models.alert import Alert
 from app.models.prediction import Prediction
+from app.models.announcement import Announcement
 
 ModelType = TypeVar("ModelType")
 
@@ -171,3 +172,17 @@ class PredictionRepository(BaseRepository):
             select(Prediction).where(Prediction.station_name == station_name)
         )
         return list(result.scalars().all())
+
+class AnnouncementRepository(BaseRepository):
+    """Repository for announcement operations."""
+
+    def __init__(self, db: AsyncSession):
+        super().__init__(db)
+        self.model = Announcement
+
+    async def get_active(self) -> list[Announcement]:
+        result = await self.db.execute(
+            select(Announcement).where(Announcement.is_active == True).order_by(Announcement.created_at.desc())
+        )
+        return list(result.scalars().all())
+

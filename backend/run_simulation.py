@@ -28,9 +28,9 @@ async def simulate():
                 "station_id": station,
                 "event_type": "occupancy_update",
                 "coaches": [
-                    {"coach_id": "C1", "passenger_count": p_count, "occupancy_percentage": occ},
-                    {"coach_id": "C2", "passenger_count": int(p_count * 0.5), "occupancy_percentage": occ * 0.5},
-                    {"coach_id": "C3", "passenger_count": p_count, "occupancy_percentage": occ}
+                    {"coach_id": "C1", "passenger_count": p_count, "occupancy_percentage": int(occ)},
+                    {"coach_id": "C2", "passenger_count": int(p_count * 0.5), "occupancy_percentage": int(occ * 0.5)},
+                    {"coach_id": "C3", "passenger_count": p_count, "occupancy_percentage": int(occ)}
                 ],
                 "delay_minutes": random.randint(0, 5)
             }

@@ -3,19 +3,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { KpiCard } from "@/components/srail/kpi-card";
 import { TrainCard } from "@/components/srail/train-card";
 import { CrowdForecast } from "@/components/srail/crowd-forecast";
-import { RecommendationCard } from "@/components/srail/recommendation-card";
+
 import { AnimatedNumber } from "@/components/srail/animated-number";
 import { LiveTrainTicker } from "@/components/srail/live-train-ticker";
 import {
   TRAINS,
   KPI,
-  RECOMMENDATIONS,
   ALERTS,
 } from "@/lib/mock/data";
 import {
   useAlerts,
   useKpi,
-  useRecommendations,
   useTrains,
 } from "@/lib/api/hooks";
 import { USE_MOCK } from "@/lib/api/client";
@@ -44,7 +42,6 @@ function Overview() {
   const trainsQ = useTrains();
   const kpiQ = useKpi();
   const alertsQ = useAlerts();
-  const recsQ = useRecommendations();
 
   // Initial skeleton: wait for the first query to resolve when real backend
   // is wired; in mock mode fall back to the original 700ms shimmer so the UX
@@ -77,7 +74,6 @@ function Overview() {
 
   const kpi = kpiQ.data ?? mockKpi;
   const trains = trainsQ.data && trainsQ.data.length > 0 ? trainsQ.data : TRAINS;
-  const recs = recsQ.data && recsQ.data.length > 0 ? recsQ.data : RECOMMENDATIONS;
   const alerts = alertsQ.data && alertsQ.data.length > 0 ? alertsQ.data : ALERTS;
   const visible = trains.slice(0, 3);
 
@@ -147,17 +143,6 @@ function Overview() {
         </div>
 
         <aside className="space-y-6 xl:col-span-4">
-          <section>
-            <SectionHeader title="AI Recommendations" right="Live" />
-            <div className="mt-4 space-y-4">
-              {recs.map((r, i) => (
-                <div key={r.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 100}ms` }}>
-                  <RecommendationCard rec={r} />
-                </div>
-              ))}
-            </div>
-          </section>
-
           <section className="rounded-xl border border-white/5 bg-obsidian-900 p-5">
             <SectionHeader title="Recent Alerts" right="Last hour" />
             <ul className="mt-4 space-y-3">

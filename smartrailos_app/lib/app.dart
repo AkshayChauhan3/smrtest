@@ -9,7 +9,7 @@ class MetroApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'SmartRail OS',
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.darkTheme,
       routerConfig: AppRouter.router,
       debugShowCheckedModeBanner: false,
     );

@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/auth/models/user_model.dart';
 
+// DEPRECATED: This class is for prototyping only. 
+// FOR BACKEND IMPLEMENTATION: Replace usages of this class in ApiService with real HTTP calls.
 class MockAuthService {
   // BACKEND:
   // Method:  POST
