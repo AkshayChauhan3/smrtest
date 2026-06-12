@@ -175,8 +175,11 @@ class ApiService {
       if (res.statusCode == 200) {
         final list = jsonDecode(res.body) as List;
         return list.map((e) => AnnouncementModel(
-          message: e['text'],
-          severity: 'info',
+          message: e['text'] ?? '',
+          severity: AnnouncementSeverity.values.firstWhere(
+            (s) => s.name == (e['severity'] ?? 'info'),
+            orElse: () => AnnouncementSeverity.info,
+          ),
         )).toList();
       }
     } catch (e) {
