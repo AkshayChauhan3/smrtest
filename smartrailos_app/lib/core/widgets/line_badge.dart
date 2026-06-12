@@ -4,27 +4,44 @@ import '../constants/theme.dart';
 
 class LineBadge extends StatelessWidget {
   final MetroLine line;
-  final bool isSmall;
+  final bool isDisc;
 
-  const LineBadge({super.key, required this.line, this.isSmall = false});
+  const LineBadge({super.key, required this.line, this.isDisc = false});
 
   @override
   Widget build(BuildContext context) {
-    final color = line == MetroLine.blue ? AppTheme.blueLineColor : AppTheme.redLineColor;
-    final label = line == MetroLine.blue ? 'Blue Line' : 'Red Line';
+    final color = line == MetroLine.blue ? AppTheme.blueLine : AppTheme.redLine;
+    final label = line == MetroLine.blue ? 'BLUE LINE' : 'RED LINE';
+    final number = line == MetroLine.blue ? '1' : '2';
+
+    if (isDisc) {
+      return Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        child: Center(
+          child: Text(
+            number,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+        ),
+      );
+    }
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: isSmall ? 8 : 12, vertical: isSmall ? 2 : 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(20),
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: Colors.white,
-          fontSize: isSmall ? 10 : 12,
+          color: color,
+          fontSize: 10,
           fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
         ),
       ),
     );

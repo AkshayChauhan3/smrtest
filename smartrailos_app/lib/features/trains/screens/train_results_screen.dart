@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/constants/metro_data.dart';
 import '../../../core/constants/theme.dart';
 import '../../../core/widgets/train_card.dart';
@@ -31,23 +32,35 @@ class TrainResultsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Trains to ${toStation.name}'),
+        title: Text('TO ${toStation.name.toUpperCase()}'),
       ),
       body: resultsAsync.when(
         data: (trains) {
           if (trains.isEmpty) {
-            return const Center(child: Text('No trains found for this route.'));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.train_outlined, size: 64, color: AppTheme.textMuted),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'NO TRAINS FOUND',
+                    style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                  ),
+                ],
+              ),
+            ).animate().fadeIn();
           }
           return ListView.builder(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
             itemCount: trains.length,
             itemBuilder: (context, index) {
-              return TrainCard(train: trains[index]);
+              return TrainCard(train: trains[index], index: index);
             },
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
+        loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.blueLine)),
+        error: (err, stack) => Center(child: Text('ERROR: $err', style: const TextStyle(color: AppTheme.signalRed))),
       ),
     );
   }

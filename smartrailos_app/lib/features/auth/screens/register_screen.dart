@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/constants/theme.dart';
 import '../providers/auth_provider.dart';
 
@@ -52,67 +53,78 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Account')),
+      appBar: AppBar(title: const Text('CREATE ACCOUNT')),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 20),
-              TextField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Full Name',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'JOIN SMARTRAIL OS',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.0,
+                fontSize: 18,
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.email_outlined),
-                ),
-                keyboardType: TextInputType.emailAddress,
+              textAlign: TextAlign.center,
+            ).animate().fadeIn(),
+            const SizedBox(height: 8),
+            const Text(
+              'Get real-time occupancy and transit alerts',
+              style: TextStyle(color: AppTheme.textMuted),
+              textAlign: TextAlign.center,
+            ).animate().fadeIn(delay: 200.ms),
+            const SizedBox(height: 48),
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'FULL NAME',
+                prefixIcon: Icon(Icons.person_outline),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock_outline),
-                ),
-                obscureText: true,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.1, end: 0),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _emailController,
+              decoration: const InputDecoration(
+                labelText: 'EMAIL',
+                prefixIcon: Icon(Icons.email_outlined),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _confirmPasswordController,
-                decoration: const InputDecoration(
-                  labelText: 'Confirm Password',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock_clock_outlined),
-                ),
-                obscureText: true,
+              keyboardType: TextInputType.emailAddress,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.1, end: 0),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _passwordController,
+              decoration: const InputDecoration(
+                labelText: 'PASSWORD',
+                prefixIcon: Icon(Icons.lock_outline),
               ),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _handleRegister,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.blueLineColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: _isLoading
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Register', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              obscureText: true,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.1, end: 0),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _confirmPasswordController,
+              decoration: const InputDecoration(
+                labelText: 'CONFIRM PASSWORD',
+                prefixIcon: Icon(Icons.lock_clock_outlined),
               ),
-            ],
-          ),
+              obscureText: true,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ).animate().fadeIn(delay: 700.ms).slideY(begin: 0.1, end: 0),
+            const SizedBox(height: 48),
+            ElevatedButton(
+              onPressed: _isLoading ? null : _handleRegister,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.blueLine,
+                minimumSize: const Size.fromHeight(56),
+              ),
+              child: _isLoading
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('REGISTER'),
+            ).animate().fadeIn(delay: 800.ms).scale(begin: const Offset(0.9, 0.9)),
+          ],
         ),
       ),
     );

@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/constants/metro_data.dart';
 import '../../../core/constants/theme.dart';
 import '../../../core/widgets/coach_bar.dart';
@@ -14,94 +15,133 @@ class TrainDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final trainAsync = ref.watch(trainDetailProvider(trainId));
-
     return Scaffold(
       appBar: AppBar(
-        title: Text('Train $trainId'),
+        title: Text('TRAIN $trainId'),
       ),
-      body: trainAsync.when(
-        data: (train) {
-          final announcementsAsync = ref.watch(announcementsProvider(train.fromStationId));
+      body: Builder(
+        builder: (context) {
+          final trainAsync = ref.watch(trainDetailProvider(trainId));
           
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Announcements Banner
-                announcementsAsync.when(
-                  data: (list) {
-                    if (list.isEmpty) return const SizedBox.shrink();
-                    final announcement = list.first;
-                    return _buildAnnouncementBanner(announcement);
-                  },
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
-                ),
+          return trainAsync.when(
+            data: (train) {
+              final announcementsAsync = ref.watch(announcementsProvider(train.fromStationId));
+              final isBlue = train.line == MetroLine.blue;
 
-                // 1. Train Position Diagram
-                const Text(
-                  'Current Position',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                ),
-                TrainPositionDiagram(
-                  stations: getStationsForLine(train.line),
-                  currentPositionIndex: train.currentPositionIndex,
-                  fromStationId: train.fromStationId,
-                  toStationId: train.toStationId,
-                ),
-                
-                const SizedBox(height: 24),
-                
-                // 2. Info Card (ETA + Departure)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildInfoColumn('ETA', '${train.etaMinutes} min', Icons.access_time),
-                        _buildInfoColumn('DEPARTURE', '${train.departureMinutes} min', Icons.exit_to_app),
-                        _buildInfoColumn('STATUS', train.status.name.toUpperCase(), Icons.info_outline),
-                      ],
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(height: 32),
-                
-                // 3. Coach Occupancy section
-                const Text(
-                  'Coach Occupancy',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                ),
-                const SizedBox(height: 16),
-                ...train.coaches.map((coach) => CoachBar(coach: coach)),
-                
-                const SizedBox(height: 32),
-                
-                // 4. Passenger Flow row
-                const Text(
-                  'Passenger Flow (Est.)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                ),
-                const SizedBox(height: 12),
-                Row(
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildFlowTile('Boarding', '${20 + Random().nextInt(60)}', Icons.login, Colors.green),
-                    const SizedBox(width: 16),
-                    _buildFlowTile('Alighting', '${15 + Random().nextInt(45)}', Icons.logout, Colors.orange),
+                    // Announcements Banner
+                    announcementsAsync.when(
+                      data: (list) {
+                        if (list.isEmpty) return const SizedBox.shrink();
+                        return _buildAnnouncementBanner(list.first)
+                            .animate()
+                            .fadeIn()
+                            .slideY(begin: -0.2, end: 0);
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+
+                    // 1. Train Position Diagram
+                    Text(
+                      'LIVE TRACKING',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold, 
+                        fontSize: 10,
+                        color: AppTheme.textMuted,
+                        letterSpacing: 1.0,
+                      ),
+                    ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.1, end: 0),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceElevated,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0x1AFFFFFF)),
+                      ),
+                      child: TrainPositionDiagram(
+                        stations: getStationsForLine(isBlue ? MetroLine.blue : MetroLine.red),
+                        currentPositionIndex: train.currentPositionIndex,
+                        fromStationId: train.fromStationId,
+                        toStationId: train.toStationId,
+                      ),
+                    ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1, end: 0),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // 2. Info Card (ETA + Departure)
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceElevated,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0x1AFFFFFF)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildInfoColumn('ETA', '${train.etaMinutes} MIN', Icons.timer_outlined),
+                          _buildInfoColumn('DEPARTURE', '${train.departureMinutes} MIN', Icons.exit_to_app_rounded),
+                          _buildInfoColumn('STATUS', train.status.name.toUpperCase(), Icons.info_outline_rounded),
+                        ],
+                      ),
+                    ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.1, end: 0),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // 3. Coach Occupancy section
+                    Text(
+                      'COACH OCCUPANCY',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold, 
+                        fontSize: 10,
+                        color: AppTheme.textMuted,
+                        letterSpacing: 1.0,
+                      ),
+                    ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.1, end: 0),
+                    const SizedBox(height: 16),
+                    ...train.coaches.asMap().entries.map((entry) {
+                      return CoachBar(coach: entry.value)
+                          .animate()
+                          .fadeIn(delay: (500 + entry.key * 80).ms)
+                          .slideY(begin: 0.1, end: 0);
+                    }),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // 4. Passenger Flow row
+                    Text(
+                      'PASSENGER FLOW (EST.)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold, 
+                        fontSize: 10,
+                        color: AppTheme.textMuted,
+                        letterSpacing: 1.0,
+                      ),
+                    ).animate().fadeIn(delay: 1000.ms).slideY(begin: 0.1, end: 0),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        _buildFlowTile('BOARDING', '${20 + Random().nextInt(60)}', Icons.login_rounded, AppTheme.signalGreen),
+                        const SizedBox(width: 16),
+                        _buildFlowTile('ALIGHTING', '${15 + Random().nextInt(45)}', Icons.logout_rounded, AppTheme.signalAmber),
+                      ],
+                    ).animate().fadeIn(delay: 1100.ms).slideY(begin: 0.1, end: 0),
+                    
+                    const SizedBox(height: 40),
                   ],
                 ),
-                
-                const SizedBox(height: 40),
-              ],
-            ),
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, stack) => Center(child: Text('Error: $err')),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
       ),
     );
   }
@@ -109,11 +149,17 @@ class TrainDetailScreen extends ConsumerWidget {
   Widget _buildInfoColumn(String label, String value, IconData icon) {
     return Column(
       children: [
-        Icon(icon, color: AppTheme.textSecondary, size: 20),
+        Icon(icon, color: AppTheme.textMuted, size: 20),
+        const SizedBox(height: 8),
+        Text(
+          label, 
+          style: const TextStyle(fontSize: 10, color: AppTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 0.5)
+        ),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        Text(
+          value, 
+          style: AppTheme.tabularNumberStyle.copyWith(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimary)
+        ),
       ],
     );
   }
@@ -123,19 +169,22 @@ class TrainDetailScreen extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.2)),
         ),
         child: Row(
           children: [
-            Icon(icon, color: color),
+            Icon(icon, color: color, size: 20),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(fontSize: 12, color: color.withOpacity(0.8))),
-                Text(count, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color, letterSpacing: 0.5)),
+                Text(
+                  count, 
+                  style: AppTheme.tabularNumberStyle.copyWith(fontWeight: FontWeight.bold, fontSize: 20, color: AppTheme.textPrimary)
+                ),
               ],
             )
           ],
@@ -145,22 +194,31 @@ class TrainDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildAnnouncementBanner(dynamic announcement) {
-    // BACKEND: Announcements are pushed by the admin panel and fetched via
-    // ApiService.getActiveAnnouncements(stationId). Currently returns [].
-    // No code change needed here once the backend populates the endpoint.
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.amber[100],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.amber),
+        color: AppTheme.signalRed.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: const Border(
+          left: BorderSide(color: AppTheme.signalRed, width: 4),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, color: Colors.amber),
-          const SizedBox(width: 12),
-          Expanded(child: Text(announcement.message)),
+          const Icon(Icons.error_outline_rounded, color: AppTheme.signalRed, size: 24),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              announcement.message.toUpperCase(),
+              style: const TextStyle(
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
         ],
       ),
     );

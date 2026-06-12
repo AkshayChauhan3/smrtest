@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/constants/theme.dart';
 import '../../auth/providers/auth_provider.dart';
 
@@ -12,53 +13,65 @@ class ProfileScreen extends ConsumerWidget {
     final user = ref.watch(authProvider).value;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(title: const Text('PROFILE')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
+            const SizedBox(height: 20),
             // Avatar
             CircleAvatar(
-              radius: 50,
-              backgroundColor: AppTheme.blueLineColor.withOpacity(0.1),
-              child: Text(
-                user?.name.substring(0, 1).toUpperCase() ?? 'U',
-                style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: AppTheme.blueLineColor),
+              radius: 60,
+              backgroundColor: AppTheme.blueLine.withOpacity(0.1),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppTheme.blueLine.withOpacity(0.3), width: 2),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  user?.name.substring(0, 1).toUpperCase() ?? 'U',
+                  style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: AppTheme.blueLine),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
+            ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
+            const SizedBox(height: 24),
             Text(
-              user?.name ?? 'User',
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
+              user?.name?.toUpperCase() ?? 'USER',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1.0),
+            ).animate().fadeIn(delay: 200.ms),
             Text(
               user?.email ?? '',
-              style: const TextStyle(color: AppTheme.textSecondary),
-            ),
+              style: const TextStyle(color: AppTheme.textMuted, fontSize: 14),
+            ).animate().fadeIn(delay: 300.ms),
             
-            const SizedBox(height: 40),
+            const SizedBox(height: 60),
             
             // Saved Routes section
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Saved Routes',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-              ),
-            ),
+            Row(
+              children: [
+                const Icon(Icons.bookmark_outline, color: AppTheme.textMuted, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'SAVED JOURNEYS',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textMuted, letterSpacing: 1.0),
+                ),
+              ],
+            ).animate().fadeIn(delay: 400.ms),
             const SizedBox(height: 16),
             
-            // BACKEND: Saved routes are currently stored in SharedPreferences locally.
-            // Method:  GET /api/v1/users/:userId/saved-routes
-            // Returns: List<{ lineId, fromStationId, toStationId, label }>
-            // Also: POST /api/v1/users/:userId/saved-routes to save a new one.
-            if (user?.email == 'test@metro.in') ...[
-              Card(
+            if (user?.email == 'test@smartrail.os') ...[
+              Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceElevated,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0x1AFFFFFF)),
+                ),
                 child: ListTile(
-                  leading: const Icon(Icons.star, color: Colors.amber),
-                  title: const Text('Blue Line · Old High Court → Thaltej Gam'),
-                  subtitle: const Text('Work Commute'),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  leading: const Icon(Icons.star, color: AppTheme.signalAmber),
+                  title: const Text('Blue Line · Old High Court → Thaltej', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Daily Commute', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textMuted),
                   onTap: () {
                     context.push(
                       Uri(path: '/results', queryParameters: {
@@ -69,45 +82,51 @@ class ProfileScreen extends ConsumerWidget {
                     );
                   },
                 ),
-              ),
+              ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.1, end: 0),
             ] else ...[
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(32),
+                padding: const EdgeInsets.symmetric(vertical: 48),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
+                  color: AppTheme.surfaceElevated,
                   borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0x1AFFFFFF), style: BorderStyle.solid),
                 ),
                 child: const Column(
                   children: [
-                    Icon(Icons.bookmark_border, size: 48, color: Colors.grey),
-                    SizedBox(height: 8),
-                    Text('No saved routes yet', style: TextStyle(color: Colors.grey)),
+                    Icon(Icons.bookmark_border, size: 48, color: AppTheme.textMuted),
+                    SizedBox(height: 16),
+                    Text(
+                      'No saved routes yet', 
+                      style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold)
+                    ),
                   ],
                 ),
-              ),
+              ).animate().fadeIn(delay: 500.ms),
             ],
             
-            const SizedBox(height: 48),
+            const SizedBox(height: 60),
             
             // Logout
             SizedBox(
               width: double.infinity,
-              child: OutlinedButton.icon(
+              child: TextButton.icon(
                 onPressed: () async {
                   await ref.read(authProvider.notifier).logout();
                   if (context.mounted) context.go('/login');
                 },
-                icon: const Icon(Icons.logout),
-                label: const Text('Logout'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
+                icon: const Icon(Icons.logout_rounded),
+                label: const Text('SIGN OUT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.signalRed,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: AppTheme.signalRed.withOpacity(0.3)),
+                  ),
                 ),
               ),
-            ),
+            ).animate().fadeIn(delay: 700.ms),
           ],
         ),
       ),

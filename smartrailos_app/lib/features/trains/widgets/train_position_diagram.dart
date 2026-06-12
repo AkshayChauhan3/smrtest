@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/constants/metro_data.dart';
 import '../../../core/constants/theme.dart';
 
@@ -18,84 +19,140 @@ class TrainPositionDiagram extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Show ±4 stations around current position
-    final startIndex = (currentPositionIndex - 4).clamp(0, stations.length - 1);
-    final endIndex = (currentPositionIndex + 4).clamp(0, stations.length - 1);
-    final visibleStations = stations.sublist(startIndex, endIndex + 1);
+    const displayCount = 5;
+    int startIndex = (currentPositionIndex - 2).clamp(0, stations.length - displayCount);
+    if (startIndex < 0) startIndex = 0;
+    
+    final visibleStations = stations.skip(startIndex).take(displayCount).toList();
+    final relativeCurrentIndex = currentPositionIndex - startIndex;
+
+    final isBlue = stations.first.lineId == MetroLine.blue;
+    final lineColor = isBlue ? AppTheme.blueLine : AppTheme.redLine;
+
+    // Fixed vertical center for the track
+    const double trackY = 30.0;
 
     return Container(
-      height: 120,
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: visibleStations.length,
-        itemBuilder: (context, index) {
-          final station = visibleStations[index];
-          final globalIndex = startIndex + index;
-          final isCurrent = globalIndex == currentPositionIndex;
-          final isUserFrom = station.id == fromStationId;
-          final isUserTo = station.id == toStationId;
-          
-          final color = station.lineId == MetroLine.blue ? AppTheme.blueLineColor : AppTheme.redLineColor;
+      height: 140,
+      padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final totalWidth = constraints.maxWidth;
+          final segmentWidth = totalWidth / (visibleStations.length - 1);
 
-          return SizedBox(
-            width: 100,
-            child: Column(
-              children: [
-                // Station name
-                Text(
-                  station.name,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: (isUserFrom || isUserTo) ? FontWeight.bold : FontWeight.normal,
-                    color: (isUserFrom || isUserTo) ? AppTheme.textPrimary : AppTheme.textSecondary,
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // 1. Background Track
+              Positioned(
+                top: trackY - 2, // Centering 4px track
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const Spacer(),
-                // Line and dot
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Horizontal line
-                    Container(
-                      height: 4,
-                      width: 100,
-                      color: color.withOpacity(0.3),
-                    ),
-                    // Dot
-                    Container(
-                      width: isCurrent ? 24 : 12,
-                      height: isCurrent ? 24 : 12,
-                      decoration: BoxDecoration(
-                        color: isCurrent ? color : Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: color,
-                          width: isCurrent ? 4 : 2,
+              ),
+              
+              // 2. Active Track Fill
+              Positioned(
+                top: trackY - 2,
+                left: 0,
+                child: Container(
+                  height: 4,
+                  width: segmentWidth * relativeCurrentIndex.clamp(0, visibleStations.length - 1),
+                  decoration: BoxDecoration(
+                    color: lineColor,
+                    borderRadius: BorderRadius.circular(2),
+                    boxShadow: [
+                      BoxShadow(color: lineColor.withOpacity(0.3), blurRadius: 8),
+                    ],
+                  ),
+                )
+                .animate()
+                .scale(begin: const Offset(0, 1), alignment: Alignment.centerLeft, duration: 800.ms),
+              ),
+
+              // 3. Station Nodes & Labels
+              ...List.generate(visibleStations.length, (index) {
+                final station = visibleStations[index];
+                final isUserFrom = station.id == fromStationId;
+                final isUserTo = station.id == toStationId;
+                final isLarge = isUserFrom || isUserTo;
+                final nodeSize = isLarge ? 14.0 : 8.0;
+                final isPassed = index <= relativeCurrentIndex;
+                
+                return Positioned(
+                  left: (index * segmentWidth) - 50,
+                  width: 100,
+                  top: trackY - (nodeSize / 2),
+                  child: Column(
+                    children: [
+                      // Node Circle
+                      Container(
+                        width: nodeSize,
+                        height: nodeSize,
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceDark,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isPassed ? lineColor : Colors.white.withOpacity(0.2),
+                            width: 2,
+                          ),
                         ),
-                        boxShadow: isCurrent ? [
-                          BoxShadow(
-                            color: color.withOpacity(0.4),
-                            blurRadius: 8,
-                            spreadRadius: 2,
-                          )
-                        ] : null,
                       ),
-                      child: isCurrent ? const Icon(Icons.train, size: 12, color: Colors.white) : null,
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                // Label for user stations
-                if (isUserFrom) 
-                  const Text('YOUR STOP', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.blueLineColor)),
-                if (isUserTo)
-                  const Text('DESTINATION', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.red)),
-              ],
-            ),
+                      const SizedBox(height: 16),
+                      // Label
+                      Text(
+                        station.name.toUpperCase(),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: isLarge ? FontWeight.w900 : FontWeight.bold,
+                          color: isPassed ? AppTheme.textPrimary : AppTheme.textMuted,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      if (isLarge)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            isUserFrom ? 'START' : 'END',
+                            style: TextStyle(
+                              fontSize: 7,
+                              fontWeight: FontWeight.w900,
+                              color: lineColor,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+              
+              // 4. Train Dot
+              Positioned(
+                left: (relativeCurrentIndex * segmentWidth) - 8,
+                top: trackY - 8, // Centering 16px dot
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: lineColor, width: 3),
+                    boxShadow: [
+                      BoxShadow(color: lineColor, blurRadius: 12, spreadRadius: 2),
+                    ],
+                  ),
+                )
+                .animate(onPlay: (c) => c.repeat(reverse: true))
+                .scale(begin: const Offset(1, 1), end: const Offset(1.2, 1.2), duration: 1.seconds),
+              ),
+            ],
           );
         },
       ),
