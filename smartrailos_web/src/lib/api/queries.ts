@@ -51,7 +51,7 @@ export const queryKeys = {
   platformHeatmap: ["platform", "heatmap"] as const,
 };
 
-const LIVE_REFETCH_MS = false;
+const LIVE_REFETCH_MS = 5_000; // Match the simulation runner's 5-second tick
 
 // ---------- Backend-backed queries ----------
 
@@ -140,7 +140,8 @@ export const stationCurrentQuery = (stationId: string) =>
             departure_time: "12:06",
           })
         : apiFetch<StationCurrentData>(`/stations/${stationId}/current`),
-    refetchInterval: LIVE_REFETCH_MS,
+    refetchInterval: LIVE_REFETCH_MS, // Live poll — ESP32 data updates every ~5s
+    staleTime: 0,
   });
 
 export const stationFeatureQuery = (stationId: string) =>
@@ -160,6 +161,7 @@ export const stationFeatureQuery = (stationId: string) =>
           }])
         : apiFetch<StationFeatureData[]>(`/stations/${stationId}/feature`),
     refetchInterval: LIVE_REFETCH_MS,
+    staleTime: 0,
   });
 
 
