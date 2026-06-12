@@ -409,6 +409,57 @@ async def run_simulation_step():
             if upcoming_rows:
                 await db.execute(sa_insert(feat_tbl), upcoming_rows)
 
+        # ── ESP32 Dummy Train Injection ──────────────────────────────────────
+        # If the ESP32 serial bridge has posted at least one occupancy reading,
+        # write the ESP32_DEMO row into station_*_current tables so the mobile
+        # app sees live sensor data at every station (or just target_station_id
+        # if one was specified in the POST payload).
+        from app.core.esp32_state import esp32 as _esp32
+        if _esp32.is_active:
+            _occ  = _esp32.occupancy
+            _pct  = _esp32.occupancy_pct
+            _target_sid = _esp32.target_station_id  # None → inject into ALL stations
+
+            for station in all_stations:
+                sid = station.station_id
+                # If a specific station was targeted, only write to that one
+                if _target_sid is not None and sid != _target_sid:
+                    continue
+
+                cur_tbl = STATION_CURRENT_TABLES.get(sid)
+                if cur_tbl is None:
+                    continue
+
+                # Only inject if no real train is currently at this station
+                # (priority 1: real trains always win; ESP32 fills the gap)
+                real_train_here = any(
+                    t.get("status") in ("AT_STATION", "WAITING_AT_TERMINAL")
+                    and t.get("current_station_id") == sid
+                    for t in train_states
+                )
+                if real_train_here and _target_sid is None:
+                    # When broadcasting to ALL, skip stations that already have
+                    # a real train at platform.  When targeted explicitly, always
+                    # overwrite so the user can force it onto any station.
+                    continue
+
+                await db.execute(cur_tbl.delete())
+                await db.execute(cur_tbl.insert().values(
+                    train_id        = "ESP32_DEMO",
+                    train_status    = "at_platform",
+                    eta_seconds     = 0,
+                    arrival_time    = now.strftime("%H:%M"),
+                    departure_time  = now.strftime("%H:%M"),
+                    total_passengers= _occ,
+                    c1_passengers   = _occ,   # all pax attributed to Coach 1
+                    c1_pct          = _pct,
+                    c2_passengers   = 0,
+                    c2_pct          = 0.0,
+                    c3_passengers   = 0,
+                    c3_pct          = 0.0,
+                    timestamp       = now,
+                ))
+
         # ── Data Retention Cleanup ───────────────────────────────────────────
         # Per-station tables always have ≤1 row (DELETE+INSERT each tick),
         # so only the shared transactional tables need the 24-h purge.
