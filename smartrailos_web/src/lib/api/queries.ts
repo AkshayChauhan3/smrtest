@@ -174,7 +174,20 @@ export const stationFeatureQuery = (stationId: string) =>
 
 export const announcementsQuery = queryOptions<Announcement[]>({
   queryKey: queryKeys.announcements,
-  queryFn: () => mockAsync(ANNOUNCEMENTS),
+  queryFn: async () => {
+    if (USE_MOCK) return mockAsync(ANNOUNCEMENTS);
+    try {
+      const list = await apiFetch<any[]>("/announcements/active");
+      return list.map((a: any) => ({
+        id: a.id,
+        text: a.text,
+        context: a.context,
+      }));
+    } catch {
+      return [];
+    }
+  },
+  refetchInterval: LIVE_REFETCH_MS,
 });
 
 export const notificationsQuery = queryOptions<Notification[]>({
