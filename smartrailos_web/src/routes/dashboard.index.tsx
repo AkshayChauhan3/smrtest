@@ -78,8 +78,12 @@ function Overview() {
   const kpi = kpiQ.data ?? mockKpi;
   const trainsRaw = trainsQ.data ?? TRAINS;
   
-  // Prioritize ESP32_DEMO
-  const trains = [...trainsRaw].sort((a, b) => {
+  // ESP32 visibility: hide during online hours, show during offline hours
+  const hasRealTrains = trainsRaw.some(t => t.id !== "ESP32_DEMO");
+  const trainsFiltered = hasRealTrains ? trainsRaw.filter(t => t.id !== "ESP32_DEMO") : trainsRaw;
+
+  // Prioritize ESP32_DEMO to top
+  const trains = [...trainsFiltered].sort((a, b) => {
     if (a.id === "ESP32_DEMO") return -1;
     if (b.id === "ESP32_DEMO") return 1;
     return 0;
@@ -144,7 +148,7 @@ function Overview() {
                 <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-obsidian-900/50 text-center">
                   <TrainFront className="mb-2 size-6 text-slate-500" />
                   <p className="text-sm font-medium text-slate-300">System Offline</p>
-                  <p className="text-xs text-slate-500">Trains are not available right now. Operations resume at 06:00 AM.</p>
+                  <p className="text-xs text-slate-500">Trains are not available right now. Operations resume at 06:20 AM.</p>
                 </div>
               ) : (
                 visible.map((t, i) => (

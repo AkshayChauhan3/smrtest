@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { HOURLY_FLOW, PLATFORM_HEATMAP, WEEKLY_TREND } from "@/lib/mock/data";
+import { useTrains } from "@/lib/api/hooks";
 import { SectionHeader } from "./dashboard.index";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -27,11 +28,22 @@ export const Route = createFileRoute("/dashboard/crowd")({
 
 function CrowdPage() {
   const [tab, setTab] = useState<"hourly" | "weekly">("hourly");
+  const trainsQ = useTrains();
+  const trainsRaw = trainsQ.data ?? [];
+  const hasRealTrains = trainsRaw.some(t => t.id !== "ESP32_DEMO");
+
   return (
     <div className="space-y-6 px-4 py-6 md:px-8 md:py-8">
-      <SectionHeader title="Station Crowd Intelligence" right="Live" />
+      <SectionHeader title="Station Crowd Intelligence" right={hasRealTrains ? "Live" : "Offline"} />
 
-      <div className="rounded-xl border border-white/5 bg-obsidian-900 p-5">
+      {!hasRealTrains ? (
+        <div className="flex h-[30rem] flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-obsidian-900/50 text-center">
+          <p className="text-xl font-medium text-slate-300">System Offline</p>
+          <p className="mt-2 text-sm text-slate-500">Analytics and heatmaps are paused. Operations resume at 06:20 AM.</p>
+        </div>
+      ) : (
+        <>
+          <div className="rounded-xl border border-white/5 bg-obsidian-900 p-5">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-white">Passenger Flow</h3>
           <div className="flex gap-1 rounded-md border border-white/10 bg-obsidian-800 p-0.5">
@@ -127,8 +139,10 @@ function CrowdPage() {
             <PeakRow time="17:30–19:30" label="Evening peak" value="2,480 / hr" tone="text-danger" />
             <PeakRow time="22:00–23:00" label="Last service" value="380 / hr" tone="text-slate-400" />
           </ul>
-        </div>
-      </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

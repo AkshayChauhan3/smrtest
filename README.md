@@ -87,7 +87,22 @@ Open **`http://localhost:5173`** — the dashboard auto-refreshes every 5 second
 
 ---
 
-### Step 4 — (Optional) Explore the Database Live
+### Step 4 — Start the Flutter Mobile App (Android/iOS)
+
+If you are testing on a physical device, ensure your device is connected via USB and USB debugging is enabled.
+
+```bash
+cd smartrailos_app
+flutter pub get
+flutter run
+```
+
+> **Important Note for Mobile Testing:**
+> If you are running the app on a physical phone, `localhost` points to the phone itself. You MUST update `AppConfig.baseUrl` in `smartrailos_app/lib/core/constants/app_config.dart` to point to your computer's local network IP address (e.g., `http://192.168.1.X:8000`) before running `flutter run`. Also ensure your phone and computer are on the same WiFi network.
+
+---
+
+### Step 5 — (Optional) Explore the Database Live
 
 ```bash
 pip3 install datasette
@@ -106,7 +121,7 @@ Key tables to watch at **`http://localhost:8765`**:
 
 ---
 
-### Step 5 — Run the Test Suite (Optional)
+### Step 6 — Run the Test Suite (Optional)
 
 ```bash
 cd backend

@@ -1,21 +1,34 @@
 import { cn } from "@/lib/utils";
 import { TrendingUp } from "lucide-react";
 import { CROWD_FORECAST } from "@/lib/mock/data";
+import { useTrains } from "@/lib/api/hooks";
 
 export function CrowdForecast({ className }: { className?: string }) {
+  const trainsQ = useTrains();
+  const trainsRaw = trainsQ.data ?? [];
+  const hasRealTrains = trainsRaw.some(t => t.id !== "ESP32_DEMO");
   const max = Math.max(...CROWD_FORECAST.map((f) => f.value));
+  
   return (
     <div className={cn("rounded-xl border border-white/5 bg-obsidian-900 p-6", className)}>
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-bold uppercase tracking-widest text-slate-300">
           Station Crowd Forecast
         </h3>
-        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-warning">
-          <TrendingUp className="size-3" /> Surge expected +30m
-        </span>
+        {hasRealTrains && (
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-warning">
+            <TrendingUp className="size-3" /> Surge expected +30m
+          </span>
+        )}
       </div>
 
-      <div className="mt-6 flex h-40 items-end gap-2 md:gap-3">
+      {!hasRealTrains ? (
+        <div className="mt-6 flex h-40 flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-obsidian-900/50 text-center">
+          <p className="text-sm font-medium text-slate-300">System Offline</p>
+          <p className="text-xs text-slate-500">Forecasting is paused. Operations resume at 06:20 AM.</p>
+        </div>
+      ) : (
+        <div className="mt-6 flex h-40 items-end gap-2 md:gap-3">
         {CROWD_FORECAST.map((f, i) => {
           const h = (f.value / max) * 100;
           const isPeak = f.value === max;
@@ -39,7 +52,8 @@ export function CrowdForecast({ className }: { className?: string }) {
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

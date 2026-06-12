@@ -36,16 +36,27 @@ class TrainResultsScreen extends ConsumerWidget {
       ),
       body: resultsAsync.when(
         data: (trains) {
-          if (trains.isEmpty) {
+          final activeTrains = trains.where((t) => t.etaMinutes < 120).toList();
+          final hasRealTrains = activeTrains.any((t) => t.trainId != 'ESP32_DEMO');
+          final displayTrains = hasRealTrains 
+              ? activeTrains.where((t) => t.trainId != 'ESP32_DEMO').toList() 
+              : activeTrains;
+
+          if (!hasRealTrains && displayTrains.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.train_outlined, size: 64, color: AppTheme.textMuted),
+                  const Icon(Icons.power_off, size: 64, color: AppTheme.textMuted),
                   const SizedBox(height: 16),
                   const Text(
-                    'NO TRAINS FOUND',
-                    style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                    'SYSTEM OFFLINE',
+                    style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1.0, fontSize: 18),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Operations resume at 06:20 AM.',
+                    style: TextStyle(color: AppTheme.textMuted),
                   ),
                 ],
               ),
@@ -53,9 +64,9 @@ class TrainResultsScreen extends ConsumerWidget {
           }
           return ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            itemCount: trains.length,
+            itemCount: displayTrains.length,
             itemBuilder: (context, index) {
-              return TrainCard(train: trains[index], index: index);
+              return TrainCard(train: displayTrains[index], index: index);
             },
           );
         },

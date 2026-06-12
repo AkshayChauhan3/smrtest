@@ -288,6 +288,33 @@ class TrainService:
                             ))
                         st.coaches = coaches_out
             enriched_trains.append(st)
+
+        # Inject ESP32_DEMO if active
+        from app.core.esp32_state import esp32 as _esp32
+        if _esp32.is_active and not any(t.train_id == "ESP32_DEMO" for t in enriched_trains):
+            from app.schemas.rail import TrainAtStationOut, TrainCoachOut
+            esp_train = TrainAtStationOut(
+                train_id="ESP32_DEMO",
+                train_name="ESP32 Sensor Unit",
+                line_name="Blue Line",
+                direction="Hardware Test",
+                arrival_time="00:00",
+                departure_time="00:00",
+                current_station="Local Prototype",
+                next_station="Local Prototype",
+                coaches=[TrainCoachOut(
+                    coach_number="C1",
+                    coach_type="sensor",
+                    capacity=_esp32.coach_capacity,
+                    current_passenger_count=_esp32.occupancy,
+                    occupancy_percentage=int(_esp32.occupancy_pct),
+                    occupancy_status="high" if _esp32.occupancy_pct > 80 else "moderate"
+                )],
+                journey_completed_pct=50.0,
+                current_position=0.5
+            )
+            enriched_trains.append(esp_train)
+
         return enriched_trains
 
     def _get_trip_times(self, t_state: dict, seg: dict, now: datetime) -> tuple[Optional[datetime], Optional[datetime]]:
@@ -462,7 +489,7 @@ class TrainService:
             if feat_tbl is not None:
                 res = await self.db.execute(select(feat_tbl).order_by(feat_tbl.c.estimated_arrival_time.asc()))
                 rows = res.fetchall()
-                if rows:
+                if rows and rows[0].timestamp and (datetime.now() - rows[0].timestamp).total_seconds() < 30:
                     results = []
                     for row in rows:
                         # Fetch ML estimation for this train/station
@@ -578,7 +605,7 @@ class TrainService:
                 arr_dt = dep_dt + timedelta(seconds=sched[t_idx]["arrive_offset"])
                 dep_stn = dep_dt + timedelta(seconds=sched[t_idx]["depart_offset"])
                 eta = int((arr_dt - now).total_seconds())
-                if eta > 0:
+                if 0 < eta <= 7200:
                     upcoming_trips.append((train, arr_dt, dep_stn, t_idx))
 
         upcoming_trips.sort(key=lambda x: x[1])
@@ -699,6 +726,30 @@ class TrainService:
                     estimated_station_passenger_count=sum(c.departure_passengers for c in coaches_out),
                     coaches=coaches_out,
                 ))
+        # Inject ESP32_DEMO if active
+        from app.core.esp32_state import esp32 as _esp32
+        if _esp32.is_active and not any(r.train_id == "ESP32_DEMO" for r in results):
+            results.insert(0, StationFeatureStateResponse(
+                train_id="ESP32_DEMO",
+                estimated_arrival_time="00:00",
+                estimated_departure_time="00:00",
+                estimated_passenger_incoming=_esp32.occupancy,
+                estimated_alighting=0,
+                estimated_boarding=0,
+                estimated_station_passenger_count=_esp32.occupancy,
+                coaches=[
+                    CoachEstimationStateOut(
+                        coach_id="C1",
+                        coach_type="sensor",
+                        capacity=_esp32.coach_capacity,
+                        arrival_passengers=_esp32.occupancy,
+                        arrival_occupancy_pct=float(_esp32.occupancy_pct),
+                        departure_passengers=_esp32.occupancy,
+                        departure_occupancy_pct=float(_esp32.occupancy_pct)
+                    )
+                ]
+            ))
+            
         return results
 
 

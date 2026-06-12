@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { TRAINS, findStation, riskFor, RISK_TW } from "@/lib/mock/data";
+import { useTrains } from "@/lib/api/hooks";
 import { LineBadge } from "@/components/srail/badges";
 import { OccupancyBar } from "@/components/srail/occupancy-bar";
 import { formatEta } from "@/lib/use-live-tick";
@@ -19,11 +20,21 @@ export const Route = createFileRoute("/dashboard/incoming")({
 
 function IncomingPage() {
   const incoming = TRAINS.filter((t) => t.status !== "Departing").sort((a, b) => a.etaSeconds - b.etaSeconds);
+  const trainsQ = useTrains();
+  const trainsRaw = trainsQ.data ?? [];
+  const hasRealTrains = trainsRaw.some(t => t.id !== "ESP32_DEMO");
+
   return (
     <div className="space-y-6 px-4 py-6 md:px-8 md:py-8">
-      <SectionHeader title="Incoming Trains" right={`${incoming.length} inbound`} />
+      <SectionHeader title="Incoming Trains" right={`${hasRealTrains ? incoming.length : 0} inbound`} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {!hasRealTrains ? (
+        <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-obsidian-900/50 text-center">
+          <p className="text-lg font-medium text-slate-300">System Offline</p>
+          <p className="mt-2 text-sm text-slate-500">Incoming train tracking is paused. Operations resume at 06:20 AM.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {incoming.map((t) => {
           const avg = Math.round(t.coaches.reduce((s, c) => s + c.occupancy, 0) / t.coaches.length);
           const risk = riskFor(t);
@@ -64,7 +75,8 @@ function IncomingPage() {
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
