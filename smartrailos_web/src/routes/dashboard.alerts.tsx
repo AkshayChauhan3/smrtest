@@ -41,6 +41,8 @@ function AlertsPage() {
   const ackM = useAcknowledgeAlert();
   const resM = useResolveAlert();
   const [filter, setFilter] = useState<"all" | "active" | "resolved">("active");
+  const [pendingAckId, setPendingAckId] = useState<string | null>(null);
+  const [pendingResId, setPendingResId] = useState<string | null>(null);
 
   const alerts = alertsQ.data || [];
   
@@ -87,23 +89,23 @@ function AlertsPage() {
               {!a.resolved && (
                 <div className="flex gap-2">
                   <button 
-                    onClick={() => ackM.mutate(a.id)}
-                    disabled={a.acknowledged || ackM.isPending}
+                    onClick={() => { setPendingAckId(a.id); ackM.mutate(a.id, { onSettled: () => setPendingAckId(null) }); }}
+                    disabled={a.acknowledged || (ackM.isPending && pendingAckId === a.id)}
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-300 transition-colors",
-                      (a.acknowledged || ackM.isPending) ? "opacity-50 cursor-not-allowed" : "hover:bg-white/10",
+                      (a.acknowledged || (ackM.isPending && pendingAckId === a.id)) ? "opacity-50 cursor-not-allowed" : "hover:bg-white/10",
                       a.acknowledged && "border-success/30 bg-success/10 text-success"
                     )}
                   >
-                    {ackM.isPending ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}
+                    {(ackM.isPending && pendingAckId === a.id) ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}
                     {a.acknowledged ? "Acknowledged" : "Acknowledge"}
                   </button>
                   <button
-                    onClick={() => resM.mutate(a.id)}
-                    disabled={resM.isPending}
+                    onClick={() => { setPendingResId(a.id); resM.mutate(a.id, { onSettled: () => setPendingResId(null) }); }}
+                    disabled={resM.isPending && pendingResId === a.id}
                     className="inline-flex items-center gap-1.5 rounded border border-accent-cyan/30 bg-accent-cyan/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-accent-cyan hover:bg-accent-cyan hover:text-obsidian-950 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {resM.isPending ? <Loader2 className="size-3 animate-spin" /> : <X className="size-3" />}
+                    {(resM.isPending && pendingResId === a.id) ? <Loader2 className="size-3 animate-spin" /> : <X className="size-3" />}
                     Resolve
                   </button>
                 </div>

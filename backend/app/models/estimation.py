@@ -49,9 +49,11 @@ class Estimation(Base):
     current_passengers: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # ── ML predictions ────────────────────────────────────────────────────────
-    estimated_alighting:       Mapped[int | None] = mapped_column(Integer, nullable=True)
-    estimated_boarding:        Mapped[int | None] = mapped_column(Integer, nullable=True)
-    estimated_next_passengers: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    estimated_alighting:       Mapped[int | None]   = mapped_column(Integer, nullable=True)
+    estimated_boarding:        Mapped[int | None]   = mapped_column(Integer, nullable=True)
+    estimated_next_passengers: Mapped[int | None]   = mapped_column(Integer, nullable=True)
+    confidence_score:          Mapped[float | None] = mapped_column(Float,   nullable=True)  # 0.0–1.0, higher = more certain
+    risk_level:                Mapped[str | None]   = mapped_column(String(16), nullable=True)  # LOW / MEDIUM / HIGH / CRITICAL
 
     # ── Context at prediction time ────────────────────────────────────────────
     weather:      Mapped[str   | None] = mapped_column(String(32),  nullable=True)

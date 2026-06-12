@@ -20,3 +20,15 @@ async def broadcast_announcement(
 ):
     """Broadcast a new announcement, simulating PA system and push notifications."""
     return await service.broadcast_announcement(data)
+
+@router.patch("/{announcement_id}/deactivate", response_model=dict)
+async def deactivate_announcement(
+    announcement_id: str,
+    service: AnnouncementService = Depends(get_announcement_service)
+):
+    """Deactivate an active announcement so it stops broadcasting."""
+    from fastapi import HTTPException
+    success = await service.deactivate_announcement(announcement_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Announcement not found")
+    return {"message": "Announcement deactivated successfully"}

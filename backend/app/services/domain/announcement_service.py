@@ -56,5 +56,9 @@ class AnnouncementService:
             created_at=announcement.created_at
         )
 
+    async def deactivate_announcement(self, announcement_id: str) -> bool:
+        """Deactivate an active announcement."""
+        return await self.announcement_repo.deactivate(announcement_id)
+
 async def get_announcement_service(db: AsyncSession = Depends(get_db)) -> AnnouncementService:
     return AnnouncementService(db, AnnouncementRepository(db))

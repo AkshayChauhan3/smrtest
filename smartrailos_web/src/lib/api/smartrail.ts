@@ -209,11 +209,32 @@ export function kpiFromSnapshot(snap: BackendDashboardSnapshot): typeof MOCK_KPI
   };
 }
 
+export interface BackendCoachStateOut {
+  coach_id: string;
+  coach_type: string;
+  capacity: number;
+  current_passengers: number;
+  occupancy_pct: number;
+}
+
 export interface StationCurrentData {
   train_id: string | null;
   current_passenger_count: number | null;
   arrival_time: string | null;
   departure_time: string | null;
+  coaches?: BackendCoachStateOut[];
+}
+
+export interface BackendCoachEstimationStateOut {
+  coach_id: string;
+  coach_type: string;
+  capacity: number;
+  arrival_passengers: number;
+  arrival_occupancy_pct: number;
+  departure_passengers: number;
+  departure_occupancy_pct: number;
+  confidence_score: number | null;
+  risk_level: string | null;
 }
 
 export interface StationFeatureData {
@@ -224,5 +245,6 @@ export interface StationFeatureData {
   estimated_alighting: number | null;
   estimated_boarding: number | null;
   estimated_station_passenger_count: number | null;
+  coaches: BackendCoachEstimationStateOut[];
 }
 

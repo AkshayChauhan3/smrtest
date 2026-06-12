@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { TRAINS, findStation, riskFor, RISK_TW } from "@/lib/mock/data";
+import { findStation, riskFor, RISK_TW } from "@/lib/mock/data";
+import { useTrains } from "@/lib/api/hooks";
 import { LineBadge } from "@/components/srail/badges";
 import { OccupancyBar } from "@/components/srail/occupancy-bar";
 import { formatEta } from "@/lib/use-live-tick";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { SectionHeader } from "./dashboard.index";
-import { ArrowRight, X } from "lucide-react";
+import { ArrowRight, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/live-trains")({
@@ -21,11 +22,13 @@ export const Route = createFileRoute("/dashboard/live-trains")({
 
 function LiveTrainsPage() {
   const [openId, setOpenId] = useState<string | null>(null);
-  const open = TRAINS.find((t) => t.id === openId) ?? null;
+  const trainsQ = useTrains();
+  const trains = trainsQ.data ?? [];
+  const open = trains.find((t) => t.id === openId) ?? null;
 
   return (
     <div className="space-y-6 px-4 py-6 md:px-8 md:py-8">
-      <SectionHeader title="Live Trains" right={`${TRAINS.length} active`} />
+      <SectionHeader title="Live Trains" right={`${trains.length} active`} />
 
       <div className="overflow-hidden rounded-xl border border-white/5 bg-obsidian-900">
         <div className="overflow-x-auto">
@@ -38,7 +41,7 @@ function LiveTrainsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {TRAINS.map((t) => {
+              {trains.map((t) => {
                 const avg = Math.round(t.coaches.reduce((s, c) => s + c.occupancy, 0) / t.coaches.length);
                 const risk = riskFor(t);
                 return (
@@ -84,7 +87,7 @@ function LiveTrainsPage() {
               </SheetHeader>
 
               <div className="mt-6 space-y-6">
-                <RouteTimeline trainId={open.id} />
+                <RouteTimeline train={open} />
 
                 <div className="grid grid-cols-3 gap-3">
                   <Stat label="Arrival" value={open.arrival} />
@@ -125,8 +128,7 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
   );
 }
 
-export function RouteTimeline({ trainId }: { trainId: string }) {
-  const train = TRAINS.find((t) => t.id === trainId)!;
+export function RouteTimeline({ train }: { train: any }) {
   const isBlue = train.line === "blue";
   const route = isBlue
     ? // synthetic route: 7 stops centered on Old High Court (bl-8)

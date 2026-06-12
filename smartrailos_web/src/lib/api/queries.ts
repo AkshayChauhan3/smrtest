@@ -51,7 +51,7 @@ export const queryKeys = {
   platformHeatmap: ["platform", "heatmap"] as const,
 };
 
-const LIVE_REFETCH_MS = 5_000;
+const LIVE_REFETCH_MS = false;
 
 // ---------- Backend-backed queries ----------
 
@@ -152,11 +152,11 @@ export const stationCurrentQuery = (stationId: string) =>
   });
 
 export const stationFeatureQuery = (stationId: string) =>
-  queryOptions<StationFeatureData>({
+  queryOptions<StationFeatureData[]>({
     queryKey: queryKeys.stationFeature(stationId),
     queryFn: () =>
       USE_MOCK
-        ? mockAsync({
+        ? mockAsync([{
             train_id: "BL-UP-02",
             estimated_arrival_time: "12:15",
             estimated_departure_time: "12:16",
@@ -164,8 +164,8 @@ export const stationFeatureQuery = (stationId: string) =>
             estimated_alighting: 120,
             estimated_boarding: 230,
             estimated_station_passenger_count: 530,
-          })
-        : apiFetch<StationFeatureData>(`/stations/${stationId}/feature`),
+          }])
+        : apiFetch<StationFeatureData[]>(`/stations/${stationId}/feature`),
     refetchInterval: LIVE_REFETCH_MS,
   });
 

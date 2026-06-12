@@ -77,7 +77,13 @@ function StationDetail() {
   );
 
   const currentData = stationCurrentQ.data;
-  const featureData = stationFeatureQ.data;
+  
+  const featureDataArray = Array.isArray(stationFeatureQ.data) ? stationFeatureQ.data : (stationFeatureQ.data ? [stationFeatureQ.data] : []);
+  const topFeatures = [...featureDataArray].sort((a, b) => {
+    if (!a.estimated_arrival_time) return 1;
+    if (!b.estimated_arrival_time) return -1;
+    return a.estimated_arrival_time.localeCompare(b.estimated_arrival_time);
+  }).slice(0, 3);
 
   return (
     <div className="animate-fade-in-up space-y-8 px-4 py-6 md:px-8 md:py-8">
@@ -187,6 +193,21 @@ function StationDetail() {
             </tbody>
           </table>
         </div>
+        
+        {currentData?.coaches && currentData.coaches.length > 0 && (
+          <div className="rounded-xl border border-white/5 bg-obsidian-900 p-6 mt-4">
+            <SectionHeader title={`Current Train Coaches (${currentData.train_id})`} right="Live Occupancy" />
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              {currentData.coaches.map((c) => (
+                <OccupancyBar
+                  key={c.coach_id}
+                  value={c.occupancy_pct}
+                  label={`${c.coach_id} · ${c.coach_type} · ${c.current_passengers} pax`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ── Table 2: Station Feature & ML Predictions (SQLite) ── */}
@@ -201,39 +222,79 @@ function StationDetail() {
               <tr>
                 <th className="px-6 py-4 font-semibold">Upcoming Train ID</th>
                 <th className="px-6 py-4 font-semibold">Est. Arrival</th>
-                <th className="px-6 py-4 font-semibold">Est. Departure</th>
                 <th className="px-6 py-4 font-semibold">Incoming Pax</th>
-                <th className="px-6 py-4 font-semibold text-rose-400">Alighting (Out)</th>
-                <th className="px-6 py-4 font-semibold text-emerald-400">Boarding (In)</th>
-                <th className="px-6 py-4 font-semibold text-right">Final Pax at Station</th>
+                <th className="px-6 py-4 font-semibold text-rose-400">Alighting</th>
+                <th className="px-6 py-4 font-semibold text-emerald-400">Boarding</th>
+                <th className="px-6 py-4 font-semibold">Final Pax</th>
+                <th className="px-6 py-4 font-semibold text-right">Risk & Confidence</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {featureData && featureData.train_id ? (
-                <tr className="hover:bg-white/2 transition-colors">
-                  <td className="px-6 py-4 font-mono font-bold text-accent-cyan flex items-center gap-2">
-                    <span className="inline-block size-2 rounded-full bg-accent-cyan/80 animate-pulse" />
-                    {featureData.train_id}
-                  </td>
-                  <td className="px-6 py-4 font-mono text-white font-semibold">
-                    {featureData.estimated_arrival_time || "--:--"}
-                  </td>
-                  <td className="px-6 py-4 font-mono text-slate-400">
-                    {featureData.estimated_departure_time || "--:--"}
-                  </td>
-                  <td className="px-6 py-4 text-white">
-                    {featureData.estimated_passenger_incoming?.toLocaleString() ?? 0}
-                  </td>
-                  <td className="px-6 py-4 text-rose-400 font-medium">
-                    -{featureData.estimated_alighting?.toLocaleString() ?? 0}
-                  </td>
-                  <td className="px-6 py-4 text-emerald-400 font-medium">
-                    +{featureData.estimated_boarding?.toLocaleString() ?? 0}
-                  </td>
-                  <td className="px-6 py-4 font-bold text-white text-right">
-                    {featureData.estimated_station_passenger_count?.toLocaleString() ?? 0}
-                  </td>
-                </tr>
+              {topFeatures.length > 0 ? (
+                topFeatures.map((f, i) => {
+                  let maxRisk = "LOW";
+                  let avgConf = 0;
+                  let hasMl = false;
+
+                  if (f.coaches && f.coaches.length > 0) {
+                    const mlCoaches = f.coaches.filter(c => c.confidence_score !== null);
+                    if (mlCoaches.length > 0) {
+                      hasMl = true;
+                      avgConf = mlCoaches.reduce((acc, c) => acc + (c.confidence_score || 0), 0) / mlCoaches.length;
+                      const riskOrder = { "LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4 };
+                      mlCoaches.forEach(c => {
+                        const r = c.risk_level || "LOW";
+                        if ((riskOrder[r as keyof typeof riskOrder] || 0) > (riskOrder[maxRisk as keyof typeof riskOrder] || 0)) {
+                          maxRisk = r;
+                        }
+                      });
+                    }
+                  }
+
+                  return (
+                    <tr key={f.train_id || i} className="hover:bg-white/2 transition-colors">
+                      <td className="px-6 py-4 font-mono font-bold text-accent-cyan flex items-center gap-2">
+                        <span className="inline-block size-2 rounded-full bg-accent-cyan/80 animate-pulse" />
+                        {f.train_id}
+                      </td>
+                      <td className="px-6 py-4 font-mono text-white font-semibold">
+                        {f.estimated_arrival_time || "--:--"}
+                      </td>
+                      <td className="px-6 py-4 text-white">
+                        {f.estimated_passenger_incoming?.toLocaleString() ?? 0}
+                      </td>
+                      <td className="px-6 py-4 text-rose-400 font-medium">
+                        -{f.estimated_alighting?.toLocaleString() ?? 0}
+                      </td>
+                      <td className="px-6 py-4 text-emerald-400 font-medium">
+                        +{f.estimated_boarding?.toLocaleString() ?? 0}
+                      </td>
+                      <td className="px-6 py-4 font-bold text-white">
+                        {f.estimated_station_passenger_count?.toLocaleString() ?? 0}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {hasMl ? (
+                          <div className="flex flex-col items-end gap-1">
+                            <span className={cn(
+                              "inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                              maxRisk === "CRITICAL" ? "bg-danger/20 text-danger ring-1 ring-inset ring-danger/30" :
+                              maxRisk === "HIGH" ? "bg-orange-500/20 text-orange-400 ring-1 ring-inset ring-orange-500/30" :
+                              maxRisk === "MEDIUM" ? "bg-yellow-500/20 text-yellow-400 ring-1 ring-inset ring-yellow-500/30" :
+                              "bg-emerald-500/20 text-emerald-400 ring-1 ring-inset ring-emerald-500/30"
+                            )}>
+                              {maxRisk}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-500">
+                              {(avgConf * 100).toFixed(1)}% conf
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-500 italic">Simulated</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-slate-500 italic">

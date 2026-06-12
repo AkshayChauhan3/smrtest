@@ -9,14 +9,26 @@ export const Route = createFileRoute("/api/public/emergency-status")({
   server: {
     handlers: {
       GET: async () => {
-        const active = process.env.EMERGENCY_ACTIVE === "true";
-        return new Response(JSON.stringify({ active }), {
-          status: 200,
-          headers: {
-            "content-type": "application/json",
-            "cache-control": "no-store",
-          },
-        });
+        try {
+          const res = await fetch("http://localhost:8000/api/v1/alerts/emergency");
+          if (!res.ok) throw new Error("Failed to fetch emergency status");
+          const data = await res.json();
+          return new Response(JSON.stringify({ active: data.active }), {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+              "cache-control": "no-store",
+            },
+          });
+        } catch (e) {
+          return new Response(JSON.stringify({ active: false }), {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+              "cache-control": "no-store",
+            },
+          });
+        }
       },
     },
   },

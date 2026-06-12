@@ -10,7 +10,12 @@ For every active train and each of its 3 coaches, this service:
   4. Uses the train's scheduled departure time (not wall-clock).
   5. Predicts post-stop passenger count with the trained RandomForest.
   6. Derives estimated alighting and boarding counts.
-  7. Persists one Estimation row per coach per train per tick.
+  7. Computes confidence score using prediction variance across all estimators.
+  8. Classifies risk_level based on predicted load vs max coach capacity.
+  9. Persists one Estimation row per coach per train per tick.
+
+Note: Passenger load prediction uses RandomForestRegressor with confidence estimation
+via estimator variance. LSTM upgrade planned for Round 2 with real historical data.
 
 Called from simulation_runner.py at the end of each simulation step.
 """
@@ -347,11 +352,37 @@ def estimate_for_train_states(
 
     input_df = pd.DataFrame(features_list)
     predictions = model.predict(input_df)
+    
+    # Confidence via estimator variance across all trees in the forest
+    import numpy as np
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # suppress per-tree feature name warnings (harmless)
+        estimator_preds = np.array([est.predict(input_df) for est in model.estimators_])  # shape: (n_trees, n_samples)
+    pred_std = estimator_preds.std(axis=0)  # per-sample std deviation
+    # Normalize std to confidence: low std = high confidence
+    # Using a soft sigmoid-like inversion: confidence = 1 / (1 + std / capacity)
+    confidence_scores = 1.0 / (1.0 + pred_std / _COACH_CAPACITY)
 
     results = []
     for idx, meta in enumerate(coach_meta):
         predicted_pax = int(round(float(predictions[idx])))
         predicted_pax = max(0, min(_COACH_CAPACITY, predicted_pax))
+        
+        # Confidence score: 0.0 - 1.0 (higher = more certain prediction)
+        raw_confidence = float(confidence_scores[idx])
+        confidence_score = round(min(1.0, max(0.0, raw_confidence)), 4)
+        
+        # Risk level: based on predicted load vs max capacity
+        load_ratio = predicted_pax / _COACH_CAPACITY
+        if load_ratio >= 0.90:
+            risk_level = "CRITICAL"   # >= 90% full
+        elif load_ratio >= 0.75:
+            risk_level = "HIGH"       # 75-89% full
+        elif load_ratio >= 0.50:
+            risk_level = "MEDIUM"     # 50-74% full
+        else:
+            risk_level = "LOW"        # < 50% full
 
         current_pax = meta["current_passengers"]
         alighting  = max(0, current_pax - int(predicted_pax * 0.85))
@@ -378,6 +409,8 @@ def estimate_for_train_states(
             "estimated_alighting":     alighting,
             "estimated_boarding":      boarding,
             "estimated_next_passengers": next_pax,
+            "confidence_score":        confidence_score,
+            "risk_level":              risk_level,
             "weather":                 weather_condition,
             "temperature":             round(temperature, 1),
             "is_holiday":              is_holiday,

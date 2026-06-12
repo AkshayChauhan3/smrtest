@@ -186,3 +186,14 @@ class AnnouncementRepository(BaseRepository):
         )
         return list(result.scalars().all())
 
+    async def deactivate(self, announcement_id: str) -> bool:
+        result = await self.db.execute(
+            select(Announcement).where(Announcement.id == announcement_id)
+        )
+        ann = result.scalar_one_or_none()
+        if ann:
+            ann.is_active = False
+            await self.db.commit()
+            return True
+        return False
+

@@ -24,42 +24,50 @@ class AlertEngine:
                 return True
         return False
 
+    async def _has_active_alert_for_train(self, train_id: str, alert_type: AlertType) -> bool:
+        active_alerts = await self.alert_repo.get_active_alerts(limit=100)
+        for alert in active_alerts:
+            if alert.train_id == train_id and alert.alert_type == alert_type:
+                return True
+        return False
+
     async def evaluate_occupancy_snapshot(self, event: SensorEvent, total_passengers: int):
         """Evaluate real-time ingestion data against operational rules."""
         
         # 1. Train Capacity Alert (Overcrowding Rule)
         # 85% of train capacity (1200) = 1020 passengers
         if total_passengers >= 1020:
-            alert_id = f"alt-{uuid.uuid4().hex[:8]}"
-            occupancy_pct = (total_passengers / 1200) * 100
-            alert = Alert(
-                id=alert_id,
-                alert_type=AlertType.PREDICTION_ALERT,
-                severity=SeverityLevel.CRITICAL,
-                title="Train Capacity Critical",
-                message=f"Train {event.train_id} has exceeded critical occupancy at {total_passengers} passengers ({occupancy_pct:.1f}%).",
-                station_id=event.station_id,
-                train_id=event.train_id,
-                created_at=datetime.now()
-            )
-            await self.alert_repo.create(alert)
-            await self.db.commit()
-            logger.info(f"Generated alert: {alert_id} for Train Overcrowding")
-            
-            # Broadcast over WebSocket
-            await manager.broadcast({
-                "event_type": "alert_issued",
-                "data": {
-                    "id": alert.id,
-                    "alert_type": alert.alert_type.value,
-                    "severity": alert.severity.value,
-                    "title": alert.title,
-                    "message": alert.message,
-                    "station_name": alert.station_id,
-                    "train_id": alert.train_id,
-                    "created_at": alert.created_at.isoformat()
-                }
-            })
+            if not await self._has_active_alert_for_train(event.train_id, AlertType.PREDICTION_ALERT):
+                alert_id = f"alt-{uuid.uuid4().hex[:8]}"
+                occupancy_pct = (total_passengers / 1200) * 100
+                alert = Alert(
+                    id=alert_id,
+                    alert_type=AlertType.PREDICTION_ALERT,
+                    severity=SeverityLevel.CRITICAL,
+                    title="Train Capacity Critical",
+                    message=f"Train {event.train_id} has exceeded critical occupancy at {total_passengers} passengers ({occupancy_pct:.1f}%).",
+                    station_id=event.station_id,
+                    train_id=event.train_id,
+                    created_at=datetime.now()
+                )
+                await self.alert_repo.create(alert)
+                await self.db.commit()
+                logger.info(f"Generated alert: {alert_id} for Train Overcrowding")
+                
+                # Broadcast over WebSocket
+                await manager.broadcast({
+                    "event_type": "alert_issued",
+                    "data": {
+                        "id": alert.id,
+                        "alert_type": alert.alert_type.value,
+                        "severity": alert.severity.value,
+                        "title": alert.title,
+                        "message": alert.message,
+                        "station_name": alert.station_id,
+                        "train_id": alert.train_id,
+                        "created_at": alert.created_at.isoformat()
+                    }
+                })
 
         # 2. Train Delay Rule
         if event.delay_minutes and event.delay_minutes > 5:

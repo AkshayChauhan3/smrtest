@@ -55,13 +55,21 @@ class AlertService:
         return results
 
     async def get_emergency_status(self) -> bool:
-        """Check if there are any HIGH or CRITICAL severity alerts active."""
+        """Check if there are any CRITICAL or EMERGENCY severity alerts active in the last 60 seconds."""
+        from datetime import datetime, timedelta
+        
+        now = datetime.utcnow()
+        threshold = now - timedelta(seconds=60)
+        
         alerts = await self.list_alerts()
         for alert in alerts:
-            # Check string values or enum values depending on what list_alerts returns
             severity = alert.severity
-            if severity in ["high", "critical", "HIGH", "CRITICAL"]:
-                return True
+            if severity in ["critical", "emergency", "CRITICAL", "EMERGENCY"]:
+                if alert.created_at:
+                    # Handle both naive and aware datetimes if necessary
+                    created_at = alert.created_at.replace(tzinfo=None) if alert.created_at.tzinfo else alert.created_at
+                    if created_at >= threshold:
+                        return True
         return False
 
     async def acknowledge_alert(self, alert_id: str) -> bool:

@@ -166,6 +166,8 @@ class CoachEstimationStateOut(BaseModel):
     arrival_occupancy_pct: float
     departure_passengers: int
     departure_occupancy_pct: float
+    confidence_score: float | None = None
+    risk_level: str | None = None
 
 
 class StationFeatureStateResponse(BaseModel):

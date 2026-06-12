@@ -119,8 +119,13 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+import { useGlobalWebSocket } from "../lib/use-global-ws";
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  
+  // Activate global websocket listener for real-time invalidations
+  useGlobalWebSocket(queryClient);
 
   return (
     <QueryClientProvider client={queryClient}>
