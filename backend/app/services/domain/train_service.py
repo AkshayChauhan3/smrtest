@@ -251,11 +251,14 @@ class TrainService:
         )
         return list(result.scalars().all())
 
-    async def get_trains_at_station(self, station_name: str, sim_time: str | None = None) -> List[TrainAtStationOut]:
-        """Get trains at a specific station, using DB telemetry but fallback to timetables."""
+    async def get_trains_at_station(self, station_name: str | None = None, sim_time: str | None = None) -> List[TrainAtStationOut]:
+        """Get trains at a specific station, or all live trains if station_name is omitted."""
         now = self.sim_service.parse_sim_time(sim_time)
-        sim_trains = self.sim_service.get_trains_at_station(station_name, now)
-        
+        if station_name:
+            sim_trains = self.sim_service.get_trains_at_station(station_name, now)
+        else:
+            sim_trains = self.sim_service.get_all_trains_live(now)
+            
         # Enrich the simulation ETAs with actual DB telemetry
         enriched_trains = []
         for st in sim_trains:

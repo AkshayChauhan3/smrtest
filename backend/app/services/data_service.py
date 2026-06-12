@@ -28,6 +28,8 @@ class DataService:
 
     def __init__(self):
         self.engine = engine
+        self.resolved_sim_alerts = set()
+        self.acknowledged_sim_alerts = set()
         self._lines_cache = None
         self._stations_cache = None
         self._build_cache()
@@ -252,6 +254,38 @@ class DataService:
             )
         return trains
 
+    def get_all_trains_live(self, now: datetime = None) -> list[TrainAtStationOut]:
+        """Get all trains across the network in live format."""
+        now = now or datetime.now()
+        trains = []
+        for train in self.engine.all_trains(now):
+            if train.get("status") == "NOT_IN_SERVICE":
+                continue
+            
+            # Use arrived_at_station as arrival_time if AT_STATION, otherwise offset
+            eta_sec = train.get("eta_to_next_station_sec", 0)
+            if train.get("status") in ("AT_STATION", "WAITING_AT_TERMINAL"):
+                arr_time = self._time_to_iso(now, train.get("arrived_at_station"))
+            else:
+                arr_time = self._offset_to_iso(now, eta_sec)
+                
+            trains.append(
+                TrainAtStationOut(
+                    train_id=train.get("train_id", ""),
+                    train_name=train.get("display_name") or self._train_name(train),
+                    line_name=self._line_name(train),
+                    direction=self._direction_label(train.get("direction", "")),
+                    arrival_time=arr_time,
+                    departure_time=self._time_to_iso(now, train.get("departs_station_at")),
+                    current_station=train.get("current_station", ""),
+                    next_station=train.get("next_station") or "",
+                    coaches=self._train_coaches(train.get("coaches", [])),
+                    journey_completed_pct=train.get("journey_completed_pct"),
+                    current_position=train.get("current_position")
+                )
+            )
+        return trains
+
     def get_current_trains_at_station(self, station_name: str, now: datetime = None) -> list[TrainAtStationOut]:
         now = now or datetime.now()
         return [
@@ -297,15 +331,19 @@ class DataService:
             if train.get("status") == "NOT_IN_SERVICE":
                 continue
             if train.get("train_occupancy_pct", 0) >= 85:
+                alert_id = f"train-{train.get('train_id', '').lower()}"
+                if alert_id in self.resolved_sim_alerts:
+                    continue
                 alerts.append(AlertOut(
-                    id=f"train-{train.get('train_id', '').lower()}",
+                    id=alert_id,
                     alert_type="prediction_alert",
                     severity="critical",
                     title="Train Capacity Critical",
-                    message=f"{train.get('train_id')} is at {train.get('train_occupancy_pct')}% occupancy.",
+                    message=f"Train occupancy is {train.get('train_occupancy_pct')}% (exceeds 85% capacity).",
                     station_name=train.get("current_station"),
                     train_id=train.get("train_id"),
                     created_at=now,
+                    acknowledged=alert_id in self.acknowledged_sim_alerts
                 ))
         return alerts
 

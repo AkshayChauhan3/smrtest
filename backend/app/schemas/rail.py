@@ -106,6 +106,8 @@ class AlertOut(BaseModel):
     station_name: str | None = None
     train_id: str | None = None
     created_at: datetime
+    acknowledged: bool = False
+    resolved: bool = False
 
 
 class ActionExecuteRequest(BaseModel):

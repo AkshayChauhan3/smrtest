@@ -8,7 +8,7 @@ router = APIRouter()
 
 @router.get("/at-station", response_model=list[TrainAtStationOut])
 async def list_trains_at_station(
-    station_name: str = Query("Old High Court"),
+    station_name: str | None = Query(None, description="Optional station filter. Omit to get all active trains."),
     sim_time: str | None = Query(None, description="Simulate time as HH:MM", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$"),
     train_service: TrainService = Depends(get_train_service)
 ) -> list[TrainAtStationOut]:

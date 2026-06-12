@@ -79,6 +79,9 @@ class AlertService:
         # For now, we'll verify the alert exists.
         alert = await self.alert_repo.get_by_id(alert_id)
         if not alert:
+            if alert_id.startswith("train-"):
+                self.sim_service.acknowledged_sim_alerts.add(alert_id)
+                return True
             return False
         # Logging would go here
         return True
@@ -88,6 +91,9 @@ class AlertService:
         from datetime import datetime
         alert = await self.alert_repo.get_by_id(alert_id)
         if not alert:
+            if alert_id.startswith("train-"):
+                self.sim_service.resolved_sim_alerts.add(alert_id)
+                return True
             return False
         
         alert.resolved_at = datetime.utcnow()
