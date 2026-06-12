@@ -14,6 +14,6 @@ async def list_trains_at_station(
 ) -> list[TrainAtStationOut]:
     
     trains = await train_service.get_trains_at_station(station_name, sim_time)
-    if not trains and not data_service.station_exists(station_name):
+    if not trains and station_name is not None and not data_service.station_exists(station_name):
         raise HTTPException(status_code=404, detail=f"Station '{station_name}' not found.")
     return trains

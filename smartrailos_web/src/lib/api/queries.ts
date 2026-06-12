@@ -156,6 +156,7 @@ export const stationFeatureQuery = (stationId: string) =>
             estimated_alighting: 120,
             estimated_boarding: 230,
             estimated_station_passenger_count: 530,
+            coaches: [],
           }])
         : apiFetch<StationFeatureData[]>(`/stations/${stationId}/feature`),
     refetchInterval: LIVE_REFETCH_MS,
