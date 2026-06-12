@@ -5,12 +5,17 @@ from app.models.station import Station
 from app.models.route import Route, RouteStop
 from app.models.train import Train, TrainCoach
 from app.models.alert import Alert
+from app.models.estimation import Estimation
 from app.db.seeder import seed_database
 import logging
 
 logging.basicConfig(level=logging.INFO)
 
 async def init_db():
+    print("Dropping tables...")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
     print("Creating tables...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

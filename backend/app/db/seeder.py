@@ -24,17 +24,23 @@ async def seed_database(db: AsyncSession) -> None:
         return  # Already seeded
 
     # ── Stations ──────────────────────────────────
+    # Blue Line: all 18 stations
     for idx, (sid, name, km, busy) in enumerate(BLUE_LINE_STATIONS):
         db.add(Station(
             station_id=sid, name=name, line_id="BL",
             is_interchange=(name in ("Old High Court", "Kalupur Metro Station")),
             is_busy=busy, cumulative_km=km, sort_order=idx,
         ))
+
+    # Red Line: all 15 stations.
+    # Old High Court (RL07) is a real interchange with Blue Line (BL11).
+    # Both station IDs must exist in the stations table so route_stops FK
+    # references are never broken.  RL07 is stored with a disambiguated name
+    # suffix so the unique-name constraint on `stations.name` is not violated.
     for idx, (sid, name, km, busy) in enumerate(RED_LINE_STATIONS):
-        if name == "Old High Court":
-            continue  # Already added in Blue Line
+        stored_name = f"{name} (RL)" if name == "Old High Court" else name
         db.add(Station(
-            station_id=sid, name=name, line_id="RL",
+            station_id=sid, name=stored_name, line_id="RL",
             is_interchange=(name in ("Old High Court", "Sabarmati Rly Station")),
             is_busy=busy, cumulative_km=km, sort_order=idx,
         ))

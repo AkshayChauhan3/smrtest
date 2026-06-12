@@ -20,8 +20,8 @@ async def predict_train_occupancy(
     if not train_occupancy:
         raise HTTPException(status_code=404, detail=f"Train '{request.train_id}' not found or has no active occupancy data.")
         
-    # The 'current_station_crowd' field on TrainOccupancyOut actually maps to total_passengers
-    current_passengers = train_occupancy.current_station_crowd
+    # Sum the passengers across all coaches to get total train passengers
+    current_passengers = sum(c.current_passenger_count for c in train_occupancy.coaches)
     
     # 2. Generate Prediction
     prediction = await prediction_service.get_train_occupancy_prediction(

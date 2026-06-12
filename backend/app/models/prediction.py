@@ -19,4 +19,4 @@ class Prediction(Base):
     predicted_15_min: Mapped[int] = mapped_column(Integer)
     predicted_30_min: Mapped[int] = mapped_column(Integer)
     confidence: Mapped[float] = mapped_column(Float)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

@@ -1,6 +1,6 @@
 """Route domain model."""
 
-from sqlalchemy import String, Integer, Float, ForeignKey, DateTime
+from sqlalchemy import String, Integer, Float, ForeignKey, DateTime, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base
 from datetime import datetime
@@ -10,6 +10,7 @@ class Route(Base):
     """Route (line + direction)."""
 
     __tablename__ = "routes"
+    id = None
 
     route_id: Mapped[str] = mapped_column(String(16), primary_key=True)
     line_id: Mapped[str] = mapped_column(String(8))
@@ -41,10 +42,14 @@ class StationCrowdSnapshot(Base):
     """Station crowd snapshots for prediction."""
 
     __tablename__ = "station_crowd_snapshots"
+    __table_args__ = (
+        # Speeds up "latest crowd for station X" lookups (runs every API call).
+        Index("ix_crowd_station_ts", "station_id", "timestamp"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     station_id: Mapped[str] = mapped_column(String(8))
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     current_crowd: Mapped[int] = mapped_column(Integer)
     predicted_5_min: Mapped[int] = mapped_column(Integer)
     predicted_15_min: Mapped[int] = mapped_column(Integer)

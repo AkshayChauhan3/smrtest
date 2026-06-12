@@ -14,6 +14,8 @@ import {
   trainQuery,
   trainsQuery,
   weeklyTrendQuery,
+  stationCurrentQuery,
+  stationFeatureQuery,
 } from "./queries";
 
 export const useTrains = () => useQuery(trainsQuery);
@@ -28,6 +30,8 @@ export const useCrowdForecast = () => useQuery(crowdForecastQuery);
 export const useHourlyFlow = () => useQuery(hourlyFlowQuery);
 export const useWeeklyTrend = () => useQuery(weeklyTrendQuery);
 export const usePlatformHeatmap = () => useQuery(platformHeatmapQuery);
+export const useStationCurrent = (stationId: string) => useQuery(stationCurrentQuery(stationId));
+export const useStationFeature = (stationId: string) => useQuery(stationFeatureQuery(stationId));
 
 export function useAcknowledgeAlert() {
   const qc = useQueryClient();

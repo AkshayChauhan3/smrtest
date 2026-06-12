@@ -22,7 +22,7 @@ async def verify():
         alert_engine = AlertEngine(session, alert_repo)
         
         event = SensorEvent(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(),
             train_id="RL-DO-01",
             station_id="RL10",
             event_type="occupancy_update",

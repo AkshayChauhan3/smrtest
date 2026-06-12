@@ -34,6 +34,6 @@ class Alert(Base):
     message: Mapped[str] = mapped_column(String(500))
     station_id: Mapped[str | None] = mapped_column(String(8), nullable=True)
     train_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    payload: Mapped[dict | None] = mapped_column("metadata", JSON)
+    payload: Mapped[dict | None] = mapped_column("alert_metadata", JSON)

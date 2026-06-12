@@ -10,6 +10,8 @@ import {
   type BackendDashboardSnapshot,
   type BackendStation,
   type BackendTrainAtStation,
+  type StationCurrentData,
+  type StationFeatureData,
 } from "./smartrail";
 import {
   TRAINS,
@@ -40,6 +42,8 @@ export const queryKeys = {
   announcements: ["announcements"] as const,
   notifications: ["notifications"] as const,
   stations: ["stations"] as const,
+  stationCurrent: (stationId: string) => ["stations", stationId, "current"] as const,
+  stationFeature: (stationId: string) => ["stations", stationId, "feature"] as const,
   snapshot: ["dashboard", "snapshot"] as const,
   crowdForecast: ["crowd", "forecast"] as const,
   hourlyFlow: ["analytics", "hourly"] as const,
@@ -131,6 +135,40 @@ export const stationsQuery = queryOptions<Station[]>({
   },
   staleTime: 60 * 60_000,
 });
+
+export const stationCurrentQuery = (stationId: string) =>
+  queryOptions<StationCurrentData>({
+    queryKey: queryKeys.stationCurrent(stationId),
+    queryFn: () =>
+      USE_MOCK
+        ? mockAsync({
+            train_id: "BL-UP-01",
+            current_passenger_count: 540,
+            arrival_time: "12:05",
+            departure_time: "12:06",
+          })
+        : apiFetch<StationCurrentData>(`/stations/${stationId}/current`),
+    refetchInterval: LIVE_REFETCH_MS,
+  });
+
+export const stationFeatureQuery = (stationId: string) =>
+  queryOptions<StationFeatureData>({
+    queryKey: queryKeys.stationFeature(stationId),
+    queryFn: () =>
+      USE_MOCK
+        ? mockAsync({
+            train_id: "BL-UP-02",
+            estimated_arrival_time: "12:15",
+            estimated_departure_time: "12:16",
+            estimated_passenger_incoming: 420,
+            estimated_alighting: 120,
+            estimated_boarding: 230,
+            estimated_station_passenger_count: 530,
+          })
+        : apiFetch<StationFeatureData>(`/stations/${stationId}/feature`),
+    refetchInterval: LIVE_REFETCH_MS,
+  });
+
 
 // ---------- Mock-only queries (backend doesn't expose these yet) ----------
 

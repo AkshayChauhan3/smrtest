@@ -46,6 +46,8 @@ class TrainCatalogueOut(BaseModel):
     departure_time: str
     current_occupancy: int
     coaches: list[CoachOut]
+    journey_completed_pct: float | None = None
+    current_position: float | None = None
 
 
 class TrainCoachOut(BaseModel):
@@ -67,6 +69,8 @@ class TrainAtStationOut(BaseModel):
     current_station: str
     next_station: str
     coaches: list[TrainCoachOut]
+    journey_completed_pct: float | None = None
+    current_position: float | None = None
 
 
 class IncomingTrainOut(BaseModel):
@@ -102,3 +106,57 @@ class AlertOut(BaseModel):
     station_name: str | None = None
     train_id: str | None = None
     created_at: datetime
+
+
+class SavedRouteCreate(BaseModel):
+    lineId: str
+    fromStationId: str
+    toStationId: str
+    label: str
+
+
+class SavedRouteOut(BaseModel):
+    id: int
+    lineId: str
+    fromStationId: str
+    toStationId: str
+    label: str
+
+
+class CoachStateOut(BaseModel):
+    coach_id: str
+    coach_type: str
+    capacity: int
+    current_passengers: int
+    occupancy_pct: float
+
+
+class StationCurrentStateResponse(BaseModel):
+    train_id: str | None = None
+    current_passenger_count: int | None = None
+    arrival_time: str | None = None
+    departure_time: str | None = None
+    coaches: list[CoachStateOut] = []
+    status: str = "none"  # "at_platform", "just_departed", "arriving", "none"
+    eta_seconds: int | None = None
+
+
+class CoachEstimationStateOut(BaseModel):
+    coach_id: str
+    coach_type: str
+    capacity: int
+    arrival_passengers: int
+    arrival_occupancy_pct: float
+    departure_passengers: int
+    departure_occupancy_pct: float
+
+
+class StationFeatureStateResponse(BaseModel):
+    train_id: str | None = None
+    estimated_arrival_time: str | None = None
+    estimated_departure_time: str | None = None
+    estimated_passenger_incoming: int | None = None
+    estimated_alighting: int | None = None
+    estimated_boarding: int | None = None
+    estimated_station_passenger_count: int | None = None
+    coaches: list[CoachEstimationStateOut] = []

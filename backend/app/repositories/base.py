@@ -1,8 +1,10 @@
 """Base repository interface and implementation."""
 
+from datetime import datetime
 from typing import TypeVar, Generic
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, inspect
+from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import OperationalError
 from app.models.train import Train, TrainCoach, OccupancySnapshot
 from app.models.station import Station
@@ -20,8 +22,9 @@ class BaseRepository(Generic[ModelType]):
         self.db = db
 
     async def get_by_id(self, model_id: str) -> ModelType | None:
+        pk_column = inspect(self.model).primary_key[0]
         result = await self.db.execute(
-            select(self.model).where(self.model.id == model_id)
+            select(self.model).where(pk_column == model_id)
         )
         return result.scalar_one_or_none()
 
@@ -31,15 +34,14 @@ class BaseRepository(Generic[ModelType]):
 
     async def create(self, instance: ModelType) -> ModelType:
         self.db.add(instance)
-        await self.db.commit()
-        await self.db.refresh(instance)
+        await self.db.flush()
         return instance
 
     async def delete(self, model_id: str) -> None:
         instance = await self.get_by_id(model_id)
         if instance:
             await self.db.delete(instance)
-            await self.db.commit()
+            await self.db.flush()
 
 
 class TrainRepository(BaseRepository):
@@ -55,6 +57,14 @@ class TrainRepository(BaseRepository):
 
     async def get_all_active(self) -> list[Train]:
         result = await self.db.execute(select(Train).where(Train.status == "ACTIVE"))
+        return list(result.scalars().all())
+
+    async def get_all_active_with_coaches(self) -> list[Train]:
+        result = await self.db.execute(
+            select(Train)
+            .where(Train.status == "ACTIVE")
+            .options(selectinload(Train.coaches))
+        )
         return list(result.scalars().all())
 
 
@@ -102,10 +112,13 @@ class OccupancyRepository(BaseRepository):
         super().__init__(db)
         self.model = OccupancySnapshot
 
-    async def get_latest_by_train(self, train_id: str) -> OccupancySnapshot | None:
+    async def get_latest_by_train(self, train_id: str, now: datetime = None) -> OccupancySnapshot | None:
+        if now is None:
+            now = datetime.now()
         result = await self.db.execute(
             select(OccupancySnapshot)
             .where(OccupancySnapshot.train_id == train_id)
+            .where(OccupancySnapshot.timestamp <= now)
             .order_by(OccupancySnapshot.timestamp.desc())
             .limit(1)
         )

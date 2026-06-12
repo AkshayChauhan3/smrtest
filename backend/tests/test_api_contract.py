@@ -7,8 +7,6 @@ from fastapi.testclient import TestClient
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_DIR))
 
-os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
-
 from app.main import app  # noqa: E402
 
 

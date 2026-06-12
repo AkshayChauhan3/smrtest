@@ -10,14 +10,14 @@ async def list_train_occupancy(
     sim_time: str | None = Query(None, description="Simulate time as HH:MM", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$"),
     occupancy_service: OccupancyService = Depends(get_occupancy_service)
 ) -> list[TrainOccupancyOut]:
-    return await occupancy_service.get_all_train_occupancy()
+    return await occupancy_service.get_all_train_occupancy(sim_time)
 
 @router.get("/stations", response_model=list[StationCrowdOut])
 async def list_station_crowd(
     sim_time: str | None = Query(None, description="Simulate time as HH:MM", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$"),
     occupancy_service: OccupancyService = Depends(get_occupancy_service)
 ) -> list[StationCrowdOut]:
-    return await occupancy_service.get_station_crowds()
+    return await occupancy_service.get_station_crowds(sim_time)
 
 @router.get("/trains/{train_id}", response_model=TrainOccupancyOut)
 async def get_train_occupancy(
@@ -25,7 +25,7 @@ async def get_train_occupancy(
     sim_time: str | None = Query(None, description="Simulate time as HH:MM", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$"),
     occupancy_service: OccupancyService = Depends(get_occupancy_service)
 ) -> TrainOccupancyOut:
-    result = await occupancy_service.get_train_occupancy(train_id)
+    result = await occupancy_service.get_train_occupancy(train_id, sim_time)
     if not result:
         raise HTTPException(status_code=404, detail=f"Train '{train_id}' not found.")
     return result

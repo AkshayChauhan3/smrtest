@@ -20,21 +20,24 @@ class AlertEngine:
     async def evaluate_occupancy_snapshot(self, event: SensorEvent, total_passengers: int):
         """Evaluate real-time ingestion data against operational rules."""
         
-        # 1. Platform Congestion Rule
-        if total_passengers > 500:
+        # 1. Train Capacity Alert (Overcrowding Rule)
+        # 85% of train capacity (1200) = 1020 passengers
+        if total_passengers >= 1020:
             alert_id = f"alt-{uuid.uuid4().hex[:8]}"
+            occupancy_pct = (total_passengers / 1200) * 100
             alert = Alert(
                 id=alert_id,
-                alert_type=AlertType.PLATFORM_CONGESTION,
-                severity=SeverityLevel.HIGH,
-                title="Platform Congestion",
-                message=f"Crowd exceeded 500 passengers ({total_passengers}). Deploy additional staff.",
+                alert_type=AlertType.PREDICTION_ALERT,
+                severity=SeverityLevel.CRITICAL,
+                title="Train Capacity Critical",
+                message=f"Train {event.train_id} has exceeded critical occupancy at {total_passengers} passengers ({occupancy_pct:.1f}%).",
                 station_id=event.station_id,
                 train_id=event.train_id,
-                created_at=datetime.utcnow()
+                created_at=datetime.now()
             )
             await self.alert_repo.create(alert)
-            logger.info(f"Generated alert: {alert_id} for Platform Congestion")
+            await self.db.commit()
+            logger.info(f"Generated alert: {alert_id} for Train Overcrowding")
             
             # Broadcast over WebSocket
             await manager.broadcast({
@@ -62,9 +65,10 @@ class AlertEngine:
                 message=f"Train delayed by {event.delay_minutes} minutes.",
                 station_id=event.station_id,
                 train_id=event.train_id,
-                created_at=datetime.utcnow()
+                created_at=datetime.now()
             )
             await self.alert_repo.create(alert)
+            await self.db.commit()
             logger.info(f"Generated alert: {alert_id} for Train Delay")
             
             await manager.broadcast({

@@ -23,7 +23,7 @@ async def simulate():
                 occ = random.uniform(75.0, 95.0)
             
             payload = {
-                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "timestamp": datetime.now().isoformat(),
                 "train_id": train,
                 "station_id": station,
                 "event_type": "occupancy_update",

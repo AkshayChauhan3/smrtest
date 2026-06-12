@@ -23,7 +23,7 @@ class PredictionService:
                 return StationCrowdPredictionOut(**data)
         except httpx.RequestError:
             # Fallback mock for MVP when ML service is offline
-            now = now or datetime.utcnow()
+            now = now or datetime.now()
             hour = now.hour
             multiplier = 1.2 if (8 <= hour <= 10) or (17 <= hour <= 19) else 0.9
             return StationCrowdPredictionOut(

@@ -19,7 +19,7 @@ async def list_routes(train_service: TrainService = Depends(get_train_service)) 
 
 @router.get("/trains", response_model=list[TrainCatalogueOut])
 async def list_trains(
-    sim_time: str | None = Query(None, description="Simulate time as HH:MM"),
+    sim_time: str | None = Query(None, description="Simulate time as HH:MM", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$"),
     train_service: TrainService = Depends(get_train_service)
 ) -> list[TrainCatalogueOut]:
     # Pass sim_time correctly if supported, but for now train_service gets live/DB trains

@@ -1,10 +1,52 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+import asyncio
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.services.engine.simulation_runner import start_simulation_runner
 
-app = FastAPI(title=settings.app_name, version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    import sys
+    # Skip background simulation task only during pytest runs
+    is_testing = "pytest" in sys.modules
+    
+    if not is_testing:
+        # Check database initialization and auto-seed if needed
+        from app.db.session import SessionLocal, engine as db_engine
+        from app.models.base import Base
+        from app.models.station import Station
+        from app.db.seeder import seed_database
+        from sqlalchemy import select, func
+        
+        # 1. Ensure tables exist
+        async with db_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            
+        # 2. Check if stations table is seeded, if not seed catalog
+        async with SessionLocal() as session:
+            station_count = await session.scalar(select(func.count()).select_from(Station))
+            if not station_count or station_count == 0:
+                print("Seeding database catalog...")
+                await seed_database(session)
+
+        # Start the simulation loop in the background
+        task = asyncio.create_task(start_simulation_runner())
+        yield
+        # Cancel the simulation runner on shutdown
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+    else:
+        yield
+
+
+app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

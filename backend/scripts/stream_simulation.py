@@ -33,7 +33,7 @@ def stream_csv(csv_path: str, interval: float, max_events: int = 0):
                 # Assuming the CSV has timestamp like "2025-01-01 00:00:00"
                 # We'll use the current real time to simulate live data, or the CSV time
                 # Let's use current time for the live simulation
-                current_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+                current_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
                 
                 payload = {
                     "timestamp": current_time,

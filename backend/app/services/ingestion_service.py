@@ -16,7 +16,13 @@ class IngestionService:
         self.occupancy_service = occupancy_service
         self.alert_engine = alert_engine
 
-    async def process_event(self, event: SensorEvent) -> bool:
+    async def process_event(
+        self,
+        event: SensorEvent,
+        next_station_id: str | None = None,
+        journey_completed_pct: float | None = None,
+        current_position: float | None = None,
+    ) -> bool:
         """
         Processes an incoming sensor event and persists it to the database.
         """
@@ -29,18 +35,43 @@ class IngestionService:
             
             if train:
                 train.current_station_id = event.station_id
+                if next_station_id is not None:
+                    train.next_station_id = next_station_id
+                if journey_completed_pct is not None:
+                    train.journey_completed_pct = journey_completed_pct
+                if current_position is not None:
+                    train.current_position = current_position
+
+                # ── Write live coach counts directly onto the Train row ──────
+                # Index 0 = C1 (General), 1 = C2 (Ladies), 2 = C3 (General)
+                coaches_list = event.coaches
+                if len(coaches_list) >= 1:
+                    train.c1_passengers    = coaches_list[0].passenger_count
+                    train.c1_occupancy_pct = coaches_list[0].occupancy_percentage
+                if len(coaches_list) >= 2:
+                    train.c2_passengers    = coaches_list[1].passenger_count
+                    train.c2_occupancy_pct = coaches_list[1].occupancy_percentage
+                if len(coaches_list) >= 3:
+                    train.c3_passengers    = coaches_list[2].passenger_count
+                    train.c3_occupancy_pct = coaches_list[2].occupancy_percentage
+
                 # Calculate total passengers from coaches
                 total_passengers = sum(c.passenger_count for c in event.coaches)
                 
                 # Format coach data for JSON storage
                 coach_data = [
                     {
-                        "coach_number": c.coach_id,
-                        "coach_type": "standard", # Simplified
-                        "capacity": 400,
+                        "coach_number":           c.coach_id,
+                        "coach_type":             c.coach_type,          # GENERAL or LADIES
+                        "capacity":               400,
                         "current_passenger_count": c.passenger_count,
-                        "occupancy_percentage": c.occupancy_percentage,
-                        "occupancy_status": "high" if c.occupancy_percentage > 80 else "moderate",
+                        "occupancy_percentage":   c.occupancy_percentage,
+                        "occupancy_status": (
+                            "very_crowded" if c.occupancy_percentage >= 85 else
+                            "crowded"      if c.occupancy_percentage >= 60 else
+                            "moderate"     if c.occupancy_percentage >= 35 else
+                            "empty"
+                        ),
                     }
                     for c in event.coaches
                 ]

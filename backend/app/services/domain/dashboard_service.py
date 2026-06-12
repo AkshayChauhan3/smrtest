@@ -37,6 +37,41 @@ class DashboardService:
         station_obj = await self.occupancy_service.station_repo.get_by_name(station_name)
         if station_obj:
             station_id_for_alerts = station_obj.station_id
+            
+            # Fetch actual ML predictions from the estimations table for incoming trains
+            from sqlalchemy import select, func
+            from app.models.estimation import Estimation
+            
+            for train in incoming:
+                # 1. Get the latest created_at timestamp for this train and next station stop
+                latest_ts_stmt = (
+                    select(func.max(Estimation.created_at))
+                    .where(
+                        Estimation.train_id == train.train_id,
+                        Estimation.next_station_id == station_obj.station_id
+                    )
+                )
+                latest_ts = (await self.occupancy_service.db.execute(latest_ts_stmt)).scalar()
+                
+                if latest_ts:
+                    # 2. Sum the per-coach estimations for this prediction run
+                    pred_stmt = (
+                        select(
+                            func.sum(Estimation.estimated_boarding),
+                            func.sum(Estimation.estimated_alighting),
+                            func.sum(Estimation.estimated_next_passengers)
+                        )
+                        .where(
+                            Estimation.train_id == train.train_id,
+                            Estimation.next_station_id == station_obj.station_id,
+                            Estimation.created_at == latest_ts
+                        )
+                    )
+                    pred_res = (await self.occupancy_service.db.execute(pred_stmt)).first()
+                    if pred_res and pred_res[0] is not None:
+                        train.predicted_boarding_count = int(pred_res[0])
+                        train.predicted_deboarding_count = int(pred_res[1])
+                        train.predicted_occupancy_at_station = int(pred_res[2])
 
         for crowd in station_crowds:
             if crowd.station_name.lower() == station_name.lower():

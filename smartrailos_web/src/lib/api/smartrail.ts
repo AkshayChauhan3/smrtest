@@ -208,3 +208,21 @@ export function kpiFromSnapshot(snap: BackendDashboardSnapshot): typeof MOCK_KPI
     predictedNextHour: snap.crowd_prediction.predicted_30_min * 25,
   };
 }
+
+export interface StationCurrentData {
+  train_id: string | null;
+  current_passenger_count: number | null;
+  arrival_time: string | null;
+  departure_time: string | null;
+}
+
+export interface StationFeatureData {
+  train_id: string;
+  estimated_arrival_time: string | null;
+  estimated_departure_time: string | null;
+  estimated_passenger_incoming: number | null;
+  estimated_alighting: number | null;
+  estimated_boarding: number | null;
+  estimated_station_passenger_count: number | null;
+}
+

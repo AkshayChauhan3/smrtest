@@ -4,7 +4,7 @@ import { TrainCard } from "@/components/srail/train-card";
 import { OccupancyBar } from "@/components/srail/occupancy-bar";
 import { KpiCard } from "@/components/srail/kpi-card";
 import { AnimatedNumber } from "@/components/srail/animated-number";
-import { useStations, useTrains } from "@/lib/api/hooks";
+import { useStations, useTrains, useStationCurrent, useStationFeature } from "@/lib/api/hooks";
 import { SectionHeader } from "@/routes/dashboard.index";
 import { cn } from "@/lib/utils";
 
@@ -38,8 +38,10 @@ function StationDetail() {
   const { stationId } = Route.useParams();
   const stationsQ = useStations();
   const trainsQ = useTrains();
+  const stationCurrentQ = useStationCurrent(stationId);
+  const stationFeatureQ = useStationFeature(stationId);
 
-  if (stationsQ.isLoading || trainsQ.isLoading) {
+  if (stationsQ.isLoading || trainsQ.isLoading || stationCurrentQ.isLoading || stationFeatureQ.isLoading) {
     return <StationDetailSkeleton />;
   }
 
@@ -73,6 +75,9 @@ function StationDetail() {
     (a, c) => a + Math.round((c.capacity * c.occupancy) / 100),
     0,
   );
+
+  const currentData = stationCurrentQ.data;
+  const featureData = stationFeatureQ.data;
 
   return (
     <div className="animate-fade-in-up space-y-8 px-4 py-6 md:px-8 md:py-8">
@@ -132,6 +137,115 @@ function StationDetail() {
           icon={<Users className="size-4" />}
         />
       </section>
+
+      {/* ── Table 1: Station Current State (SQLite) ── */}
+      <section className="space-y-4">
+        <SectionHeader
+          title="Station Current State Table"
+          right="Live Station Table"
+        />
+        <div className="overflow-hidden rounded-xl border border-white/5 bg-obsidian-900/50 backdrop-blur-md">
+          <table className="w-full border-collapse text-left text-sm text-slate-300">
+            <thead className="bg-obsidian-950/80 font-mono text-[10px] uppercase tracking-wider text-slate-400 border-b border-white/5">
+              <tr>
+                <th className="px-6 py-4 font-semibold">Current Train ID</th>
+                <th className="px-6 py-4 font-semibold">Current Passenger Count</th>
+                <th className="px-6 py-4 font-semibold">Arrival Time</th>
+                <th className="px-6 py-4 font-semibold">Departure Time</th>
+                <th className="px-6 py-4 font-semibold text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {currentData && currentData.train_id ? (
+                <tr className="hover:bg-white/2 transition-colors">
+                  <td className="px-6 py-4 font-mono font-bold text-accent-cyan flex items-center gap-2">
+                    <span className="inline-block size-2 rounded-full bg-emerald-500 animate-pulse" />
+                    {currentData.train_id}
+                  </td>
+                  <td className="px-6 py-4 font-semibold text-white">
+                    {currentData.current_passenger_count?.toLocaleString() ?? 0}
+                  </td>
+                  <td className="px-6 py-4 font-mono text-slate-400">
+                    {currentData.arrival_time || "--:--"}
+                  </td>
+                  <td className="px-6 py-4 font-mono text-slate-400">
+                    {currentData.departure_time || "--:--"}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-400 ring-1 ring-inset ring-emerald-500/20">
+                      DWELLING
+                    </span>
+                  </td>
+                </tr>
+              ) : (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-slate-500 italic">
+                    No train currently dwelling at station platform.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* ── Table 2: Station Feature & ML Predictions (SQLite) ── */}
+      <section className="space-y-4">
+        <SectionHeader
+          title="Station Feature Predictions Table"
+          right="ML & Metro Engine Analytics"
+        />
+        <div className="overflow-hidden rounded-xl border border-white/5 bg-obsidian-900/50 backdrop-blur-md">
+          <table className="w-full border-collapse text-left text-sm text-slate-300">
+            <thead className="bg-obsidian-950/80 font-mono text-[10px] uppercase tracking-wider text-slate-400 border-b border-white/5">
+              <tr>
+                <th className="px-6 py-4 font-semibold">Upcoming Train ID</th>
+                <th className="px-6 py-4 font-semibold">Est. Arrival</th>
+                <th className="px-6 py-4 font-semibold">Est. Departure</th>
+                <th className="px-6 py-4 font-semibold">Incoming Pax</th>
+                <th className="px-6 py-4 font-semibold text-rose-400">Alighting (Out)</th>
+                <th className="px-6 py-4 font-semibold text-emerald-400">Boarding (In)</th>
+                <th className="px-6 py-4 font-semibold text-right">Final Pax at Station</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {featureData && featureData.train_id ? (
+                <tr className="hover:bg-white/2 transition-colors">
+                  <td className="px-6 py-4 font-mono font-bold text-accent-cyan flex items-center gap-2">
+                    <span className="inline-block size-2 rounded-full bg-accent-cyan/80 animate-pulse" />
+                    {featureData.train_id}
+                  </td>
+                  <td className="px-6 py-4 font-mono text-white font-semibold">
+                    {featureData.estimated_arrival_time || "--:--"}
+                  </td>
+                  <td className="px-6 py-4 font-mono text-slate-400">
+                    {featureData.estimated_departure_time || "--:--"}
+                  </td>
+                  <td className="px-6 py-4 text-white">
+                    {featureData.estimated_passenger_incoming?.toLocaleString() ?? 0}
+                  </td>
+                  <td className="px-6 py-4 text-rose-400 font-medium">
+                    -{featureData.estimated_alighting?.toLocaleString() ?? 0}
+                  </td>
+                  <td className="px-6 py-4 text-emerald-400 font-medium">
+                    +{featureData.estimated_boarding?.toLocaleString() ?? 0}
+                  </td>
+                  <td className="px-6 py-4 font-bold text-white text-right">
+                    {featureData.estimated_station_passenger_count?.toLocaleString() ?? 0}
+                  </td>
+                </tr>
+              ) : (
+                <tr>
+                  <td colSpan={7} className="px-6 py-8 text-center text-slate-500 italic">
+                    No upcoming train predictions available for this station.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
 
       <section>
         <SectionHeader

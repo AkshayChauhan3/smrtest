@@ -81,3 +81,4 @@ CLAUDE.md
 GEMINI.md
 QODER.md
 *.csv
+passenger_estimation/model.pkl

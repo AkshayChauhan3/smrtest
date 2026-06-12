@@ -4,6 +4,7 @@ from datetime import datetime
 
 class CoachData(BaseModel):
     coach_id: str = Field(..., description="The ID of the coach, e.g., 'C1'")
+    coach_type: str = Field("GENERAL", description="Coach type: 'GENERAL' or 'LADIES'")
     passenger_count: int = Field(..., description="Number of passengers currently in the coach")
     occupancy_percentage: float = Field(..., description="Percentage of coach capacity filled")
 
