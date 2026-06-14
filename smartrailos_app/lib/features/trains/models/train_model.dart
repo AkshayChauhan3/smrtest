@@ -18,6 +18,9 @@ class TrainModel {
   final String fromStationId;
   final String toStationId;
   final List<AnnouncementModel> announcements;
+  final String? arrivalTime;
+  final String? departureTime;
+  final bool isAtPlatform;
 
   TrainModel({
     required this.trainId,
@@ -32,6 +35,9 @@ class TrainModel {
     required this.fromStationId,
     required this.toStationId,
     required this.announcements,
+    this.arrivalTime,
+    this.departureTime,
+    this.isAtPlatform = false,
   });
 
   int get totalPassengers => coaches.fold(0, (s, c) => s + c.currentPassengers);
@@ -51,6 +57,9 @@ class TrainModel {
       fromStationId: json['fromStationId'],
       toStationId: json['toStationId'],
       announcements: (json['announcements'] as List).map((e) => AnnouncementModel.fromJson(e)).toList(),
+      arrivalTime: json['arrivalTime'],
+      departureTime: json['departureTime'],
+      isAtPlatform: json['isAtPlatform'] ?? false,
     );
   }
 }

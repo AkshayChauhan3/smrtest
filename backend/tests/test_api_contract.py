@@ -135,3 +135,8 @@ def test_station_id_mapping() -> None:
         assert res_backend.status_code == 200
         assert res_flutter.status_code == 200
 
+        # Verify OD (Odhav) translates to BL03 (Vastral)
+        res_od = client.get("/api/v1/stations/OD/current", params={"sim_time": "18:00"})
+        assert res_od.status_code == 200
+
+

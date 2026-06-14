@@ -21,7 +21,7 @@ class PredictionService:
                 res.raise_for_status()
                 data = res.json()
                 return StationCrowdPredictionOut(**data)
-        except httpx.RequestError:
+        except httpx.HTTPError:
             # Fallback mock for MVP when ML service is offline
             now = now or datetime.now()
             hour = now.hour
@@ -45,7 +45,7 @@ class PredictionService:
                 res.raise_for_status()
                 data = res.json()
                 return TrainOccupancyPredictionOut(**data)
-        except httpx.RequestError:
+        except httpx.HTTPError:
             # Fallback mock for MVP when ML service is offline
             now = now or datetime.now()
             hour = now.hour

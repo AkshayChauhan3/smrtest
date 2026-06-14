@@ -31,7 +31,7 @@ class Esp32State:
     last_updated: datetime = field(default_factory=datetime.now)
 
     # Whether we have received at least one reading
-    is_active: bool = True
+    is_active: bool = False
 
     # Per-station occupancy overrides
     per_station_occupancy: dict[str, int] = field(default_factory=dict)

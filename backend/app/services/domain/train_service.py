@@ -346,39 +346,47 @@ class TrainService:
             if cur_tbl is not None:
                 res = await self.db.execute(select(cur_tbl))
                 row = res.fetchone()
-                if row and row.timestamp and (datetime.now() - row.timestamp).total_seconds() < 30:
-                    coaches_out = [
-                        CoachStateOut(
-                            coach_id="C1",
-                            coach_type="general",
-                            capacity=400,
-                            current_passengers=row.c1_passengers or 0,
-                            occupancy_pct=float(row.c1_pct or 0.0),
-                        ),
-                        CoachStateOut(
-                            coach_id="C2",
-                            coach_type="ladies",
-                            capacity=400,
-                            current_passengers=row.c2_passengers or 0,
-                            occupancy_pct=float(row.c2_pct or 0.0),
-                        ),
-                        CoachStateOut(
-                            coach_id="C3",
-                            coach_type="general",
-                            capacity=400,
-                            current_passengers=row.c3_passengers or 0,
-                            occupancy_pct=float(row.c3_pct or 0.0),
-                        ),
-                    ]
-                    return StationCurrentStateResponse(
-                        train_id=row.train_id,
-                        current_passenger_count=row.total_passengers or 0,
-                        arrival_time=row.arrival_time,
-                        departure_time=row.departure_time,
-                        coaches=coaches_out,
-                        status=row.train_status or "none",
-                        eta_seconds=row.eta_seconds,
-                    )
+                if row and row.timestamp:
+                    from app.core.sim_clock import sim_clock
+                    ref_now = sim_clock.now()
+                    try:
+                        row_ts = row.timestamp if isinstance(row.timestamp, datetime) else datetime.fromisoformat(str(row.timestamp))
+                        age_seconds = abs((ref_now - row_ts).total_seconds())
+                    except Exception:
+                        age_seconds = 0  # treat parse failures as fresh
+                    if age_seconds < 60:
+                        coaches_out = [
+                            CoachStateOut(
+                                coach_id="C1",
+                                coach_type="general",
+                                capacity=400,
+                                current_passengers=row.c1_passengers or 0,
+                                occupancy_pct=float(row.c1_pct or 0.0),
+                            ),
+                            CoachStateOut(
+                                coach_id="C2",
+                                coach_type="ladies",
+                                capacity=400,
+                                current_passengers=row.c2_passengers or 0,
+                                occupancy_pct=float(row.c2_pct or 0.0),
+                            ),
+                            CoachStateOut(
+                                coach_id="C3",
+                                coach_type="general",
+                                capacity=400,
+                                current_passengers=row.c3_passengers or 0,
+                                occupancy_pct=float(row.c3_pct or 0.0),
+                            ),
+                        ]
+                        return StationCurrentStateResponse(
+                            train_id=row.train_id,
+                            current_passenger_count=row.total_passengers or 0,
+                            arrival_time=row.arrival_time,
+                            departure_time=row.departure_time,
+                            coaches=coaches_out,
+                            status=row.train_status or "none",
+                            eta_seconds=row.eta_seconds,
+                        )
 
         now = self.sim_service.parse_sim_time(sim_time)
         train_states = self.sim_service.engine.all_trains(now)

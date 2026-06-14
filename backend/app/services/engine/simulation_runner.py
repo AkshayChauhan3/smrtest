@@ -81,7 +81,25 @@ async def run_simulation_step():
             if db_train.status != "ACTIVE":
                 db_train.status = "ACTIVE"
                 db.add(db_train)
-                
+
+            # Override dwelling train's C1 coach with live ESP32 sensor occupancy if active/targeted
+            from app.core.esp32_state import esp32 as _esp32
+            current_station_id = t_state.get("current_station_id")
+            is_dwelling = status in ("AT_STATION", "WAITING_AT_TERMINAL")
+            is_esp_target = (
+                _esp32.is_active
+                and is_dwelling
+                and (_esp32.target_station_id is None or _esp32.target_station_id == current_station_id)
+            )
+            if is_esp_target:
+                tot_pax = 0
+                for c in t_state.get("coaches", []):
+                    if c.get("coach_id") == "C1":
+                        c["current_passengers"] = _esp32.occupancy
+                        c["occupancy_pct"] = _esp32.occupancy_pct
+                    tot_pax += c.get("current_passengers", 0)
+                t_state["train_current_passengers"] = tot_pax
+
             # Process ingestion event
             coaches = [
                 CoachData(

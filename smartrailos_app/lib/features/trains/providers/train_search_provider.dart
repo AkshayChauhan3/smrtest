@@ -9,14 +9,16 @@ final selectedLineProvider = StateProvider<MetroLine>((ref) => MetroLine.blue);
 final fromStationProvider = StateProvider<Station?>((ref) => null);
 final toStationProvider = StateProvider<Station?>((ref) => null);
 
-// BACKEND: This provider calls ApiService.getUpcomingTrains() which currently returns mock data.
-// When the backend is live, no change is needed here — ApiService handles the swap.
-// For real-time updates, convert this to a StreamProvider polling every 30 seconds:
-//   Stream.periodic(Duration(seconds: 30)).asyncMap((_) => ApiService().getUpcomingTrains(...))
-final trainResultsProvider = FutureProvider.family<List<TrainModel>, ({String lineId, String fromStationId, String toStationId})>((ref, params) async {
+/// Polls the backend every 5 seconds (matching the simulation tick).
+/// This keeps the live passenger count from the ESP32 sensor in sync
+/// with the Flutter UI automatically — no manual refresh needed.
+final trainResultsProvider = StreamProvider.family<List<TrainModel>, ({String lineId, String fromStationId, String toStationId})>((ref, params) {
   final api = ref.read(apiServiceProvider);
   final line = MetroLine.values.firstWhere((e) => e.name == params.lineId);
-  return api.getUpcomingTrains(line, params.fromStationId, params.toStationId);
+
+  return Stream.periodic(const Duration(seconds: 5)).asyncMap((_) async {
+    return api.getUpcomingTrains(line, params.fromStationId, params.toStationId);
+  }).asBroadcastStream();
 });
 
 final trainDetailProvider = FutureProvider.family<TrainModel, String>((ref, trainId) async {

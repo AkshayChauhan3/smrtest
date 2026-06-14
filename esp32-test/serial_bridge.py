@@ -13,11 +13,14 @@ can display live sensor data at:
 
 Usage
 -----
-    # Show at ALL stations (any station on mobile shows live count):
+    # Auto-detect port and show at ALL stations:
     python serial_bridge.py
 
     # Show at a specific station only:
     python serial_bridge.py --station BL01
+
+    # Override port explicitly:
+    python serial_bridge.py --port /dev/ttyUSB1
 
     # Use a different serial port or baud rate:
     python serial_bridge.py --port /dev/ttyUSB1 --baud 115200
@@ -36,6 +39,7 @@ Requirements
 """
 
 import argparse
+import glob
 import re
 import time
 from datetime import datetime, timezone
@@ -45,7 +49,6 @@ import serial
 
 
 # ─── Defaults ──────────────────────────────────────────────────────────────
-SERIAL_PORT   = "/dev/ttyUSB0"
 BAUD_RATE     = 115200
 BACKEND_URL   = "http://localhost:8000"
 COACH_CAP     = 400          # matches the seeded coach capacity
@@ -53,11 +56,26 @@ RETRY_DELAY   = 3            # seconds between reconnect attempts
 POST_COOLDOWN = 0.1          # minimum seconds between consecutive POSTs
 
 
+# ─── Auto-detect serial port ─────────────────────────────────────────────────
+def detect_serial_port() -> str:
+    """
+    Scan for common USB-serial adapters used on ESP32 boards.
+    Returns the first found port, or '/dev/ttyUSB0' as a last resort.
+    """
+    candidates = sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*"))
+    if candidates:
+        print(f"  Auto-detected serial ports: {candidates}")
+        print(f"  Using: {candidates[0]}")
+        return candidates[0]
+    print("  ⚠  No /dev/ttyUSB* or /dev/ttyACM* found — defaulting to /dev/ttyUSB0")
+    return "/dev/ttyUSB0"
+
+
 # ─── CLI ────────────────────────────────────────────────────────────────────
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="ESP32 → SmartRail-OS serial bridge")
-    p.add_argument("--port",    default=SERIAL_PORT, help="Serial port (default: /dev/ttyUSB0)")
-    p.add_argument("--baud",    default=BAUD_RATE,   type=int, help="Baud rate (default: 115200)")
+    p.add_argument("--port",    default=None,       help="Serial port (auto-detected if omitted)")
+    p.add_argument("--baud",    default=BAUD_RATE,  type=int, help="Baud rate (default: 115200)")
     p.add_argument("--backend", default=BACKEND_URL, help="Backend base URL")
     p.add_argument(
         "--station",
@@ -101,6 +119,10 @@ def post_occupancy(backend: str, occupancy: int, station_id: str | None, capacit
 # ─── Main loop ───────────────────────────────────────────────────────────────
 def main() -> None:
     args = parse_args()
+
+    # Auto-detect port if not specified
+    if args.port is None:
+        args.port = detect_serial_port()
 
     station_label = args.station if args.station else "ALL stations"
     print("=" * 60)
