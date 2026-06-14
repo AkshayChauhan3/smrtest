@@ -333,6 +333,8 @@ class TrainService:
     async def get_station_current_state(
         self, station_id: str, sim_time: str | None = None
     ) -> Optional[StationCurrentStateResponse]:
+        from app.core.station_mapping import translate_station_id
+        station_id = translate_station_id(station_id)
         station = await self.station_repo.get_by_id(station_id)
         if not station:
             return None
@@ -479,6 +481,8 @@ class TrainService:
     async def get_station_feature_predictions(
         self, station_id: str, sim_time: str | None = None
     ) -> Optional[List[StationFeatureStateResponse]]:
+        from app.core.station_mapping import translate_station_id
+        station_id = translate_station_id(station_id)
         station = await self.station_repo.get_by_id(station_id)
         if not station:
             return None

@@ -52,13 +52,16 @@ async def ingest_esp32(payload: Esp32SensorPayload):
     Updates the global esp32_state store; the simulation runner will
     propagate the data into all station_*_current tables on its next tick.
     """
+    from app.core.station_mapping import translate_station_id
+    target_sid = translate_station_id(payload.station_id) if payload.station_id else None
+
     esp32.coach_capacity = payload.coach_capacity
     esp32.last_updated = datetime.now()
     esp32.is_active = True
 
-    if payload.station_id:
-        esp32.per_station_occupancy[payload.station_id] = payload.occupancy
-        esp32.target_station_id = payload.station_id
+    if target_sid:
+        esp32.per_station_occupancy[target_sid] = payload.occupancy
+        esp32.target_station_id = target_sid
         # Also sync global occupancy to the latest targeted one for backward compatibility
         esp32.occupancy = payload.occupancy
     else:

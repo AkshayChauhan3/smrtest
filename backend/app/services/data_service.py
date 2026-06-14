@@ -4,6 +4,8 @@ from datetime import datetime
 from app.core.sim_clock import sim_clock
 from typing import Iterable
 
+from app.core.sim_clock import sim_clock
+
 from fastapi import HTTPException
 
 from app.services.metro_engine import (
