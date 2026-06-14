@@ -878,12 +878,5 @@ Make sure the backend is running (`http://localhost:8000/health` returns 200) be
 ### Simulation always shows empty trains
 The Metro Engine only runs trains between ~06:00 and ~22:00 by default. Use the sim clock to set a time within service hours, e.g. `08:30`.
 
----
-
-## License
-
-This project is part of an academic capstone project for Ahmedabad Metro GMRC Phase-1 digital operations research.
-
----
-
 *Built with ❤️ for Ahmedabad Metro.*
+
