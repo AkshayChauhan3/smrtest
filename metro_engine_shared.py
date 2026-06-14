@@ -170,10 +170,10 @@ def build_train_roster(now: datetime) -> list:
     trains = []
     configs = [
         # (id_prefix, direction, line_name, line_code, t_start, t_end, sched, dur, deps, count)
-        ("BL-UP", "UP",   "Blue Line", "BL", "Vastral Gam",    "Thaltej Gam",    BL_UP_SCHED,   BL_UP_DUR,   bl_up,   6),
-        ("BL-DO", "DOWN", "Blue Line", "BL", "Thaltej Gam",    "Vastral Gam",    BL_DOWN_SCHED, BL_DOWN_DUR, bl_down, 5),
-        ("RL-UP", "UP",   "Red Line",  "RL", "APMC",           "Motera Stadium", RL_UP_SCHED,   RL_UP_DUR,   rl_up,   5),
-        ("RL-DO", "DOWN", "Red Line",  "RL", "Motera Stadium", "APMC",           RL_DOWN_SCHED, RL_DOWN_DUR, rl_down, 5),
+        ("BL-UP", "UP",   "Blue Line", "BL", "Vastral Gam",    "Thaltej Gam",    BL_UP_SCHED,   BL_UP_DUR,   bl_up,   12),
+        ("BL-DO", "DOWN", "Blue Line", "BL", "Thaltej Gam",    "Vastral Gam",    BL_DOWN_SCHED, BL_DOWN_DUR, bl_down, 10),
+        ("RL-UP", "UP",   "Red Line",  "RL", "APMC",           "Motera Stadium", RL_UP_SCHED,   RL_UP_DUR,   rl_up,   10),
+        ("RL-DO", "DOWN", "Red Line",  "RL", "Motera Stadium", "APMC",           RL_DOWN_SCHED, RL_DOWN_DUR, rl_down, 10),
     ]
     for prefix, direction, line_name, line_code, t_start, t_end, sched, dur, deps, count in configs:
         for i in range(count):
@@ -203,20 +203,16 @@ def occupancy_base_factor(now: datetime, train_id: str) -> float:
     is_weekend = now.weekday() >= 5
     noise      = (_seed_float(train_id, now, "base") - 0.5) * 0.08   # ±4%
 
-    if is_weekend:
-        return max(0, min(1, (0.35 if 10 <= h <= 19 else 0.15) + noise))
-
+    # Force higher base traffic for demonstration purposes so dashboard shows Moderate/High/Critical
     if 8.0 <= h < 11.0:
         peak = 1.0 - abs(h - 9.0) / 1.5
-        return max(0, min(1, 0.55 + 0.45 * peak + noise))
-    if 17.0 <= h < 20.0:
-        peak = 1.0 - abs(h - 18.5) / 1.5
-        return max(0, min(1, 0.50 + 0.45 * peak + noise))
+        return max(0, min(1, 0.85 + 0.45 * peak + noise))
+    if 17.0 <= h < 23.0: # Extend evening peak to 11 PM
+        peak = 1.0 - abs(h - 19.5) / 3.0
+        return max(0, min(1, 0.80 + 0.45 * peak + noise))
     if 11.0 <= h < 17.0:
-        return max(0, min(1, 0.25 + noise))
-    if h < 7.0 or h >= 21.0:
-        return max(0, min(1, 0.08 + noise * 0.5))
-    return max(0, min(1, 0.20 + noise))
+        return max(0, min(1, 0.65 + noise))
+    return max(0, min(1, 0.50 + noise))
 
 
 def _crowd_label(pct: float) -> str:
@@ -266,11 +262,11 @@ def compute_coach_passengers(
     base   = occupancy_base_factor(now, train_id)
     pos    = station_idx / max(total_st - 1, 1)
 
-    # Position on route affects how full the train is
+    # Position on route affects how full the train is. Min 0.35 so terminals aren't empty.
     if direction == "UP":
-        pos_factor = math.sin(pos * math.pi)
+        pos_factor = max(0.35, math.sin(pos * math.pi))
     else:
-        pos_factor = math.sin((1 - pos) * math.pi)
+        pos_factor = max(0.35, math.sin((1 - pos) * math.pi))
 
     station_boost = 1.25 if station.get("busy") else 1.0
     # Target occupancy = what the train should be at AFTER boarding at this station
@@ -287,7 +283,7 @@ def compute_coach_passengers(
     else:
         # Previous station occupancy (slightly lower pos_factor)
         prev_pos    = max(0, station_idx - 1) / max(total_st - 1, 1)
-        prev_factor = math.sin(prev_pos * math.pi) if direction == "UP" else math.sin((1-prev_pos)*math.pi)
+        prev_factor = max(0.35, math.sin(prev_pos * math.pi)) if direction == "UP" else max(0.35, math.sin((1-prev_pos)*math.pi))
         pre_alight_count  = int(base * prev_factor * station_boost * TRAIN_CAPACITY)
         post_board_count  = int(target_occ * TRAIN_CAPACITY)
 

@@ -270,16 +270,16 @@ export function computeDelta(
   hourAgo: number | undefined,
   unit: string = "",
   higherIsBad = false
-): { label: string; tone: "positive" | "negative" | "warning" | "neutral" } {
-  if (hourAgo === undefined) return { label: "— no history", tone: "neutral" };
+): { delta: string; deltaTone: "positive" | "negative" | "warning" | "neutral" } {
+  if (hourAgo === undefined) return { delta: "— no history", deltaTone: "neutral" };
   const diff = current - hourAgo;
-  if (Math.abs(diff) < 1) return { label: "Stable vs 1h ago", tone: "neutral" };
+  if (Math.abs(diff) < 1) return { delta: "Stable vs 1h ago", deltaTone: "neutral" };
   const sign = diff > 0 ? "+" : "";
-  const label = `${sign}${Math.round(diff)}${unit} vs 1h ago`;
-  const tone = diff === 0
+  const delta = `${sign}${Math.round(diff)}${unit} vs 1h ago`;
+  const deltaTone = diff === 0
     ? "neutral"
     : (diff > 0) === higherIsBad ? "negative" : "positive";
-  return { label, tone };
+  return { delta, deltaTone };
 }
 
 /** Classify occupancy % into a human string + tone. */

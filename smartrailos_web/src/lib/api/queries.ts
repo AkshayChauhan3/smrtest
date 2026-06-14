@@ -204,22 +204,34 @@ export const notificationsQuery = queryOptions<Notification[]>({
 
 export const crowdForecastQuery = queryOptions<typeof CROWD_FORECAST>({
   queryKey: queryKeys.crowdForecast,
-  queryFn: () => mockAsync(CROWD_FORECAST),
+  queryFn: async () => {
+    if (USE_MOCK) return mockAsync(CROWD_FORECAST);
+    return await apiFetch<typeof CROWD_FORECAST>("/analytics/crowd-forecast").catch(() => CROWD_FORECAST);
+  },
   refetchInterval: 30_000,
 });
 
 export const hourlyFlowQuery = queryOptions<typeof HOURLY_FLOW>({
   queryKey: queryKeys.hourlyFlow,
-  queryFn: () => mockAsync(HOURLY_FLOW),
+  queryFn: async () => {
+    if (USE_MOCK) return mockAsync(HOURLY_FLOW);
+    return await apiFetch<typeof HOURLY_FLOW>("/analytics/hourly-flow").catch(() => HOURLY_FLOW);
+  },
 });
 
 export const weeklyTrendQuery = queryOptions<typeof WEEKLY_TREND>({
   queryKey: queryKeys.weeklyTrend,
-  queryFn: () => mockAsync(WEEKLY_TREND),
+  queryFn: async () => {
+    if (USE_MOCK) return mockAsync(WEEKLY_TREND);
+    return await apiFetch<typeof WEEKLY_TREND>("/analytics/weekly-trend").catch(() => WEEKLY_TREND);
+  },
 });
 
 export const platformHeatmapQuery = queryOptions<number[][]>({
   queryKey: queryKeys.platformHeatmap,
-  queryFn: () => mockAsync(PLATFORM_HEATMAP),
+  queryFn: async () => {
+    if (USE_MOCK) return mockAsync(PLATFORM_HEATMAP);
+    return await apiFetch<number[][]>("/analytics/heatmap").catch(() => PLATFORM_HEATMAP);
+  },
   refetchInterval: 15_000,
 });

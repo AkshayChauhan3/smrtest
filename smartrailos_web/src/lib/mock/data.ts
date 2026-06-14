@@ -91,6 +91,7 @@ export interface Train {
   predictedDeboarding: number;
   coaches: Coach[];
   status: "Approaching" | "At Station" | "Departing" | "En Route";
+  journey_completed_pct?: number;
 }
 
 export const TRAINS: Train[] = [
@@ -222,9 +223,16 @@ export const TRAINS: Train[] = [
   },
 ];
 
-export function riskFor(train: Train): RiskLevel {
-  const avg = train.coaches.reduce((s, c) => s + c.occupancy, 0) / train.coaches.length;
-  if (avg >= 88 || train.predictedBoarding > 180) return "Critical";
+export function riskFor(trainOrAvg: Train | number): RiskLevel {
+  let avg = 0;
+  let boarding = 0;
+  if (typeof trainOrAvg === "number") {
+    avg = trainOrAvg;
+  } else {
+    avg = trainOrAvg.coaches.reduce((s, c) => s + c.occupancy, 0) / trainOrAvg.coaches.length;
+    boarding = trainOrAvg.predictedBoarding;
+  }
+  if (avg >= 88 || boarding > 180) return "Critical";
   if (avg >= 75) return "High";
   if (avg >= 55) return "Moderate";
   return "Low";

@@ -216,16 +216,21 @@ class DataService:
             if eta_min > 30:
                 continue
 
+            capacity = train.get("train_capacity", 1200)
+            current_pax = train.get("train_current_passengers", 0)
+            pred_count = min(capacity, int(current_pax * 1.1))
+            pred_pct = int((pred_count / capacity) * 100) if capacity > 0 else 0
+
             result.append(IncomingTrainOut(
                 train_id=train.get("train_id", ""),
                 train_name=train.get("display_name") or self._train_name(train),
                 line_name=self._line_name(train),
                 eta_minutes=int(eta_min),
                 route=self._route_label(train, station_name),
-                current_occupancy=train.get("train_current_passengers", 0),
-                predicted_occupancy_at_station=min(train.get("train_capacity", 1200), int(train.get("train_current_passengers", 0) * 1.1)),
+                current_occupancy=current_pax,
+                predicted_occupancy_at_station=pred_pct,
                 predicted_boarding_count=max(0, int(self._crowd_at_station(station_name, now) * 0.08)),
-                predicted_deboarding_count=max(0, int(train.get("train_current_passengers", 0) * 0.06)),
+                predicted_deboarding_count=max(0, int(current_pax * 0.06)),
             ))
 
         return sorted(result, key=lambda x: x.eta_minutes)

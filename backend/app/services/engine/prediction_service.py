@@ -47,7 +47,13 @@ class PredictionService:
                 return TrainOccupancyPredictionOut(**data)
         except httpx.RequestError:
             # Fallback mock for MVP when ML service is offline
-            predicted_total = int(current_passengers * 1.1)
+            now = now or datetime.now()
+            hour = now.hour
+            multiplier = 1.2 if (8 <= hour <= 10) or (17 <= hour <= 19) else 0.9
+            
+            # Predict realistic train flows based on current actual passengers
+            predicted_total = int(current_passengers * multiplier)
+            
             c2_passengers = int(predicted_total * 0.25)
             c1_passengers = int((predicted_total - c2_passengers) / 2)
             c3_passengers = predicted_total - c2_passengers - c1_passengers

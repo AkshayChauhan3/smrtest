@@ -147,8 +147,8 @@ function Overview() {
               {trains.length === 0 ? (
                 <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-obsidian-900/50 text-center">
                   <TrainFront className="mb-2 size-6 text-slate-500" />
-                  <p className="text-sm font-medium text-slate-300">System Offline</p>
-                  <p className="text-xs text-slate-500">Trains are not available right now. Operations resume at 06:20 AM.</p>
+                  <p className="text-sm font-medium text-slate-300">No Active Trains</p>
+                  <p className="text-xs text-slate-500">There are currently no active trains on the network.</p>
                 </div>
               ) : (
                 visible.map((t, i) => (

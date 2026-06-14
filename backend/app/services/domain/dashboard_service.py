@@ -69,9 +69,13 @@ class DashboardService:
                     )
                     pred_res = (await self.occupancy_service.db.execute(pred_stmt)).first()
                     if pred_res and pred_res[0] is not None:
+                        from app.models.train import Train
+                        train_obj_stmt = select(Train).where(Train.train_id == train.train_id)
+                        train_obj = (await self.occupancy_service.db.execute(train_obj_stmt)).scalar()
+                        cap = train_obj.capacity if train_obj else 1200
                         train.predicted_boarding_count = int(pred_res[0])
                         train.predicted_deboarding_count = int(pred_res[1])
-                        train.predicted_occupancy_at_station = int(pred_res[2])
+                        train.predicted_occupancy_at_station = int((int(pred_res[2]) / max(cap, 1)) * 100)
 
         for crowd in station_crowds:
             if crowd.station_name.lower() == station_name.lower():

@@ -24,8 +24,8 @@ export function CrowdForecast({ className }: { className?: string }) {
 
       {!hasRealTrains ? (
         <div className="mt-6 flex h-40 flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-obsidian-900/50 text-center">
-          <p className="text-sm font-medium text-slate-300">System Offline</p>
-          <p className="text-xs text-slate-500">Forecasting is paused. Operations resume at 06:20 AM.</p>
+          <p className="text-sm font-medium text-slate-300">No Data Available</p>
+          <p className="text-xs text-slate-500">Forecasting requires active train operations.</p>
         </div>
       ) : (
         <div className="mt-6 flex h-40 items-end gap-2 md:gap-3">

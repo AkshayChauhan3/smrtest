@@ -38,8 +38,8 @@ function CrowdPage() {
 
       {!hasRealTrains ? (
         <div className="flex h-[30rem] flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-obsidian-900/50 text-center">
-          <p className="text-xl font-medium text-slate-300">System Offline</p>
-          <p className="mt-2 text-sm text-slate-500">Analytics and heatmaps are paused. Operations resume at 06:20 AM.</p>
+          <p className="text-xl font-medium text-slate-300">No Analytics Data</p>
+          <p className="mt-2 text-sm text-slate-500">Analytics and heatmaps require active train operations to generate data.</p>
         </div>
       ) : (
         <>

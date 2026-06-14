@@ -46,11 +46,12 @@ class AlertService:
                 )
             )
             
-        # Fallback to simulation only if ingestion runner has not populated snapshots yet
-        from app.models.train import OccupancySnapshot
-        has_snapshots = await self.db.scalar(select(func.count()).select_from(OccupancySnapshot))
-        if not has_snapshots and not results:
-            return self.sim_service.list_alerts(station_name=station_name)
+        # Include simulated overloaded train alerts
+        sim_alerts = self.sim_service.list_alerts(station_name=station_name)
+        for sa in sim_alerts:
+            # Avoid duplicates if simulated alert already triggered an event
+            if not any(r.train_id == sa.train_id for r in results):
+                results.append(sa)
 
         return results
 

@@ -17,10 +17,12 @@ import {
   weeklyTrendQuery,
   stationCurrentQuery,
   stationFeatureQuery,
+  snapshotQuery,
 } from "./queries";
 
 export const useTrains = () => useQuery(trainsQuery);
 export const useTrain = (id: string) => useQuery(trainQuery(id));
+export const useDashboardSnapshot = () => useQuery(snapshotQuery);
 export const useKpi = () => useQuery(kpiQuery);
 export const useKpiHistory = () => useQuery(kpiHistoryQuery);
 export const useAlerts = () => useQuery(alertsQuery);
