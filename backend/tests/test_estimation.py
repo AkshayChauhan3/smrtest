@@ -147,7 +147,7 @@ from app.main import app
 
 @pytest.mark.anyio
 async def test_dashboard_snapshot_with_estimations():
-    # 1. Create dummy estimations in the database for BL-UP-01 approaching Nirant Cross Road (BL02)
+    # 1. Create dummy estimations in the database for BL-UP-05 approaching Nirant Cross Road (BL02)
     async with SessionLocal() as db:
         from app.models.estimation import Estimation
         from sqlalchemy import delete
@@ -155,7 +155,7 @@ async def test_dashboard_snapshot_with_estimations():
         now = datetime(2026, 6, 14, 8, 17, 0)
         for coach in ["C1", "C2", "C3"]:
             db.add(Estimation(
-                train_id="BL-UP-01",
+                train_id="BL-UP-05",
                 line_id="BL",
                 direction="UP",
                 current_station_id="BL01",
@@ -194,14 +194,14 @@ async def test_dashboard_snapshot_with_estimations():
             assert response.status_code == 200
             data = response.json()
 
-            # Check if the incoming train BL-UP-01 has the summed predictions from the DB:
+            # Check if the incoming train BL-UP-05 has the summed predictions from the DB:
             # Boarding: 10 + 10 + 10 = 30
             # Deboarding: 5 + 5 + 5 = 15
             # Next: 105 + 105 + 105 = 315
             train_data = None
             print(f"DEBUG INCOMING: {data['incoming_trains']}")
             for t in data["incoming_trains"]:
-                if t["train_id"] == "BL-UP-01":
+                if t["train_id"] == "BL-UP-05":
                     train_data = t
                     break
 
