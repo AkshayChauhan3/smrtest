@@ -416,16 +416,10 @@ async def run_simulation_step():
         # if one was specified in the POST payload).
         from app.core.esp32_state import esp32 as _esp32
         if _esp32.is_active:
-            _occ  = _esp32.occupancy
-            _pct  = _esp32.occupancy_pct
             _target_sid = _esp32.target_station_id  # None → inject into ALL stations
 
             for station in all_stations:
                 sid = station.station_id
-                # If a specific station was targeted, only write to that one
-                if _target_sid is not None and sid != _target_sid:
-                    continue
-
                 cur_tbl = STATION_CURRENT_TABLES.get(sid)
                 if cur_tbl is None:
                     continue
@@ -437,11 +431,15 @@ async def run_simulation_step():
                     and t.get("current_station_id") == sid
                     for t in train_states
                 )
-                if real_train_here and _target_sid is None:
-                    # When broadcasting to ALL, skip stations that already have
-                    # a real train at platform.  When targeted explicitly, always
-                    # overwrite so the user can force it onto any station.
+                
+                is_targeted = (_target_sid is not None and sid == _target_sid)
+                if not is_targeted and real_train_here:
+                    # If this station is not targeted and a real train is dwelling at platform,
+                    # keep the real train. Otherwise overwrite with ESP32 dummy train.
                     continue
+
+                _occ  = _esp32.get_station_occupancy(sid)
+                _pct  = _esp32.get_station_occupancy_pct(sid)
 
                 await db.execute(cur_tbl.delete())
                 await db.execute(cur_tbl.insert().values(

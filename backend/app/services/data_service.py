@@ -253,7 +253,9 @@ class DataService:
                     arrival_time=self._time_to_iso(now, train.get("arrived_at_station")) if train.get("arrives_in_sec") == 0 else self._offset_to_iso(now, train.get("arrives_in_sec", 0)),
                     departure_time=self._time_to_iso(now, train.get("departs_station_at")),
                     current_station=train.get("current_station", ""),
+                    current_station_id=train.get("current_station_id"),
                     next_station=train.get("next_station") or "",
+                    next_station_id=train.get("next_station_id"),
                     coaches=self._train_coaches(train.get("coaches", [])),
                 )
             )
@@ -283,7 +285,9 @@ class DataService:
                     arrival_time=arr_time,
                     departure_time=self._time_to_iso(now, train.get("departs_station_at")),
                     current_station=train.get("current_station", ""),
+                    current_station_id=train.get("current_station_id"),
                     next_station=train.get("next_station") or "",
+                    next_station_id=train.get("next_station_id"),
                     coaches=self._train_coaches(train.get("coaches", [])),
                     journey_completed_pct=train.get("journey_completed_pct"),
                     current_position=train.get("current_position")

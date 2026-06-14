@@ -25,8 +25,8 @@ function StationsIndex() {
   const stations = stationsQ.data ?? [];
   const trains = trainsQ.data ?? [];
 
-  // Count trains per station by matching the train's current station name to
-  // the station name. The backend returns the station name, not an ID.
+  // Count trains per station by matching the train's current station ID to
+  // the station ID.
   const trainsByStation = new Map<string, number>();
   for (const t of trains) {
     const key = t.currentStationId.toLowerCase();
@@ -52,7 +52,7 @@ function StationsIndex() {
         <SectionHeader title="All Stations" right={`${stations.length} total`} />
         <ul className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {stations.map((s) => {
-            const count = trainsByStation.get(s.name.toLowerCase()) ?? 0;
+            const count = trainsByStation.get(s.id.toLowerCase()) ?? 0;
             return (
               <li key={s.id}>
                 <Link

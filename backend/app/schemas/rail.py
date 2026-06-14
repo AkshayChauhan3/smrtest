@@ -67,7 +67,9 @@ class TrainAtStationOut(BaseModel):
     arrival_time: str
     departure_time: str
     current_station: str
+    current_station_id: str | None = None
     next_station: str
+    next_station_id: str | None = None
     coaches: list[TrainCoachOut]
     journey_completed_pct: float | None = None
     current_position: float | None = None

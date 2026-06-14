@@ -31,12 +31,25 @@ class Esp32State:
     last_updated: datetime = field(default_factory=datetime.now)
 
     # Whether we have received at least one reading
-    is_active: bool = False
+    is_active: bool = True
+
+    # Per-station occupancy overrides
+    per_station_occupancy: dict[str, int] = field(default_factory=dict)
 
     @property
     def occupancy_pct(self) -> float:
         return round((self.occupancy / self.coach_capacity) * 100, 1)
 
+    def get_station_occupancy(self, station_id: str) -> int:
+        if self.target_station_id is not None:
+            return self.per_station_occupancy.get(station_id, 0)
+        return self.occupancy
+
+    def get_station_occupancy_pct(self, station_id: str) -> float:
+        occ = self.get_station_occupancy(station_id)
+        return round((occ / self.coach_capacity) * 100, 1)
+
 
 # Module-level singleton — imported everywhere
 esp32 = Esp32State()
+

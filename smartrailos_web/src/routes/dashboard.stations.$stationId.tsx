@@ -52,16 +52,16 @@ function StationDetail() {
   const stationTrains = station
     ? allTrains.filter(
         (t) =>
-          t.currentStationId.toLowerCase() === station.name.toLowerCase() ||
-          t.nextStationId.toLowerCase() === station.name.toLowerCase(),
+          t.currentStationId.toLowerCase() === stationId.toLowerCase() ||
+          t.nextStationId.toLowerCase() === stationId.toLowerCase(),
       )
     : [];
 
   const atStation = stationTrains.filter(
-    (t) => t.currentStationId.toLowerCase() === station?.name.toLowerCase(),
+    (t) => t.currentStationId.toLowerCase() === stationId.toLowerCase(),
   );
   const approaching = stationTrains.filter(
-    (t) => t.nextStationId.toLowerCase() === station?.name.toLowerCase(),
+    (t) => t.nextStationId.toLowerCase() === stationId.toLowerCase(),
   );
 
   const allCoaches = stationTrains.flatMap((t) => t.coaches);

@@ -40,7 +40,9 @@ export interface BackendTrainAtStation {
   arrival_time: string;
   departure_time: string;
   current_station: string;
+  current_station_id?: string | null;
   next_station: string;
+  next_station_id?: string | null;
   coaches: BackendCoach[];
 }
 
@@ -118,8 +120,8 @@ export function adaptTrain(t: BackendTrainAtStation): Train {
     direction: t.direction,
     originId: "",
     destinationId: "",
-    currentStationId: t.current_station,
-    nextStationId: t.next_station,
+    currentStationId: t.current_station_id || t.current_station,
+    nextStationId: t.next_station_id || t.next_station,
     arrival: t.arrival_time,
     departure: t.departure_time,
     etaSeconds: 0,

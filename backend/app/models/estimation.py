@@ -20,6 +20,8 @@ class Estimation(Base):
     __table_args__ = (
         # Speeds up "latest estimation for train X, coach Y" lookups.
         Index("ix_est_train_coach_ts", "train_id", "coach_id", "created_at"),
+        # Speeds up "latest estimation for train X, next station Y" lookups.
+        Index("ix_est_train_station_ts", "train_id", "next_station_id", "created_at"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
