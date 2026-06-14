@@ -124,15 +124,15 @@ async def test_station_feature_predictions():
         )
         await db.commit()
 
-    with TestClient(app) as client:
-        # 1. Query prediction endpoint with NO estimations in the DB -> Fallback path
-        resp_fallback = client.get(f"/api/v1/stations/{upcoming_station_id}/feature", params={"sim_time": upcoming_time_str})
-        assert resp_fallback.status_code == 200
-        data_fallback = resp_fallback.json()
-        assert isinstance(data_fallback, list)
-        assert len(data_fallback) > 0
-        first_fallback = data_fallback[0]
-        assert first_fallback["train_id"] == upcoming_train_id
+        with TestClient(app) as client:
+            # 1. Query prediction endpoint with NO estimations in the DB -> Fallback path
+            resp_fallback = client.get(f"/api/v1/stations/{upcoming_station_id}/feature", params={"sim_time": upcoming_time_str})
+            assert resp_fallback.status_code == 200
+            data_fallback = [t for t in resp_fallback.json() if t.get("train_id") != "ESP32_DEMO"]
+            assert isinstance(data_fallback, list)
+            assert len(data_fallback) > 0
+            first_fallback = data_fallback[0]
+            assert first_fallback["train_id"] == upcoming_train_id
         assert first_fallback["estimated_arrival_time"] is not None
         assert first_fallback["estimated_passenger_incoming"] >= 0
         assert len(first_fallback["coaches"]) == 3
@@ -168,7 +168,7 @@ async def test_station_feature_predictions():
         # Query again -> Should fetch from DB estimations
         resp_db = client.get(f"/api/v1/stations/{upcoming_station_id}/feature", params={"sim_time": upcoming_time_str})
         assert resp_db.status_code == 200
-        data_db = resp_db.json()
+        data_db = [t for t in resp_db.json() if t.get("train_id") != "ESP32_DEMO"]
         assert isinstance(data_db, list)
         assert len(data_db) > 0
         first_db = data_db[0]
