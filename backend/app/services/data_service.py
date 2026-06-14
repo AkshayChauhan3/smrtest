@@ -1,6 +1,7 @@
 """Data service adapter between metro_engine simulation and API contracts."""
 
 from datetime import datetime
+from app.core.sim_clock import sim_clock
 from typing import Iterable
 
 from fastapi import HTTPException
@@ -72,7 +73,7 @@ class DataService:
 
     def list_trains(self, now: datetime = None) -> list[TrainCatalogueOut]:
         """Fetch all active trains with catalog format."""
-        now = now or datetime.now()
+        now = now or sim_clock.now()
         metro_trains = self.engine.all_trains(now)
 
         result = []
@@ -109,7 +110,7 @@ class DataService:
 
     def list_train_occupancy(self, now: datetime = None) -> list[TrainOccupancyOut]:
         """Fetch occupancy details for all trains."""
-        now = now or datetime.now()
+        now = now or sim_clock.now()
         metro_trains = self.engine.all_trains(now)
 
         result = []
@@ -147,7 +148,7 @@ class DataService:
 
     def get_train_occupancy(self, train_id: str, now: datetime = None) -> TrainOccupancyOut | None:
         """Fetch occupancy for a specific train."""
-        now = now or datetime.now()
+        now = now or sim_clock.now()
         metro_train = self.engine.query_by_train(train_id, now)
 
         if not metro_train or "error" in metro_train:
@@ -177,7 +178,7 @@ class DataService:
 
     def list_station_crowds(self, now: datetime = None) -> list[StationCrowdOut]:
         """Fetch crowd predictions for all stations."""
-        now = now or datetime.now()
+        now = now or sim_clock.now()
 
         metro_trains = self.engine.all_trains(now)
         station_crowds = {station.name: 0 for station in self._stations_cache}
@@ -203,7 +204,7 @@ class DataService:
 
     def get_incoming_trains_at_station(self, station_name: str, now: datetime = None) -> list[IncomingTrainOut]:
         """Get trains arriving at a station in next 30 minutes."""
-        now = now or datetime.now()
+        now = now or sim_clock.now()
         station_query = self.engine.query_by_station(station_name, now)
         if station_query.get("trains_found", 0) == 0 and not self._station_exists(station_name):
             return []
@@ -237,7 +238,7 @@ class DataService:
 
     def get_trains_at_station(self, station_name: str, now: datetime = None) -> list[TrainAtStationOut]:
         """Get current and next-arriving trains for a station."""
-        now = now or datetime.now()
+        now = now or sim_clock.now()
         station_query = self.engine.query_by_station(station_name, now)
         if station_query.get("trains_found", 0) == 0 and not self._station_exists(station_name):
             return []
@@ -263,7 +264,7 @@ class DataService:
 
     def get_all_trains_live(self, now: datetime = None) -> list[TrainAtStationOut]:
         """Get all trains across the network in live format."""
-        now = now or datetime.now()
+        now = now or sim_clock.now()
         trains = []
         for train in self.engine.all_trains(now):
             if train.get("status") == "NOT_IN_SERVICE":
@@ -296,7 +297,7 @@ class DataService:
         return trains
 
     def get_current_trains_at_station(self, station_name: str, now: datetime = None) -> list[TrainAtStationOut]:
-        now = now or datetime.now()
+        now = now or sim_clock.now()
         return [
             train
             for train in self.get_trains_at_station(station_name, now)
@@ -304,7 +305,7 @@ class DataService:
         ]
 
     def get_station_crowd_prediction(self, station_name: str, now: datetime = None) -> StationCrowdPredictionOut | None:
-        now = now or datetime.now()
+        now = now or sim_clock.now()
         needle = station_name.lower().strip()
         for crowd in self.list_station_crowds(now):
             if needle in crowd.station_name.lower():
@@ -317,7 +318,7 @@ class DataService:
         return None
 
     def list_alerts(self, now: datetime = None, station_name: str | None = None) -> list[AlertOut]:
-        now = now or datetime.now()
+        now = now or sim_clock.now()
         alerts = []
         station_filter = station_name.lower() if station_name else None
 
@@ -358,12 +359,12 @@ class DataService:
 
     def parse_sim_time(self, sim_time: str | None) -> datetime:
         if not sim_time:
-            return datetime.now()
+            return sim_clock.now()
         try:
             parsed = datetime.strptime(sim_time, "%H:%M")
         except ValueError as exc:
             raise HTTPException(status_code=400, detail="Invalid sim_time format. Use HH:MM, for example 09:15.") from exc
-        today = datetime.now().date()
+        today = sim_clock.now().date()
         return datetime(today.year, today.month, today.day, parsed.hour, parsed.minute)
 
     @staticmethod
