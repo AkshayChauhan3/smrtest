@@ -1,15 +1,14 @@
-# SmartRail OS
+# SmartRail OS: Real-Time Metro Operations Intelligence Platform
 
-> **Real-time metro operations intelligence platform for Ahmedabad GMRC Phase-1.**
->
-> SmartRail OS combines a physics-based train simulation engine, per-coach occupancy tracking, live ESP32 sensor integration, and predictive crowd analytics — all served over a unified REST + WebSocket API to a web dashboard and Flutter mobile app.
+> **Real-time metro intelligence, occupancy telemetry, and predictive crowd analytics platform simulated for Ahmedabad Metro (GMRC) Phase-1.**
 
 ---
 
 ## Table of Contents
-
 - [Overview](#overview)
-- [System Architecture](#system-architecture)
+- [💡 Problem Statement & Solution](#-problem-statement--solution)
+- [🏗️ System Architecture & DFD](#%EF%B8%8F-system-architecture--dfd)
+- [⚡ Quick Start: Running the Whole System](#-quick-start-running-the-whole-system)
 - [Project Structure](#project-structure)
 - [Components](#components)
   - [Backend — FastAPI](#backend--fastapi)
@@ -19,8 +18,8 @@
 - [Data Flow](#data-flow)
 - [Database Schema](#database-schema)
 - [API Reference](#api-reference)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
+- [Detailed Setup Guide](#detailed-setup-guide)
+- [Prerequisites](#prerequisites)
   - [Backend Setup](#backend-setup)
   - [Web Dashboard Setup](#web-dashboard-setup)
   - [Flutter App Setup](#flutter-app-setup)
@@ -35,17 +34,17 @@
 
 ## Overview
 
-SmartRail OS is a full-stack IoT + AI platform for real-time metro management:
+SmartRail OS is a full-stack IoT + AI platform designed to manage and optimize real-time metro transit operations. The platform uses a physics-based simulation runner to generate deterministic train positions and passenger flows, incorporates physical IoT passenger counters, and serves real-time telemetry over WebSockets and REST APIs to modern control panels and commuter mobile apps.
 
 | Layer | Technology | Role |
 |---|---|---|
-| IoT Hardware | ESP32 + HC-SR04 Ultrasonic Sensors | Physical passenger counting at coach doors |
-| Serial Bridge | Python `pyserial` | Relays ESP32 serial output → backend REST API |
-| Backend | Python 3.12 + FastAPI + SQLAlchemy (async) | Core API, simulation engine, persistence |
-| Database | SQLite (`aiosqlite`) | Lightweight embedded DB; per-station snapshot tables |
-| Web Dashboard | React 19 + TanStack Start + Vite | Operator control panel with live charts |
-| Mobile App | Flutter 3.x (Dart) | Passenger-facing app with live train data |
-| Simulation | `metro_engine_shared.py` | Deterministic timetable-driven train physics |
+| **IoT Hardware** | ESP32 + HC-SR04 Ultrasonic Sensors | Physical passenger counting at coach doors (test setup) |
+| **Serial Bridge** | Python `pyserial` | Relays ESP32 serial output → backend REST API |
+| **Backend** | Python 3.12+ + FastAPI + SQLAlchemy (async) | Core API, simulation engine, persistence |
+| **Database** | SQLite (`aiosqlite`) | Lightweight embedded DB; per-station snapshot tables |
+| **Web Dashboard** | React 19 + TanStack Start + Vite | Operator control panel with live charts & twin visualizer |
+| **Mobile App** | Flutter 3.x (Dart) | Commuter-facing app with live train loads & ETAs |
+| **Simulation** | `metro_engine_shared.py` | Timetable-driven train physics and passenger scheduling |
 
 **Lines simulated:** Ahmedabad Metro GMRC Phase-1
 - 🔵 **Blue Line** — Vastral Gam ↔ Thaltej Gam (18 stations, BL01–BL18)
@@ -53,19 +52,39 @@ SmartRail OS is a full-stack IoT + AI platform for real-time metro management:
 
 ---
 
-## System Architecture
+## 💡 Problem Statement & Solution
 
+### "What if we knew the coach-level passenger count of the next incoming train?"
+
+#### The Problem:
+* **For Passengers:** Commuters often board overcrowded train coaches without knowing the crowd level inside, leading to a stressful, unsafe, and uncomfortable commute. Without real-time information, they cannot choose to wait for a less crowded train or move to a different coach on the platform.
+* **For Railway Management:** Operators lack granular, real-time data on coach-level occupancy and platform crowds. This makes it difficult to detect bottlenecks, adjust train schedules/frequencies (headways) dynamically, manage platform safety, or plan structural improvements.
+
+#### Our Solution (SmartRail OS):
+We build an end-to-end telemetry and predictive crowd intelligence platform. By tracking and predicting passenger counts down to individual train coaches, we create a solution that benefits both:
+1. **Passengers:** Can plan their journeys comfortably. The system provides the next train's **Estimated Time of Arrival (ETA)**, **current passenger count**, and **estimated passenger count** per coach.
+2. **Railway Management:** Obtains deep operational visibility. The system provides real-time train positioning, coach passenger distributions, active alerts for overloading, and long-term prediction analyses.
+
+*Our system is built specifically for **Ahmedabad Metro**, simulating GMRC Phase-1 realistic parameters.*
+
+#### Project Core Modules:
+* **Ahmedabad Data Generator:** A physics-based timetable and transit generator using GMRC Phase-1 station distances, travel velocities, and time-of-day peak/non-peak passenger crowd distributions.
+* **Web Dashboard (Railway Management):** A control center for operators displaying live train locations, overcrowding alerts, digital twins of stations, and crowd prediction analytics.
+* **Mobile App (Commuters):** A Flutter app that displays upcoming trains, schedules, ETAs, and coach-by-coach live crowd indicators.
+* **IoT Passenger Sensors:** Dual ultrasonic sensors mounted at coach doors to detect directional entries and exits. *Note: In a production environment, high-accuracy sensors such as LiDAR or computer-vision cameras would be used, but this project implements an **ESP32 + HC-SR04** test setup to validate real-time ingestion pipelines.*
+
+---
+
+## 🏗️ System Architecture & DFD
+
+### High-Level Architecture
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         SmartRail OS — Architecture                      │
-└─────────────────────────────────────────────────────────────────────────┘
-
  ┌──────────────┐     Serial (USB)      ┌──────────────────┐
  │   ESP32 MCU  │ ───────────────────►  │  serial_bridge.py │
  │  HC-SR04 ×2  │   Occupancy count     │  (Python bridge)  │
  └──────────────┘                       └────────┬─────────┘
-                                                  │ HTTP POST /api/v1/ingestion/esp32
-                                                  ▼
+                                                   │ HTTP POST /api/v1/ingestion/esp32
+                                                   ▼
  ┌──────────────────────────────────────────────────────────────────────┐
  │                       FastAPI Backend (Python)                        │
  │                                                                      │
@@ -90,6 +109,73 @@ SmartRail OS is a full-stack IoT + AI platform for real-time metro management:
   │    React 19) │     │   go_router) │      │  (full-screen)│
   └──────────────┘     └──────────────┘      └──────────────┘
 ```
+
+### Ingestion Data Flow (DFD)
+```
+[Metro Engine timetable]
+        │  every 5 s
+        ▼
+[simulation_runner.run_simulation_step()]
+        │
+        ├─► Update Train rows (status, position, coach passengers)
+        ├─► Write OccupancySnapshot rows (time-series, pruned to 24 h)
+        ├─► Write StationCrowdSnapshot rows (time-series, pruned to 24 h)
+        ├─► DELETE + INSERT station_{id}_current  (1 row per station)
+        ├─► DELETE + INSERT station_{id}_feature  (upcoming predictions)
+        ├─► Inject ESP32_DEMO row if esp32.is_active
+        ├─► Run ML estimation (thread executor)
+        └─► Broadcast WS event to connected clients
+
+[REST API clients]  ──► read latest rows from DB or directly from DataService
+[WebSocket clients] ◄── push on every simulation tick
+```
+
+---
+
+## ⚡ Quick Start: Running the Whole System
+
+Follow these steps to run all components of the system simultaneously.
+
+### 1. Initialize & Seed Database
+Ensure you have Python 3.12+ installed.
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate   # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python init_db.py
+```
+
+### 2. Start the Backend API
+From the `backend/` directory with the virtual environment active:
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+*The backend API is now running at `http://localhost:8000`.*
+
+### 3. Start the ESP32 Serial Bridge (Optional/Hardware Test)
+Plug the ESP32 passenger counter into your machine's USB port, and run the bridge from the root of the workspace:
+```bash
+python3 esp32-test/serial_bridge.py
+```
+*The bridge will auto-detect the serial port `/dev/ttyUSB0` (or similar) and relay boarding events to the backend.*
+
+### 4. Start the Web Dashboard (Railway Management)
+Ensure you have Node.js (v20+) and `npm` installed.
+```bash
+cd smartrailos_web
+npm install
+npm run dev
+```
+*Open `http://localhost:5173` in your browser to view the Railway Management control panel.*
+
+### 5. Start the Flutter App (Passenger/Commuter)
+Ensure you have the Flutter SDK installed. From the `smartrailos_app/` directory:
+```bash
+flutter pub get
+flutter run -d chrome --web-port 8080
+```
+*Open `http://localhost:8080` to view the commuter mobile app running in Chrome.*
 
 ---
 
