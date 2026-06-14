@@ -16,6 +16,7 @@ from app.schemas.ingestion import SensorEvent, CoachData
 from app.services.metro_engine import engine
 from app.services.domain import estimation_service
 from app.models.estimation import Estimation
+from app.core.sim_clock import sim_clock
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ async def start_simulation_runner(interval_seconds: float = 5.0):
         await asyncio.sleep(interval_seconds)
 
 async def run_simulation_step():
-    now = datetime.now()
+    now = sim_clock.now()
     train_states = engine.all_trains(now)
     
     async with SessionLocal() as db:

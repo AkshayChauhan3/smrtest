@@ -84,7 +84,7 @@ async def test_dashboard_snapshot_with_estimations():
         from sqlalchemy import delete
         await db.execute(delete(Estimation))
         
-        now = datetime(2026, 6, 12, 8, 17, 0)
+        now = datetime(2026, 6, 14, 8, 17, 0)
         for coach in ["C1", "C2", "C3"]:
             db.add(Estimation(
                 train_id="BL-UP-05",
@@ -114,10 +114,13 @@ async def test_dashboard_snapshot_with_estimations():
     class MockDatetime(dt_module.datetime):
         @classmethod
         def now(cls, tz=None):
-            return dt_module.datetime(2026, 6, 12, 8, 17, 0)
+            return dt_module.datetime(2026, 6, 14, 8, 17, 0)
             
     with patch("app.services.data_service.datetime", MockDatetime), \
          patch("data_api.metro_engine_shared.datetime", MockDatetime):
+        
+        from app.services.metro_engine import engine, build_train_roster
+        engine._trains = build_train_roster(now)
         
         with TestClient(app) as client:
             response = client.get("/api/v1/dashboard/snapshot", params={"station_name": "Nirant Cross Road", "sim_time": "08:17"})

@@ -30,7 +30,7 @@ def test_esp32_endpoints():
         status_resp = client.get("/api/v1/ingestion/esp32/status")
         assert status_resp.status_code == 200
         status_data = status_resp.json()
-        assert status_data["status"] == "active"
+        assert status_data["status"] == "no_data"
         assert status_data["occupancy"] == 0
 
         # 2. Post global occupancy

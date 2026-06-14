@@ -9,6 +9,16 @@ from app.db.session import engine, SessionLocal
 from app.models.base import Base
 from app.db.seeder import seed_database
 
+@pytest.fixture(autouse=True)
+def reset_esp32_state():
+    from app.core.esp32_state import esp32
+    from app.core.sim_clock import sim_clock
+    esp32.is_active = False
+    esp32.occupancy = 0
+    esp32.per_station_occupancy.clear()
+    esp32.target_station_id = None
+    sim_clock.reset()
+
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_database():
     # Ensure any stale test database is removed

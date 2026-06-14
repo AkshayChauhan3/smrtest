@@ -292,7 +292,6 @@ class TrainService:
         # Inject ESP32_DEMO if active
         from app.core.esp32_state import esp32 as _esp32
         if _esp32.is_active and not any(t.train_id == "ESP32_DEMO" for t in enriched_trains):
-            from app.schemas.rail import TrainAtStationOut, TrainCoachOut
             esp_train = TrainAtStationOut(
                 train_id="ESP32_DEMO",
                 train_name="ESP32 Sensor Unit",
@@ -333,6 +332,8 @@ class TrainService:
     async def get_station_current_state(
         self, station_id: str, sim_time: str | None = None
     ) -> Optional[StationCurrentStateResponse]:
+        from app.core.station_mapping import translate_station_id
+        station_id = translate_station_id(station_id)
         station = await self.station_repo.get_by_id(station_id)
         if not station:
             return None
@@ -479,6 +480,8 @@ class TrainService:
     async def get_station_feature_predictions(
         self, station_id: str, sim_time: str | None = None
     ) -> Optional[List[StationFeatureStateResponse]]:
+        from app.core.station_mapping import translate_station_id
+        station_id = translate_station_id(station_id)
         station = await self.station_repo.get_by_id(station_id)
         if not station:
             return None
