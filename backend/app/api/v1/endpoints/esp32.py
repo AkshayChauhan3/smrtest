@@ -52,11 +52,19 @@ async def ingest_esp32(payload: Esp32SensorPayload):
     Updates the global esp32_state store; the simulation runner will
     propagate the data into all station_*_current tables on its next tick.
     """
-    esp32.occupancy = payload.occupancy
     esp32.coach_capacity = payload.coach_capacity
-    esp32.target_station_id = payload.station_id
     esp32.last_updated = datetime.now()
     esp32.is_active = True
+
+    if payload.station_id:
+        esp32.per_station_occupancy[payload.station_id] = payload.occupancy
+        esp32.target_station_id = payload.station_id
+        # Also sync global occupancy to the latest targeted one for backward compatibility
+        esp32.occupancy = payload.occupancy
+    else:
+        esp32.per_station_occupancy.clear()
+        esp32.occupancy = payload.occupancy
+        esp32.target_station_id = None
 
     return Esp32SensorResponse(
         status="accepted",
@@ -77,3 +85,10 @@ async def get_esp32_status():
         station_id=esp32.target_station_id,
         last_updated=esp32.last_updated,
     )
+
+
+@router.get("/esp32/per-station", response_model=dict[str, int])
+async def get_esp32_per_station():
+    """Returns the map of per-station occupancies."""
+    return esp32.per_station_occupancy
+

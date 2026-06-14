@@ -108,24 +108,35 @@ async def test_dashboard_snapshot_with_estimations():
         await db.commit()
 
     # 2. Call /api/v1/dashboard/snapshot for "Nirant Cross Road" (station BL06)
-    with TestClient(app) as client:
-        response = client.get("/api/v1/dashboard/snapshot", params={"station_name": "Nirant Cross Road", "sim_time": "08:17"})
-        assert response.status_code == 200
-        data = response.json()
+    from unittest.mock import patch
+    import datetime as dt_module
+    
+    class MockDatetime(dt_module.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return dt_module.datetime(2026, 6, 12, 8, 17, 0)
+            
+    with patch("app.services.data_service.datetime", MockDatetime), \
+         patch("data_api.metro_engine_shared.datetime", MockDatetime):
         
-        # Check if the incoming train BL-UP-05 has the summed predictions from the DB:
-        # Boarding: 10 + 10 + 10 = 30
-        # Deboarding: 5 + 5 + 5 = 15
-        # Next: 105 + 105 + 105 = 315
-        train_data = None
-        print(f"DEBUG INCOMING: {data['incoming_trains']}")
-        for t in data["incoming_trains"]:
-            if t["train_id"] == "BL-UP-05":
-                train_data = t
-                break
-                
-        assert train_data is not None
-        assert train_data["predicted_boarding_count"] == 30
-        assert train_data["predicted_deboarding_count"] == 15
-        assert train_data["predicted_occupancy_at_station"] == 315
+        with TestClient(app) as client:
+            response = client.get("/api/v1/dashboard/snapshot", params={"station_name": "Nirant Cross Road", "sim_time": "08:17"})
+            assert response.status_code == 200
+            data = response.json()
+
+            # Check if the incoming train BL-UP-05 has the summed predictions from the DB:
+            # Boarding: 10 + 10 + 10 = 30
+            # Deboarding: 5 + 5 + 5 = 15
+            # Next: 105 + 105 + 105 = 315
+            train_data = None
+            print(f"DEBUG INCOMING: {data['incoming_trains']}")
+            for t in data["incoming_trains"]:
+                if t["train_id"] == "BL-UP-05":
+                    train_data = t
+                    break
+
+            assert train_data is not None
+            assert train_data["predicted_boarding_count"] == 30
+            assert train_data["predicted_deboarding_count"] == 15
+            assert train_data["predicted_occupancy_at_station"] == 315
 

@@ -101,4 +101,25 @@ async def seed_database(db: AsyncSession) -> None:
                     capacity=coach["capacity"],
                 ))
 
+    # ── ESP32 Dummy Train ────────────────────────
+    esp32_train = Train(
+        train_id="ESP32_DEMO",
+        train_name="ESP32 Sensor Train",
+        line_id="BL",
+        direction="UP",
+        current_station_id="BL01",
+        capacity=1200,
+        status="ACTIVE",
+    )
+    db.add(esp32_train)
+
+    for coach in COACHES:
+        db.add(TrainCoach(
+            train_id="ESP32_DEMO",
+            coach_number=coach["id"],
+            coach_type=coach["type"],
+            capacity=coach["capacity"],
+        ))
+
     await db.commit()
+
