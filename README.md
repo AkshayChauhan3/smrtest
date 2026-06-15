@@ -288,10 +288,12 @@ SmartRail-OS/
 │   └── pubspec.yaml
 │
 ├── esp32-test/                     # ESP32 firmware (PlatformIO)
+│   ├── hardware/                   # KiCad PCB project & schematic
 │   ├── src/
 │   │   └── main.cpp                # HC-SR04 dual-sensor passenger counter
 │   ├── serial_bridge.py            # Python bridge: ESP32 serial → backend API
-│   └── platformio.ini
+│   ├── platformio.ini
+│   └── README.md                   # ESP32 passenger counter hardware & design docs
 │
 ├── metro_engine_shared.py          # Physics engine (timetable, occupancy, coaches)
 ├── passenger_estimation/           # ML model training notebooks
