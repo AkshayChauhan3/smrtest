@@ -33,7 +33,10 @@ class _TrainResultsScreenState extends ConsumerState<TrainResultsScreen> {
       toStationId: widget.toStationId,
     )));
 
-    final line = MetroLine.values.firstWhere((e) => e.name == widget.lineId);
+    final line = MetroLine.values.firstWhere(
+      (e) => e.name == widget.lineId,
+      orElse: () => MetroLine.blue,
+    );
     final stations = getStationsForLine(line);
     final fromStation = stations.firstWhere(
       (s) => s.id == widget.fromStationId,
@@ -47,7 +50,6 @@ class _TrainResultsScreenState extends ConsumerState<TrainResultsScreen> {
     final fromIndex = stations.indexWhere((s) => s.id == fromStation.id);
     final toIndex = stations.indexWhere((s) => s.id == toStation.id);
     final stopCount = (fromIndex != -1 && toIndex != -1) ? (toIndex - fromIndex).abs() : 5;
-    final estimatedFare = 5 + (stopCount * 2).clamp(5, 25);
     final estimatedMins = (stopCount * 2.2).round().clamp(4, 45);
 
     final lineColor = line == MetroLine.blue ? AppTheme.blueLine : AppTheme.redLine;
@@ -131,7 +133,6 @@ class _TrainResultsScreenState extends ConsumerState<TrainResultsScreen> {
                 fromStation: fromStation.name,
                 toStation: toStation.name,
                 stopCount: stopCount,
-                fare: estimatedFare,
                 durationMins: estimatedMins,
                 lineColor: lineColor,
                 lineName: line == MetroLine.blue ? 'Blue Line (Line 1)' : 'Red Line (Line 2)',
@@ -267,7 +268,6 @@ class _TrainResultsScreenState extends ConsumerState<TrainResultsScreen> {
     required String fromStation,
     required String toStation,
     required int stopCount,
-    required int fare,
     required int durationMins,
     required Color lineColor,
     required String lineName,
@@ -303,15 +303,23 @@ class _TrainResultsScreenState extends ConsumerState<TrainResultsScreen> {
                   style: TextStyle(color: lineColor, fontWeight: FontWeight.bold, fontSize: 10),
                 ),
               ),
-              Row(
-                children: [
-                  const Icon(Icons.payments_outlined, size: 14, color: AppTheme.signalGreen),
-                  const SizedBox(width: 4),
-                  Text(
-                    '₹$fare FARE',
-                    style: const TextStyle(color: AppTheme.signalGreen, fontWeight: FontWeight.w900, fontSize: 12),
-                  ),
-                ],
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceDark,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0x1AFFFFFF)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.directions_subway_rounded, size: 12, color: lineColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      'DIRECT SERVICE',
+                      style: TextStyle(color: lineColor, fontWeight: FontWeight.bold, fontSize: 9, letterSpacing: 0.5),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

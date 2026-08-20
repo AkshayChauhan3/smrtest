@@ -104,6 +104,62 @@ class TrainModel {
   int get totalPassengers => coaches.fold(0, (s, c) => s + c.currentPassengers);
   double get maxCoachFill => coaches.isEmpty ? 0 : coaches.map((c) => c.percentFull).reduce(max);
 
+  TrainModel copyWith({
+    String? trainId,
+    String? displayName,
+    MetroLine? line,
+    String? direction,
+    int? etaMinutes,
+    int? departureMinutes,
+    List<CoachModel>? coaches,
+    TrainStatus? status,
+    int? currentPositionIndex,
+    String? fromStationId,
+    String? toStationId,
+    List<AnnouncementModel>? announcements,
+    String? arrivalTime,
+    String? departureTime,
+    bool? isAtPlatform,
+    int? journeyDurationMinutes,
+    String? destinationName,
+    int? predictedStationCrowd,
+    String? liveCurrentStationId,
+    String? liveCurrentStationName,
+    String? liveNextStationId,
+    String? liveNextStationName,
+    String? liveStatus,
+    double? journeyProgressPct,
+    List<JourneyStopModel>? stopsTimeline,
+  }) {
+    return TrainModel(
+      trainId: trainId ?? this.trainId,
+      displayName: displayName ?? this.displayName,
+      line: line ?? this.line,
+      direction: direction ?? this.direction,
+      etaMinutes: etaMinutes ?? this.etaMinutes,
+      departureMinutes: departureMinutes ?? this.departureMinutes,
+      coaches: coaches ?? this.coaches,
+      status: status ?? this.status,
+      currentPositionIndex: currentPositionIndex ?? this.currentPositionIndex,
+      fromStationId: fromStationId ?? this.fromStationId,
+      toStationId: toStationId ?? this.toStationId,
+      announcements: announcements ?? this.announcements,
+      arrivalTime: arrivalTime ?? this.arrivalTime,
+      departureTime: departureTime ?? this.departureTime,
+      isAtPlatform: isAtPlatform ?? this.isAtPlatform,
+      journeyDurationMinutes: journeyDurationMinutes ?? this.journeyDurationMinutes,
+      destinationName: destinationName ?? this.destinationName,
+      predictedStationCrowd: predictedStationCrowd ?? this.predictedStationCrowd,
+      liveCurrentStationId: liveCurrentStationId ?? this.liveCurrentStationId,
+      liveCurrentStationName: liveCurrentStationName ?? this.liveCurrentStationName,
+      liveNextStationId: liveNextStationId ?? this.liveNextStationId,
+      liveNextStationName: liveNextStationName ?? this.liveNextStationName,
+      liveStatus: liveStatus ?? this.liveStatus,
+      journeyProgressPct: journeyProgressPct ?? this.journeyProgressPct,
+      stopsTimeline: stopsTimeline ?? this.stopsTimeline,
+    );
+  }
+
   factory TrainModel.fromJson(Map<String, dynamic> json) {
     return TrainModel(
       trainId: json['trainId'] ?? json['train_id'] ?? '',

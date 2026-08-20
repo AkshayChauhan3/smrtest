@@ -5,8 +5,15 @@ import '../../features/trains/models/coach_model.dart';
 
 class CoachBar extends StatelessWidget {
   final CoachModel coach;
+  final bool isPredicted;
+  final int? predictedPassengers;
 
-  const CoachBar({super.key, required this.coach});
+  const CoachBar({
+    super.key,
+    required this.coach,
+    this.isPredicted = false,
+    this.predictedPassengers,
+  });
 
   String _getCrowdLabel(double percent) {
     if (percent < 0.35) return 'Seats Available';
@@ -17,11 +24,14 @@ class CoachBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = AppTheme.coachColor(coach.percentFull);
+    final effectivePassengers = (predictedPassengers ?? (isPredicted ? coach.predictedPassengersOnArrival : null) ?? coach.currentPassengers).clamp(0, coach.capacity);
+    final effectivePercent = coach.capacity > 0 ? (effectivePassengers / coach.capacity).clamp(0.0, 1.0) : 0.0;
+
+    final color = AppTheme.coachColor(effectivePercent);
     final isLadies = coach.type.contains('Ladies');
     const segmentsCount = 12;
-    final filledSegments = (coach.percentFull * segmentsCount).round();
-    final crowdLabel = _getCrowdLabel(coach.percentFull);
+    final filledSegments = (effectivePercent * segmentsCount).round();
+    final crowdLabel = _getCrowdLabel(effectivePercent);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10.0),
@@ -39,12 +49,16 @@ class CoachBar extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: isLadies
                           ? AppTheme.ladiesTint.withValues(alpha: 0.15)
-                          : Colors.white.withValues(alpha: 0.08),
+                          : isPredicted
+                              ? AppTheme.signalAmber.withValues(alpha: 0.12)
+                              : Colors.white.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
                         color: isLadies
                             ? AppTheme.ladiesTint.withValues(alpha: 0.4)
-                            : Colors.white.withValues(alpha: 0.15),
+                            : isPredicted
+                                ? AppTheme.signalAmber.withValues(alpha: 0.35)
+                                : Colors.white.withValues(alpha: 0.15),
                       ),
                     ),
                     child: Center(
@@ -53,7 +67,11 @@ class CoachBar extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.w900,
                           fontSize: 9,
-                          color: isLadies ? AppTheme.ladiesTint : AppTheme.textPrimary,
+                          color: isLadies
+                              ? AppTheme.ladiesTint
+                              : isPredicted
+                                  ? AppTheme.signalAmber
+                                  : AppTheme.textPrimary,
                         ),
                       ),
                     ),
@@ -93,7 +111,7 @@ class CoachBar extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    crowdLabel,
+                    isPredicted ? '~$crowdLabel' : crowdLabel,
                     style: TextStyle(
                       color: color,
                       fontSize: 10,
@@ -102,7 +120,7 @@ class CoachBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '${(coach.percentFull * 100).toInt()}%',
+                    '${isPredicted ? "~" : ""}${(effectivePercent * 100).toInt()}%',
                     style: AppTheme.tabularNumberStyle.copyWith(
                       color: color,
                       fontWeight: FontWeight.bold,
@@ -120,7 +138,11 @@ class CoachBar extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(5),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              border: Border.all(
+                color: isPredicted
+                    ? AppTheme.signalAmber.withValues(alpha: 0.25)
+                    : Colors.white.withValues(alpha: 0.08),
+              ),
               boxShadow: isLadies
                   ? [
                       BoxShadow(
@@ -162,7 +184,9 @@ class CoachBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${coach.currentPassengers} / ${coach.capacity} PASSENGERS',
+                isPredicted
+                    ? '~$effectivePassengers / ${coach.capacity} EST. ON ARRIVAL'
+                    : '$effectivePassengers / ${coach.capacity} PASSENGERS',
                 style: const TextStyle(
                   color: AppTheme.textMuted,
                   fontSize: 9,
@@ -170,7 +194,7 @@ class CoachBar extends StatelessWidget {
                 ),
               ),
               Text(
-                '${coach.capacity - coach.currentPassengers} SEATS LEFT',
+                '${(coach.capacity - effectivePassengers).clamp(0, coach.capacity)} SEATS LEFT',
                 style: const TextStyle(
                   color: AppTheme.textMuted,
                   fontSize: 9,

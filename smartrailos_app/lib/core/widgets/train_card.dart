@@ -161,7 +161,32 @@ class TrainCard extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 6),
                                 const Text(
-                                  'AT PLATFORM',
+                                  'ON STATION',
+                                  style: TextStyle(
+                                    color: AppTheme.signalGreen,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else if (train.etaMinutes <= 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: AppTheme.signalGreen.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.signalGreen.withValues(alpha: 0.3)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.near_me_rounded, size: 12, color: AppTheme.signalGreen),
+                                SizedBox(width: 4),
+                                Text(
+                                  'ARRIVING NOW',
                                   style: TextStyle(
                                     color: AppTheme.signalGreen,
                                     fontSize: 10,
@@ -234,15 +259,17 @@ class TrainCard extends StatelessWidget {
                                     width: 5,
                                     height: 5,
                                     decoration: BoxDecoration(
-                                      color: crowdColor,
+                                      color: train.isAtPlatform ? AppTheme.signalGreen : crowdColor,
                                       shape: BoxShape.circle,
                                     ),
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    train.isAtPlatform ? 'LIVE' : 'ETA',
+                                    train.isAtPlatform
+                                        ? 'LIVE'
+                                        : (train.etaMinutes <= 0 ? 'STATUS' : 'ETA'),
                                     style: TextStyle(
-                                      color: crowdColor,
+                                      color: train.isAtPlatform ? AppTheme.signalGreen : crowdColor,
                                       fontSize: 8,
                                       fontWeight: FontWeight.bold,
                                       letterSpacing: 0.5,
@@ -252,11 +279,15 @@ class TrainCard extends StatelessWidget {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                train.isAtPlatform ? 'NOW' : '${train.etaMinutes}m',
+                                train.isAtPlatform
+                                    ? 'ON STATION'
+                                    : (train.etaMinutes <= 0 ? 'ARRIVING' : '${train.etaMinutes}m'),
                                 style: AppTheme.tabularNumberStyle.copyWith(
-                                  fontSize: 15,
+                                  fontSize: train.isAtPlatform || train.etaMinutes <= 0 ? 12 : 15,
                                   fontWeight: FontWeight.w900,
-                                  color: train.isAtPlatform ? AppTheme.signalGreen : AppTheme.textPrimary,
+                                  color: train.isAtPlatform || train.etaMinutes <= 0
+                                      ? AppTheme.signalGreen
+                                      : AppTheme.textPrimary,
                                 ),
                               ),
                             ],

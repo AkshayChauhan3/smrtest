@@ -54,7 +54,36 @@ void main() {
     expect(find.text('ARRIVAL'), findsOneWidget);
   });
 
-  testWidgets('TrainDetailScreen renders complete telemetry sections', (WidgetTester tester) async {
+  testWidgets('TrainCard renders ON STATION when train is at platform', (WidgetTester tester) async {
+    final platformTrain = sampleTrain.copyWith(isAtPlatform: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TrainCard(train: platformTrain),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('ON STATION'), findsWidgets);
+  });
+
+  testWidgets('TrainCard renders ARRIVING NOW when ETA is 0 and train is in transit', (WidgetTester tester) async {
+    final arrivingTrain = sampleTrain.copyWith(etaMinutes: 0, isAtPlatform: false);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TrainCard(train: arrivingTrain),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('ARRIVING NOW'), findsOneWidget);
+    expect(find.text('ARRIVING'), findsOneWidget);
+  });
+
+  testWidgets('TrainDetailScreen renders complete telemetry sections with dual coach cards for approaching train', (WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
@@ -79,7 +108,33 @@ void main() {
     expect(find.text('STATION TIMELINE & PLATFORM CROWD'), findsOneWidget);
     expect(find.text('PASSENGER FLOW TELEMETRY'), findsOneWidget);
 
+    // Dual cards inside coach section
+    expect(find.text('CURRENT PASSENGERS (RIGHT NOW)'), findsOneWidget);
+    expect(find.textContaining('EST. ON ARRIVAL AT'), findsOneWidget);
+
     // Total passenger count
     expect(find.text('350'), findsOneWidget); // 120 + 90 + 140
+  });
+
+  testWidgets('TrainDetailScreen renders single coach card when train is at platform', (WidgetTester tester) async {
+    final atPlatformTrain = sampleTrain.copyWith(isAtPlatform: true);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: TrainDetailScreen(
+            trainId: 'BL-T01',
+            initialTrain: atPlatformTrain,
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    // Schedule card shows ON STATION
+    expect(find.text('ON STATION'), findsWidgets);
+
+    // Card 1 is present, Card 2 (arrival estimate) is hidden
+    expect(find.text('CURRENT PASSENGERS (RIGHT NOW)'), findsOneWidget);
+    expect(find.textContaining('EST. ON ARRIVAL AT'), findsNothing);
   });
 }

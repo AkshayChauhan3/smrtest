@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -8,6 +7,7 @@ import '../../../core/widgets/coach_bar.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../models/train_model.dart';
 import '../models/coach_model.dart';
+import '../models/announcement_model.dart';
 import '../providers/train_search_provider.dart';
 import '../widgets/train_position_diagram.dart';
 
@@ -216,14 +216,14 @@ class TrainDetailScreen extends ConsumerWidget {
               children: [
                 _buildFlowTile(
                   'EST. BOARDING',
-                  '${20 + (train.predictedStationCrowd != null ? (train.predictedStationCrowd! * 0.4).round() : Random().nextInt(40))}',
+                  '${_calculateEstBoarding(train)}',
                   Icons.login_rounded,
                   AppTheme.signalGreen,
                 ),
                 const SizedBox(width: 12),
                 _buildFlowTile(
                   'EST. ALIGHTING',
-                  '${15 + (train.totalPassengers > 0 ? (train.totalPassengers * 0.15).round() : Random().nextInt(30))}',
+                  '${_calculateEstAlighting(train)}',
                   Icons.logout_rounded,
                   AppTheme.signalAmber,
                 ),
@@ -293,7 +293,7 @@ class TrainDetailScreen extends ConsumerWidget {
                         border: Border.all(color: AppTheme.signalGreen.withValues(alpha: 0.4)),
                       ),
                       child: const Text(
-                        'AT PLATFORM',
+                        'ON STATION',
                         style: TextStyle(
                           color: AppTheme.signalGreen,
                           fontSize: 9,
@@ -343,14 +343,16 @@ class TrainDetailScreen extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: AppTheme.surfaceDark,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: lineColor.withValues(alpha: 0.35)),
+                  border: Border.all(color: (train.isAtPlatform || train.etaMinutes <= 0)
+                      ? AppTheme.signalGreen.withValues(alpha: 0.35)
+                      : lineColor.withValues(alpha: 0.35)),
                 ),
                 child: Column(
                   children: [
-                    const Text(
-                      'ESTIMATED ETA',
+                    Text(
+                      train.isAtPlatform ? 'LIVE STATUS' : 'ESTIMATED ETA',
                       style: TextStyle(
-                        color: AppTheme.textMuted,
+                        color: (train.isAtPlatform || train.etaMinutes <= 0) ? AppTheme.signalGreen : AppTheme.textMuted,
                         fontSize: 8,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.5,
@@ -358,11 +360,13 @@ class TrainDetailScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      train.isAtPlatform ? 'NOW' : '${train.etaMinutes} MIN',
+                      train.isAtPlatform
+                          ? 'ON STATION'
+                          : (train.etaMinutes <= 0 ? 'ARRIVING' : '${train.etaMinutes} MIN'),
                       style: AppTheme.tabularNumberStyle.copyWith(
-                        fontSize: 16,
+                        fontSize: (train.isAtPlatform || train.etaMinutes <= 0) ? 13 : 16,
                         fontWeight: FontWeight.w900,
-                        color: train.isAtPlatform ? AppTheme.signalGreen : lineColor,
+                        color: (train.isAtPlatform || train.etaMinutes <= 0) ? AppTheme.signalGreen : lineColor,
                       ),
                     ),
                   ],
@@ -479,90 +483,285 @@ class TrainDetailScreen extends ConsumerWidget {
     final totalPax = coaches.fold(0, (s, c) => s + c.currentPassengers);
     final totalPct = totalCapacity > 0 ? (totalPax / totalCapacity * 100).round() : 0;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceElevated,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x1AFFFFFF)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Summary Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    // Resolve station name for arrival estimation
+    final stationList = getStationsForLine(train.line);
+    final originStation = stationList.firstWhere(
+      (s) => s.id == train.fromStationId,
+      orElse: () => Station(id: train.fromStationId, name: train.fromStationId.isNotEmpty ? train.fromStationId : 'Selected Station', lineId: train.line, sequenceIndex: 0),
+    );
+    final fromStationName = originStation.name;
+
+    // Predicted arrival calculations
+    JourneyStopModel? originStop;
+    if (train.stopsTimeline.isNotEmpty) {
+      try {
+        originStop = train.stopsTimeline.firstWhere(
+          (s) => s.isUserOrigin || s.stationId == train.fromStationId,
+        );
+      } catch (_) {
+        originStop = train.stopsTimeline.first;
+      }
+    }
+
+    final predictedTotalPax = (originStop != null && originStop.estimatedTrainOccupancy > 0)
+        ? originStop.estimatedTrainOccupancy
+        : (train.predictedStationCrowd != null && train.predictedStationCrowd! > 0)
+            ? train.predictedStationCrowd!
+            : totalPax;
+    final predictedTotalPct = totalCapacity > 0 ? (predictedTotalPax / totalCapacity * 100).round() : 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── CARD 1: Current Live Passengers (Right Now) ───────────────
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceElevated,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0x1AFFFFFF)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              // Summary Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'TOTAL PASSENGERS IN TRANSIT',
-                    style: TextStyle(
-                      color: AppTheme.textMuted,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: lineColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text(
+                            'CURRENT PASSENGERS (RIGHT NOW)',
+                            style: TextStyle(
+                              color: AppTheme.textMuted,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            '$totalPax',
+                            style: AppTheme.tabularNumberStyle.copyWith(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            ' / $totalCapacity PAX',
+                            style: const TextStyle(
+                              color: AppTheme.textMuted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: (totalPct > 80
+                              ? AppTheme.signalRed
+                              : totalPct > 50
+                                  ? AppTheme.signalAmber
+                                  : AppTheme.signalGreen)
+                          .withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '$totalPct% CAPACITY',
+                      style: TextStyle(
+                        color: totalPct > 80
+                            ? AppTheme.signalRed
+                            : totalPct > 50
+                                ? AppTheme.signalAmber
+                                : AppTheme.signalGreen,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        '$totalPax',
-                        style: AppTheme.tabularNumberStyle.copyWith(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary,
+                ],
+              ),
+
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: Color(0x0DFFFFFF)),
+              const SizedBox(height: 16),
+
+              // Coach Bars
+              ...coaches.map((c) => CoachBar(coach: c)),
+            ],
+          ),
+        ),
+
+        // ── CARD 2: Estimated On Arrival At Selected Station ──────────
+        if (!train.isAtPlatform) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceElevated,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.signalAmber.withValues(alpha: 0.35)),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.signalAmber.withValues(alpha: 0.05),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Summary Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.auto_graph_rounded, size: 13, color: AppTheme.signalAmber),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'EST. ON ARRIVAL AT ${fromStationName.toUpperCase()}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppTheme.signalAmber,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text(
+                                '~$predictedTotalPax',
+                                style: AppTheme.tabularNumberStyle.copyWith(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                ' / $totalCapacity PAX',
+                                style: const TextStyle(
+                                  color: AppTheme.textMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: (predictedTotalPct > 80
+                                ? AppTheme.signalRed
+                                : predictedTotalPct > 50
+                                    ? AppTheme.signalAmber
+                                    : AppTheme.signalGreen)
+                            .withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: (predictedTotalPct > 80
+                                  ? AppTheme.signalRed
+                                  : predictedTotalPct > 50
+                                      ? AppTheme.signalAmber
+                                      : AppTheme.signalGreen)
+                              .withValues(alpha: 0.35),
                         ),
                       ),
-                      Text(
-                        ' / $totalCapacity PAX',
-                        style: const TextStyle(
-                          color: AppTheme.textMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                      child: Text(
+                        '~$predictedTotalPct% PREDICTED',
+                        style: TextStyle(
+                          color: predictedTotalPct > 80
+                              ? AppTheme.signalRed
+                              : predictedTotalPct > 50
+                                  ? AppTheme.signalAmber
+                                  : AppTheme.signalGreen,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+                const Divider(height: 1, color: Color(0x0DFFFFFF)),
+                const SizedBox(height: 16),
+
+                // Predicted Coach Bars
+                ...coaches.map((c) {
+                  final coachShare = totalPax > 0
+                      ? c.currentPassengers / totalPax
+                      : 1.0 / coaches.length;
+                  final predCoachPax = (predictedTotalPax * coachShare).round();
+                  return CoachBar(
+                    coach: c,
+                    isPredicted: true,
+                    predictedPassengers: predCoachPax,
+                  );
+                }),
+
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceDark,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline_rounded, size: 12, color: AppTheme.textMuted),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Estimated based on AI crowd forecasts and intermediate station boardings before $fromStationName.',
+                          style: const TextStyle(color: AppTheme.textMuted, fontSize: 9),
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: (totalPct > 80
-                          ? AppTheme.signalRed
-                          : totalPct > 50
-                              ? AppTheme.signalAmber
-                              : AppTheme.signalGreen)
-                      .withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
-                  '$totalPct% CAPACITY',
-                  style: TextStyle(
-                    color: totalPct > 80
-                        ? AppTheme.signalRed
-                        : totalPct > 50
-                            ? AppTheme.signalAmber
-                            : AppTheme.signalGreen,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-
-          const SizedBox(height: 16),
-          const Divider(height: 1, color: Color(0x0DFFFFFF)),
-          const SizedBox(height: 16),
-
-          // Coach Bars
-          ...coaches.map((c) => CoachBar(coach: c)),
         ],
-      ),
+      ],
     );
   }
 
@@ -585,7 +784,7 @@ class TrainDetailScreen extends ConsumerWidget {
                 departureTime: '--:--',
                 isUserOrigin: st.id == train.fromStationId,
                 isUserDestination: st.id == train.toStationId,
-                predictedStationCrowd: 120,
+                predictedStationCrowd: train.predictedStationCrowd ?? 120,
                 estimatedTrainOccupancy: train.totalPassengers,
               ));
             }
@@ -788,7 +987,34 @@ class TrainDetailScreen extends ConsumerWidget {
     );
   }
 
+  int _calculateEstBoarding(TrainModel train) {
+    if (train.predictedStationCrowd != null && train.predictedStationCrowd! > 0) {
+      return (train.predictedStationCrowd! * 0.4).round();
+    }
+    final hash = train.trainId.hashCode.abs();
+    return 20 + (hash % 25);
+  }
+
+  int _calculateEstAlighting(TrainModel train) {
+    if (train.totalPassengers > 0) {
+      return (train.totalPassengers * 0.15).round();
+    }
+    final hash = train.trainId.hashCode.abs();
+    return 15 + ((hash ~/ 3) % 20);
+  }
+
   Widget _buildAnnouncementBanner(dynamic announcement) {
+    final String message;
+    if (announcement is AnnouncementModel) {
+      message = announcement.message;
+    } else if (announcement is Map) {
+      message = announcement['message']?.toString() ?? announcement['text']?.toString() ?? '';
+    } else {
+      message = announcement?.toString() ?? '';
+    }
+
+    if (message.trim().isEmpty) return const SizedBox.shrink();
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(16),
@@ -805,7 +1031,7 @@ class TrainDetailScreen extends ConsumerWidget {
           const SizedBox(width: 16),
           Expanded(
             child: Text(
-              announcement.message.toUpperCase(),
+              message.toUpperCase(),
               style: const TextStyle(
                 color: AppTheme.textPrimary,
                 fontWeight: FontWeight.bold,
