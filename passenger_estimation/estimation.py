@@ -38,7 +38,23 @@ now = datetime.now()
 
 
 
-df = pd.read_csv("metro.csv", low_memory=False)
+import os
+
+csv_path = "metro.csv"
+if not os.path.exists(csv_path):
+    if os.path.exists("passenger_estimation/metro.csv"):
+        csv_path = "passenger_estimation/metro.csv"
+    else:
+        print("⚠️ metro.csv not found! Automatically generating dataset via generate_data.py...")
+        try:
+            from generate_data import generate_metro_dataset
+            generate_metro_dataset()
+        except ImportError:
+            from passenger_estimation.generate_data import generate_metro_dataset
+            generate_metro_dataset()
+        csv_path = "metro.csv" if os.path.exists("metro.csv") else "passenger_estimation/metro.csv"
+
+df = pd.read_csv(csv_path, low_memory=False)
 
 df = df.sample(n=100000, random_state=42)
 
