@@ -91,11 +91,41 @@ class TrainResultsScreen extends ConsumerWidget {
                 ...platformTrains.asMap().entries.map((e) =>
                   TrainCard(train: e.value, index: e.key),
                 ),
+              ] else ...[
+                // Platform empty indicator
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceElevated,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0x1AFFFFFF)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: AppTheme.textMuted,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'PLATFORM CLEAR AT ${fromStation.name.toUpperCase()}',
+                        style: const TextStyle(
+                          color: AppTheme.textMuted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
+                  ),
+                ).animate().fadeIn(duration: 300.ms),
               ],
 
-              // ── Divider between sections ───────────────────────────────
-              if (platformTrains.isNotEmpty && upcomingTrains.isNotEmpty)
-                _buildSectionDivider(context),
+              const SizedBox(height: 16),
 
               // ── Section 2: Upcoming Trains ─────────────────────────────
               if (upcomingTrains.isNotEmpty) ...[
@@ -179,46 +209,6 @@ class TrainResultsScreen extends ConsumerWidget {
         ),
       ],
     );
-  }
-
-  Widget _buildSectionDivider(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 1,
-              color: const Color(0x1AFFFFFF),
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceElevated,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0x1AFFFFFF)),
-            ),
-            child: const Text(
-              'NEXT TRAINS',
-              style: TextStyle(
-                color: AppTheme.textMuted,
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.8,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Container(
-              height: 1,
-              color: const Color(0x1AFFFFFF),
-            ),
-          ),
-        ],
-      ),
-    ).animate().fadeIn(delay: 300.ms);
   }
 }
 

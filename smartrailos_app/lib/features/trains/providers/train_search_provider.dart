@@ -3,7 +3,6 @@ import '../../../core/constants/metro_data.dart';
 import '../../../core/services/api_service.dart';
 import '../models/train_model.dart';
 import '../models/announcement_model.dart';
-import '../../auth/providers/auth_provider.dart';
 
 final selectedLineProvider = StateProvider<MetroLine>((ref) => MetroLine.blue);
 final fromStationProvider = StateProvider<Station?>((ref) => null);

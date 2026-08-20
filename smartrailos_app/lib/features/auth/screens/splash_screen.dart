@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/theme.dart';
-import '../providers/auth_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -21,15 +20,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   void _navigateToNext() async {
-    await Future.delayed(const Duration(milliseconds: 2500)); // Total animation time + buffer
+    await Future.delayed(const Duration(milliseconds: 2000));
     if (!mounted) return;
-    
-    final user = ref.read(authProvider).value;
-    if (user != null) {
-      context.go('/home');
-    } else {
-      context.go('/login');
-    }
+    context.go('/home');
   }
 
   @override

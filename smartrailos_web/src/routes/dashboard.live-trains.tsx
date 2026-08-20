@@ -59,8 +59,22 @@ function LiveTrainsPage() {
                     <td className="px-4 py-3">
                       <span className={cn("inline-flex rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest", RISK_TW[risk])}>{risk}</span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-400">
-                      {t.status === "At Station" ? "At Station" : t.status === "Departing" ? "Departing" : `ETA ${formatEta(t.etaSeconds)}`}
+                    <td className="px-4 py-3 text-xs">
+                      {t.status === "At Station" ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-400 ring-1 ring-inset ring-emerald-500/20">
+                          <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          At Station
+                        </span>
+                      ) : t.status === "Approaching" ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-cyan-500/10 px-2 py-0.5 text-[11px] font-semibold text-cyan-400 ring-1 ring-inset ring-cyan-500/20">
+                          <span className="size-1.5 rounded-full bg-cyan-400 animate-ping" />
+                          Approaching
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-md bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-300 ring-1 ring-inset ring-sky-500/20">
+                          En Route ({formatEta(t.etaSeconds)})
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <button onClick={() => setOpenId(t.id)} className="rounded border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-300 hover:bg-white/10">

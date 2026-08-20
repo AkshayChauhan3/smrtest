@@ -58,10 +58,15 @@ function StationDetail() {
     : [];
 
   const atStation = stationTrains.filter(
-    (t) => t.currentStationId.toLowerCase() === stationId.toLowerCase(),
+    (t) =>
+      t.currentStationId.toLowerCase() === stationId.toLowerCase() &&
+      t.status === "At Station",
   );
   const approaching = stationTrains.filter(
-    (t) => t.nextStationId.toLowerCase() === stationId.toLowerCase(),
+    (t) =>
+      t.nextStationId.toLowerCase() === stationId.toLowerCase() ||
+      (t.currentStationId.toLowerCase() === stationId.toLowerCase() &&
+        t.status !== "At Station"),
   );
 
   const allCoaches = stationTrains.flatMap((t) => t.coaches);

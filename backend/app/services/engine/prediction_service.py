@@ -31,6 +31,7 @@ class PredictionService:
                 predicted_5_min=int(current_crowd * (1 + 0.05 * multiplier)),
                 predicted_15_min=int(current_crowd * (1 + 0.15 * multiplier)),
                 predicted_30_min=int(current_crowd * (1 + 0.25 * multiplier)),
+                predicted_60_min=int(current_crowd * (1 + 0.40 * multiplier)),
             )
 
     async def get_train_occupancy_prediction(self, train_id: str, current_passengers: int, forecast_minutes: int, now: datetime = None) -> TrainOccupancyPredictionOut:
@@ -51,8 +52,13 @@ class PredictionService:
             hour = now.hour
             multiplier = 1.2 if (8 <= hour <= 10) or (17 <= hour <= 19) else 0.9
             
-            # Predict realistic train flows based on current actual passengers
-            predicted_total = int(current_passengers * multiplier)
+            # Predict realistic train flows.
+            # Use a capacity-based baseline floor so empty/new trains still get a
+            # non-zero prediction (the ML service is offline so this fallback always fires).
+            _COACH_CAP = 400
+            _TOTAL_CAP = _COACH_CAP * 3  # 1200
+            base_estimate = max(int(_TOTAL_CAP * 0.20), current_passengers)  # floor: 20% capacity
+            predicted_total = int(base_estimate * multiplier)
             
             c2_passengers = int(predicted_total * 0.25)
             c1_passengers = int((predicted_total - c2_passengers) / 2)

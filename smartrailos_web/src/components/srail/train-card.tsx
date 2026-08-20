@@ -8,15 +8,8 @@ import { ArrowRight, ChevronRight } from "lucide-react";
 import { CoachDrillDownSheet } from "./coach-drilldown-sheet";
 
 export function TrainCard({ train, className }: { train: Train; className?: string }) {
-  const tick = useLiveTick(3000);
-  const [coaches, setCoaches] = useState(train.coaches);
-  const [eta, setEta] = useState(train.etaSeconds);
   const [open, setOpen] = useState(false);
-  useEffect(() => {
-    setCoaches((prev) => prev.map((c) => ({ ...c, occupancy: jitter(c.occupancy, 4, 5, 99) })));
-    setEta((e) => Math.max(0, e - 3));
-  }, [tick]);
-  const liveTrain = { ...train, coaches, etaSeconds: eta };
+  const liveTrain = train;
   const current = findStation(train.currentStationId);
   const next = findStation(train.nextStationId);
   return (
@@ -39,12 +32,14 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
           </div>
           <div className="flex items-center gap-2">
             <RiskBadge train={liveTrain} />
-            <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
-              {train.status === "At Station"
-                ? "At Station"
-                : train.status === "Departing"
-                  ? "Departing"
-                  : `ETA ${formatEta(eta)}`}
+            <span className="font-mono text-[11px] uppercase tracking-widest">
+              {train.status === "At Station" ? (
+                <span className="text-emerald-400 font-semibold">● At Station</span>
+              ) : train.status === "Approaching" ? (
+                <span className="text-cyan-400 font-semibold animate-pulse">◉ Approaching</span>
+              ) : (
+                <span className="text-slate-400">En Route · ETA {formatEta(train.etaSeconds)}</span>
+              )}
             </span>
           </div>
         </div>
@@ -63,7 +58,7 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {coaches.map((c) => (
+          {(train.coaches ?? []).map((c) => (
             <OccupancyBar key={c.id} value={c.occupancy} label={c.label} />
           ))}
         </div>

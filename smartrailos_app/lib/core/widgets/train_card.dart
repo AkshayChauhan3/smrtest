@@ -71,15 +71,15 @@ class TrainCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              train.trainId == 'ESP32_DEMO' ? 'ESP32 Sensor Train' : train.trainId,
+                              train.trainId == 'ESP32_DEMO' ? 'ESP32 Sensor Train' : train.displayName,
                               style: AppTheme.tabularNumberStyle.copyWith(
-                                fontSize: 16,
+                                fontSize: 15,
                                 fontWeight: FontWeight.bold,
-                                letterSpacing: 1.0,
+                                letterSpacing: 0.5,
                               ),
                             ),
                             Text(
-                              '$lineName · ${train.direction.toUpperCase()}',
+                              '$lineName · ${train.direction.toUpperCase()}${train.journeyDurationMinutes != null ? " · ${train.journeyDurationMinutes} MIN TRIP" : ""}',
                               style: const TextStyle(
                                 color: AppTheme.textMuted,
                                 fontSize: 10,
@@ -112,34 +112,55 @@ class TrainCard extends StatelessWidget {
                     ],
                   ),
                   const Divider(height: 24, color: Color(0x0DFFFFFF)),
-                                    if (train.isAtPlatform) ...[
-                    // Currently At Platform: show actual arrival, departure, and coach actual passenger count & percentages
+                  if (train.isAtPlatform) ...[
+                    // Currently At Platform: show departure from current station and arrival at destination
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildTimeColumn('ACTUAL ARRIVAL', train.arrivalTime ?? '--:--'),
-                        _buildTimeColumn('ACTUAL DEPARTURE', train.departureTime ?? '--:--'),
+                        _buildTimeColumn('DEPARTS HERE', train.departureTime ?? '--:--'),
+                        _buildTimeColumn('ARRIVES AT ${train.destinationName?.toUpperCase() ?? "DESTINATION"}', train.arrivalTime ?? '--:--'),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'ACTUAL COACH OCCUPANCY & PASSENGER COUNT',
-                      style: TextStyle(
-                        color: AppTheme.textMuted,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'ACTUAL COACH OCCUPANCY',
+                          style: TextStyle(
+                            color: AppTheme.textMuted,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        if (train.predictedStationCrowd != null && train.predictedStationCrowd! > 0)
+                          Row(
+                            children: [
+                              const Icon(Icons.people_alt_rounded, size: 11, color: AppTheme.signalGreen),
+                              const SizedBox(width: 4),
+                              Text(
+                                'PLATFORM: ${train.predictedStationCrowd} PAX',
+                                style: const TextStyle(
+                                  color: AppTheme.signalGreen,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     _buildCoachOccupancyList(train.coaches),
                   ] else ...[
-                    // Upcoming: show estimated arrival time, estimated departure time, and estimated passenger count coach-wise
+                    // Upcoming: show estimated departure from current station and arrival at destination
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildTimeColumn('EST. ARRIVAL', train.arrivalTime ?? '--:--'),
                         _buildTimeColumn('EST. DEPARTURE', train.departureTime ?? '--:--'),
+                        _buildTimeColumn('EST. ARRIVAL (${train.destinationName?.toUpperCase() ?? "DEST"})', train.arrivalTime ?? '--:--'),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
@@ -172,14 +193,35 @@ class TrainCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'ESTIMATED COACH OCCUPANCY & PASSENGER COUNT',
-                      style: TextStyle(
-                        color: AppTheme.textMuted,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'PREDICTED COACH OCCUPANCY',
+                          style: TextStyle(
+                            color: AppTheme.textMuted,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        if (train.predictedStationCrowd != null && train.predictedStationCrowd! > 0)
+                          Row(
+                            children: [
+                              const Icon(Icons.people_alt_rounded, size: 11, color: AppTheme.blueLine),
+                              const SizedBox(width: 4),
+                              Text(
+                                'PRED. PLATFORM: ~${train.predictedStationCrowd} PAX',
+                                style: const TextStyle(
+                                  color: AppTheme.blueLine,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     _buildCoachOccupancyList(train.coaches),

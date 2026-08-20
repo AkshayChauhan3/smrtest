@@ -90,9 +90,12 @@ export const trainQuery = (id: string) =>
 
 export const kpiQuery = queryOptions<typeof KPI>({
   queryKey: queryKeys.kpi,
-  queryFn: async () => {
+  queryFn: async ({ client }) => {
     if (USE_MOCK) return mockAsync(KPI);
-    const snap = await apiFetch<BackendDashboardSnapshot>("/dashboard/snapshot");
+    // Reuse the already-cached snapshot to avoid a duplicate /dashboard/snapshot call.
+    // snapshotQuery runs every 5s and keeps the cache warm; this reads from it directly.
+    const cached = client.getQueryData<BackendDashboardSnapshot>(queryKeys.snapshot);
+    const snap = cached ?? await apiFetch<BackendDashboardSnapshot>("/dashboard/snapshot");
     return kpiFromSnapshot(snap);
   },
   refetchInterval: LIVE_REFETCH_MS,

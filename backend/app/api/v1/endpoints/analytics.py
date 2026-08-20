@@ -33,11 +33,12 @@ async def get_heatmap(db: AsyncSession = Depends(get_db)):
     
     matrix = [[0 for _ in range(24)] for _ in range(7)]
     for row in rows:
-        # SQLite 'dow' is 0=Sunday, 6=Saturday. We map to 0=Mon, 6=Sun.
-        day_idx = (int(row.day) - 1) % 7 if row.day is not None else 0
+        # SQLite 'dow': 0=Sunday, 1=Monday, ..., 6=Saturday
+        # We map to 0=Sun, 1=Mon, ..., 6=Sat (no offset needed).
+        day_idx = int(row.day) % 7 if row.day is not None else 0
         hr_idx = int(row.hour) if row.hour is not None else 0
         val = int(row.avg_crowd) if row.avg_crowd else 0
-        matrix[day_idx][hr_idx] = min(100, int((val / 1000) * 100)) # Scale
+        matrix[day_idx][hr_idx] = min(100, int((val / 1000) * 100))  # Scale
         
     return matrix
 
@@ -116,7 +117,8 @@ async def get_weekly_trend(db: AsyncSession = Depends(get_db)):
     
     for row in rows:
         if row.day is not None:
-            d_name = day_map.get(int(row.day), "Mon")
+            # SQLite dow: 0=Sunday — no offset correction needed
+            d_name = day_map.get(int(row.day) % 7, "Sun")
             trend_dict[d_name] = int(row.total_pax or 0)
             
     days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]

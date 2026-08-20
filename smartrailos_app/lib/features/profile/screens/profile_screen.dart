@@ -113,7 +113,7 @@ class ProfileScreen extends ConsumerWidget {
               child: TextButton.icon(
                 onPressed: () async {
                   await ref.read(authProvider.notifier).logout();
-                  if (context.mounted) context.go('/login');
+                  if (context.mounted) context.go('/home');
                 },
                 icon: const Icon(Icons.logout_rounded),
                 label: const Text('SIGN OUT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.0)),

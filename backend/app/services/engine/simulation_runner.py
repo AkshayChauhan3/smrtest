@@ -76,6 +76,14 @@ async def run_simulation_step():
                     db_train.current_position = 0.0
                     db.add(db_train)
                 continue
+
+            # Skip WAITING_AT_TERMINAL trains from ingestion to avoid inflating
+            # terminal station crowd counts with stale pre-service occupancy data.
+            if status == "WAITING_AT_TERMINAL":
+                if db_train.status != "ACTIVE":
+                    db_train.status = "ACTIVE"
+                    db.add(db_train)
+                continue
             
             # If in service, update status to ACTIVE
             if db_train.status != "ACTIVE":
@@ -333,12 +341,14 @@ async def run_simulation_step():
             upcoming_rows = []
             for feat_t, feat_arr, feat_dep, t_idx in upcoming_trips:
                 # Try to find a matching running train state
+                # Match the currently-running state for this train by train_id alone.
+                # The previous time-based match on feat_arr was comparing an arrival time
+                # against departed_terminal_at / departs_station_at (departure times) which
+                # always failed. A train only has one running state at a time — match by ID.
                 running_t = next(
-                    (ts for ts in train_states 
-                     if ts["train_id"] == feat_t["train_id"] 
-                     and ts.get("status") != "NOT_IN_SERVICE"
-                     and (ts.get("departed_terminal_at") == feat_arr.strftime("%H:%M") 
-                          or ts.get("departs_station_at") == feat_arr.strftime("%H:%M"))),
+                    (ts for ts in train_states
+                     if ts["train_id"] == feat_t["train_id"]
+                     and ts.get("status") != "NOT_IN_SERVICE"),
                     None
                 )
                 
@@ -354,7 +364,7 @@ async def run_simulation_step():
                     sched = feat_t["schedule"]
                     pos = t_idx / max(len(sched) - 1, 1)
                     direction = feat_t["direction"]
-                    pos_factor = math.sin(pos * math.pi) if direction == "UP" else math.sin((1.0 - pos) * math.pi)
+                    pos_factor = max(0.35, math.sin(pos * math.pi)) if direction == "UP" else max(0.35, math.sin((1.0 - pos) * math.pi))
                     station_boost = 1.25 if sched[t_idx]["station"].get("busy") else 1.0
                     
                     if t_idx == 0 or t_idx == len(sched) - 1:

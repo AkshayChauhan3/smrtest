@@ -70,6 +70,8 @@ class TrainAtStationOut(BaseModel):
     current_station_id: str | None = None
     next_station: str
     next_station_id: str | None = None
+    status: str = "IN_TRANSIT"
+    eta_seconds: int | None = None
     coaches: list[TrainCoachOut]
     journey_completed_pct: float | None = None
     current_position: float | None = None
@@ -85,6 +87,7 @@ class IncomingTrainOut(BaseModel):
     predicted_occupancy_at_station: int
     predicted_boarding_count: int
     predicted_deboarding_count: int
+    predicted_station_crowd: int = 0
 
 
 class StationCrowdPredictionOut(BaseModel):
@@ -92,6 +95,7 @@ class StationCrowdPredictionOut(BaseModel):
     predicted_5_min: int
     predicted_15_min: int
     predicted_30_min: int
+    predicted_60_min: int = 0
 
 
 class RecommendationOut(BaseModel):
@@ -198,3 +202,25 @@ class KpiHistoryOut(BaseModel):
     """Current vs 60-min-ago KPI for delta computation."""
     current: KpiSnapshot
     hour_ago: KpiSnapshot | None = None  # None if DB has < 60 min of data
+
+
+class JourneySearchItemOut(BaseModel):
+    train_id: str
+    train_name: str
+    line_name: str
+    line_code: str
+    direction: str
+    from_station_id: str
+    from_station_name: str
+    to_station_id: str
+    to_station_name: str
+    departure_time: str               # HH:MM at origin station
+    arrival_time: str                 # HH:MM at destination station
+    eta_minutes: int                  # Minutes until departure from origin station
+    journey_duration_minutes: int     # Travel time between origin and destination
+    is_at_platform: bool = False      # Is train currently dwelling at origin station
+    is_live: bool = False             # Is train actively on network
+    current_occupancy: int = 0
+    predicted_station_crowd: int = 0
+    stops_count: int = 0
+    coaches: list[TrainCoachOut] = []

@@ -5,7 +5,7 @@ import { LineBadge } from "@/components/srail/badges";
 import { OccupancyBar } from "@/components/srail/occupancy-bar";
 import { formatEta } from "@/lib/use-live-tick";
 import { SectionHeader } from "./dashboard.index";
-import { ArrowRight, UserPlus, UserMinus, Clock } from "lucide-react";
+import { ArrowRight, UserPlus, UserMinus, Clock, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/incoming")({
@@ -57,8 +57,9 @@ function IncomingPage() {
                 <span>{t.route}</span>
               </div>
 
-              <div className="mt-4 grid grid-cols-3 gap-3">
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <Cell icon={<Clock className="size-3.5" />} label="ETA" value={`${t.eta_minutes} min`} />
+                <Cell icon={<Users className="size-3.5" />} label="Platform Crowd" value={`${(t.predicted_station_crowd ?? 0).toLocaleString()} pax`} />
                 <Cell icon={<UserPlus className="size-3.5" />} label="Boarding" value={t.predicted_boarding_count} accent />
                 <Cell icon={<UserMinus className="size-3.5" />} label="Deboarding" value={t.predicted_deboarding_count} />
               </div>

@@ -252,6 +252,7 @@ def compute_coach_passengers(
     dwell_sec:    int,
     elapsed_in_dwell: int,   # seconds since arriving at this station (0 if IN_TRANSIT)
     is_in_transit: bool,
+    station_dep_dt: datetime = None,
 ) -> dict:
     """
     Returns per-coach and whole-train passenger counts.
@@ -261,38 +262,41 @@ def compute_coach_passengers(
       elapsed_in_dwell=dwell_sec/2 → halfway (alighting done, boarding starts)
       elapsed_in_dwell=dwell_sec   → about to depart (full boarding done)
 
-    IN_TRANSIT: returns stable post-boarding count from last station.
+    IN_TRANSIT: returns frozen post-boarding count from last station.
     """
-    base   = occupancy_base_factor(now, train_id)
+    now_ref = station_dep_dt if (is_in_transit and station_dep_dt is not None) else now
+    base   = occupancy_base_factor(now_ref, train_id)
     pos    = station_idx / max(total_st - 1, 1)
 
-    # Position on route affects how full the train is
+    # Position on route affects how full the train is. Min 0.35 so terminals aren't empty.
     if direction == "UP":
-        pos_factor = math.sin(pos * math.pi)
+        pos_factor = max(0.35, math.sin(pos * math.pi))
     else:
-        pos_factor = math.sin((1 - pos) * math.pi)
+        pos_factor = max(0.35, math.sin((1 - pos) * math.pi))
 
     station_boost = 1.25 if station.get("busy") else 1.0
     # Target occupancy = what the train should be at AFTER boarding at this station
     target_occ = max(0.0, min(1.0, base * pos_factor * station_boost))
 
-    # How many people were on before this stop (approx prev station occupancy)
-    # Terminals always start empty
     is_first = (station_idx == 0)
     is_last  = (station_idx == total_st - 1)
 
-    if is_first or is_last:
-        pre_alight_count  = 0
-        post_board_count  = 0
+    if is_first:
+        pre_alight_count = 0
+        post_board_count = int(target_occ * TRAIN_CAPACITY)
+    elif is_last:
+        prev_pos         = max(0, station_idx - 1) / max(total_st - 1, 1)
+        prev_factor      = max(0.35, math.sin(prev_pos * math.pi)) if direction == "UP" else max(0.35, math.sin((1 - prev_pos) * math.pi))
+        pre_alight_count = int(base * prev_factor * station_boost * TRAIN_CAPACITY)
+        post_board_count = 0
     else:
-        # Previous station occupancy (slightly lower pos_factor)
-        prev_pos    = max(0, station_idx - 1) / max(total_st - 1, 1)
-        prev_factor = math.sin(prev_pos * math.pi) if direction == "UP" else math.sin((1-prev_pos)*math.pi)
-        pre_alight_count  = int(base * prev_factor * station_boost * TRAIN_CAPACITY)
-        post_board_count  = int(target_occ * TRAIN_CAPACITY)
+        prev_pos         = max(0, station_idx - 1) / max(total_st - 1, 1)
+        prev_factor      = max(0.35, math.sin(prev_pos * math.pi)) if direction == "UP" else max(0.35, math.sin((1 - prev_pos) * math.pi))
+        pre_alight_count = int(base * prev_factor * station_boost * TRAIN_CAPACITY)
+        post_board_count = int(target_occ * TRAIN_CAPACITY)
 
     if is_in_transit:
-        # Stable at post-boarding level
+        # Strictly locked at post-boarding level
         total_pax = post_board_count
         phase     = "IN_TRANSIT"
         progress  = 1.0
@@ -421,8 +425,8 @@ def get_train_state(train: dict, now: datetime) -> dict:
         if elapsed_s < seg["arrive_offset"]:
             status       = "IN_TRANSIT"
             cur_idx      = max(i - 1, 0)
-            # FIX: previous_station = station BEFORE current travel segment
-            prev_station = schedule[cur_idx]["station"]["name"] if cur_idx > 0 else None
+            # prev_station = the station visited BEFORE cur_idx (the one before the last departed stop)
+            prev_station = schedule[cur_idx - 1]["station"]["name"] if cur_idx > 0 else None
             next_station = seg["station"]["name"]
             next_station_id = seg["station"]["id"]
             eta_sec      = seg["arrive_offset"] - elapsed_s
@@ -470,6 +474,7 @@ def get_train_state(train: dict, now: datetime) -> dict:
         current_position = round(station_positions[-1], 2)
 
     current_station = schedule[cur_idx]["station"]
+    station_dep_dt = dep_dt + timedelta(seconds=schedule[cur_idx]["depart_offset"])
 
     occ = compute_coach_passengers(
         train_id          = train["train_id"],
@@ -481,6 +486,7 @@ def get_train_state(train: dict, now: datetime) -> dict:
         dwell_sec         = dwell_sec,
         elapsed_in_dwell  = elapsed_in_dwell,
         is_in_transit     = is_in_transit,
+        station_dep_dt    = station_dep_dt,
     )
 
     return {

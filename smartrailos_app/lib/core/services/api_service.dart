@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -8,6 +9,8 @@ import '../../features/auth/models/user_model.dart';
 import '../../features/trains/models/train_model.dart';
 import '../../features/trains/models/coach_model.dart';
 import '../../features/trains/models/announcement_model.dart';
+
+final apiServiceProvider = Provider((ref) => ApiService());
 
 class ApiService {
   Future<Map<String, String>> _getAuthHeaders() async {
@@ -70,214 +73,54 @@ class ApiService {
     try {
       final headers = await _getAuthHeaders();
 
-      // Fetch active simulation time from backend to align reference clock
-      DateTime now = DateTime.now();
-      try {
-        final resTime = await http.get(
-          Uri.parse('${AppConfig.baseUrl}/api/v1/sim/time'),
-          headers: headers,
-        );
-        if (resTime.statusCode == 200) {
-          final timeData = jsonDecode(resTime.body);
-          final sysTimeStr = timeData['system_time'];
-          if (sysTimeStr != null) {
-            final parsed = DateTime.tryParse(sysTimeStr.replaceAll(' ', 'T'));
-            if (parsed != null) {
-              now = parsed;
-            }
-          }
-        }
-      } catch (e) {
-        print('Error fetching sim time: $e');
-      }
-      
-      // 1. Fetch current train at station (ESP32_DEMO or real dwelling train)
-      TrainModel? currentTrain;
-      try {
-        final resCurrent = await http.get(
-          Uri.parse('${AppConfig.baseUrl}/api/v1/stations/$fromStationId/current'),
-          headers: headers,
-        );
-        if (resCurrent.statusCode == 200) {
-          final data = jsonDecode(resCurrent.body);
-          if (data != null && data['train_id'] != null) {
-            final trainId = data['train_id'] as String;
-            final arrTime = data['arrival_time'];
-            final depTime = data['departure_time'];
-            final totalPax = data['current_passenger_count'] ?? 0;
-            final bool isDemo = trainId == 'ESP32_DEMO';
+      final resSearch = await http.get(
+        Uri.parse('${AppConfig.baseUrl}/api/v1/trains/search?from_station=$fromStationId&to_station=$toStationId'),
+        headers: headers,
+      );
 
-            // Parse the structured coaches array from the API
-            List<CoachModel> coachList = [];
-            if (data['coaches'] != null && (data['coaches'] as List).isNotEmpty) {
-              coachList = (data['coaches'] as List).map((c) {
-                final coachIdStr = c['coach_id']?.toString() ?? '1';
-                final cleanId = coachIdStr.replaceAll(RegExp(r'[^0-9]'), '');
-                return CoachModel(
-                  coachNumber: int.tryParse(cleanId.isNotEmpty ? cleanId : '1') ?? 1,
-                  type: (c['coach_type'] ?? 'general') == 'ladies' ? 'Ladies' : 'General',
-                  capacity: c['capacity'] ?? 400,
-                  currentPassengers: c['current_passengers'] ?? 0,
-                );
-              }).toList();
-            } else {
-              // Fallback: distribute total across 3 coaches
-              coachList = [
-                CoachModel(coachNumber: 1, type: 'General', capacity: 400, currentPassengers: totalPax ~/ 3),
-                CoachModel(coachNumber: 2, type: 'Ladies', capacity: 400, currentPassengers: totalPax ~/ 4),
-                CoachModel(coachNumber: 3, type: 'General', capacity: 400, currentPassengers: totalPax ~/ 3),
-              ];
-            }
-
-            currentTrain = TrainModel(
-              trainId: trainId,
-              displayName: isDemo ? 'SENSOR TRAIN (LIVE)' : trainId,
-              line: trainId.startsWith('RL') ? MetroLine.red : MetroLine.blue,
-              direction: 'Forward',
-              etaMinutes: 0,
-              departureMinutes: 0,
-              coaches: coachList,
-              status: TrainStatus.normal,
-              currentPositionIndex: 0,
-              fromStationId: fromStationId,
-              toStationId: toStationId,
-              announcements: [],
-              arrivalTime: arrTime,
-              departureTime: depTime,
-              isAtPlatform: true,
+      if (resSearch.statusCode == 200) {
+        final list = jsonDecode(resSearch.body) as List;
+        return list.map((item) {
+          final coaches = (item['coaches'] as List? ?? []).map((c) {
+            final coachIdStr = c['coach_number']?.toString() ?? '1';
+            final cleanId = coachIdStr.replaceAll(RegExp(r'[^0-9]'), '');
+            return CoachModel(
+              coachNumber: int.tryParse(cleanId.isNotEmpty ? cleanId : '1') ?? 1,
+              type: (c['coach_type'] ?? 'standard').toString().toLowerCase() == 'ladies' ? 'Ladies' : 'General',
+              capacity: c['capacity'] ?? 400,
+              currentPassengers: c['current_passenger_count'] ?? 0,
             );
-          }
-        }
-      } catch (e) {
-        print('Error fetching current train: $e');
+          }).toList();
+
+          final isPlatform = item['is_at_platform'] == true;
+          final totalPax = item['current_occupancy'] ?? 0;
+
+          return TrainModel(
+            trainId: item['train_id'] ?? '',
+            displayName: item['train_name'] ?? item['train_id'] ?? '',
+            line: (item['line_code'] ?? '').toString().toUpperCase() == 'RL' ? MetroLine.red : MetroLine.blue,
+            direction: item['direction'] ?? 'UP',
+            etaMinutes: item['eta_minutes'] ?? 0,
+            departureMinutes: (item['eta_minutes'] ?? 0) + 1,
+            coaches: coaches,
+            status: totalPax >= 1020
+                ? TrainStatus.full
+                : totalPax >= 600
+                    ? TrainStatus.moderate
+                    : TrainStatus.normal,
+            currentPositionIndex: 0,
+            fromStationId: fromStationId,
+            toStationId: toStationId,
+            announcements: [],
+            arrivalTime: item['arrival_time'],     // Destination arrival time!
+            departureTime: item['departure_time'], // Origin departure time!
+            isAtPlatform: isPlatform,
+            journeyDurationMinutes: item['journey_duration_minutes'],
+            destinationName: item['to_station_name'],
+            predictedStationCrowd: item['predicted_station_crowd'],
+          );
+        }).toList();
       }
-
-
-      // 2. Fetch upcoming trains (features)
-      final List<TrainModel> upcomingTrains = [];
-      try {
-        final resFeature = await http.get(
-          Uri.parse('${AppConfig.baseUrl}/api/v1/stations/$fromStationId/feature'),
-          headers: headers,
-        );
-        if (resFeature.statusCode == 200) {
-          final list = jsonDecode(resFeature.body) as List;
-          for (var e in list) {
-            final trainId = e['train_id'] ?? 'N/A';
-
-            // Skip if already shown from the /current endpoint
-            if (currentTrain != null && currentTrain.trainId == trainId) {
-              continue;
-            }
-
-            final etaStr = e['estimated_arrival_time'] ?? '0';
-            final depStr = e['estimated_departure_time'] ?? '0';
-
-            // ESP32_DEMO is the always-present sensor demo train.
-            // It is stored in /feature with arrival_time '00:00'.
-            // Treat it as the "at platform" train when no real dwelling train exists.
-            final bool isDemoTrain = (trainId == 'ESP32_DEMO');
-
-            List<CoachModel> coachList = [];
-            if (e['coaches'] != null) {
-              coachList = (e['coaches'] as List).map((c) {
-                final coachIdStr = c['coach_id']?.toString() ?? '0';
-                final cleanId = coachIdStr.replaceAll(RegExp(r'[^0-9]'), '');
-                return CoachModel(
-                  coachNumber: int.tryParse(cleanId.isNotEmpty ? cleanId : '0') ?? 0,
-                  type: c['coach_type'] ?? 'General',
-                  capacity: c['capacity'] ?? 400,
-                  currentPassengers: c['arrival_passengers'] ?? 0,
-                );
-              }).toList();
-            } else {
-              coachList = [
-                CoachModel(coachNumber: 1, type: 'General', capacity: 400,
-                    currentPassengers: (e['estimated_passenger_incoming'] ?? 0) ~/ 3),
-                CoachModel(coachNumber: 2, type: 'Ladies', capacity: 400,
-                    currentPassengers: (e['estimated_passenger_incoming'] ?? 0) ~/ 4),
-                CoachModel(coachNumber: 3, type: 'General', capacity: 400,
-                    currentPassengers: (e['estimated_passenger_incoming'] ?? 0) ~/ 3),
-              ];
-            }
-
-            if (isDemoTrain) {
-              // Show ESP32_DEMO at the top as an at-platform entry
-              // (only if /current didn't already return a real train)
-              if (currentTrain == null) {
-                currentTrain = TrainModel(
-                  trainId: trainId,
-                  displayName: 'DEMO SENSOR TRAIN',
-                  line: MetroLine.blue,
-                  direction: 'Forward',
-                  etaMinutes: 0,
-                  departureMinutes: 0,
-                  coaches: coachList,
-                  status: TrainStatus.normal,
-                  currentPositionIndex: 0,
-                  fromStationId: fromStationId,
-                  toStationId: toStationId,
-                  announcements: [],
-                  arrivalTime: etaStr,
-                  departureTime: depStr,
-                  isAtPlatform: true,
-                );
-              }
-              continue; // Do not add to upcoming list
-            }
-
-            // Real upcoming train — compute ETA
-            int eta = 20;
-            if (etaStr != '0' && etaStr != '--:--') {
-              try {
-                DateTime? arrivalTime = DateTime.tryParse(etaStr);
-                if (arrivalTime == null) {
-                  final parts = etaStr.split(':');
-                  if (parts.length >= 2) {
-                    final h = int.parse(parts[0]);
-                    final m = int.parse(parts[1]);
-                    arrivalTime = DateTime(now.year, now.month, now.day, h, m);
-                  }
-                }
-                if (arrivalTime != null) {
-                  if (arrivalTime.isBefore(now.subtract(const Duration(hours: 12)))) {
-                    arrivalTime = arrivalTime.add(const Duration(days: 1));
-                  }
-                  eta = arrivalTime.difference(now).inMinutes;
-                  if (eta < 0) eta = 0;
-                }
-              } catch (_) {}
-            }
-
-            upcomingTrains.add(TrainModel(
-              trainId: trainId,
-              displayName: trainId,
-              line: trainId.startsWith('BL') ? MetroLine.blue : MetroLine.red,
-              direction: 'Forward',
-              etaMinutes: eta,
-              departureMinutes: eta + 2,
-              coaches: coachList,
-              status: TrainStatus.normal,
-              currentPositionIndex: 0,
-              fromStationId: fromStationId,
-              toStationId: toStationId,
-              announcements: [],
-              arrivalTime: etaStr,
-              departureTime: depStr,
-              isAtPlatform: false,
-            ));
-          }
-        }
-      } catch (e) {
-        print('Error fetching upcoming trains: $e');
-      }
-
-      final List<TrainModel> results = [];
-      if (currentTrain != null) {
-        results.add(currentTrain);
-      }
-      results.addAll(upcomingTrains);
-      return results;
     } catch (e) {
       print('General error in getUpcomingTrains: $e');
     }

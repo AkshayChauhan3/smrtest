@@ -43,6 +43,10 @@ export interface BackendTrainAtStation {
   current_station_id?: string | null;
   next_station: string;
   next_station_id?: string | null;
+  status?: string;
+  eta_seconds?: number | null;
+  journey_completed_pct?: number | null;
+  current_position?: number | null;
   coaches: BackendCoach[];
 }
 
@@ -56,6 +60,7 @@ export interface BackendIncomingTrain {
   predicted_occupancy_at_station: number;
   predicted_boarding_count: number;
   predicted_deboarding_count: number;
+  predicted_station_crowd?: number;
 }
 
 export interface BackendCrowdPrediction {
@@ -63,6 +68,7 @@ export interface BackendCrowdPrediction {
   predicted_5_min: number;
   predicted_15_min: number;
   predicted_30_min: number;
+  predicted_60_min?: number;
 }
 
 export interface BackendAlert {
@@ -113,6 +119,14 @@ function adaptCoach(c: BackendCoach, i: number): Coach {
 }
 
 export function adaptTrain(t: BackendTrainAtStation): Train {
+  let mappedStatus: "Approaching" | "At Station" | "Departing" | "En Route" = "At Station";
+  const st = (t.status || "").toUpperCase();
+  if (st === "AT_STATION" || st === "WAITING_AT_TERMINAL") {
+    mappedStatus = "At Station";
+  } else if (st === "IN_TRANSIT") {
+    mappedStatus = (t.eta_seconds !== undefined && t.eta_seconds !== null && t.eta_seconds <= 60) ? "Approaching" : "En Route";
+  }
+
   return {
     id: t.train_id,
     name: `${t.train_id} · ${t.train_name}`,
@@ -124,11 +138,12 @@ export function adaptTrain(t: BackendTrainAtStation): Train {
     nextStationId: t.next_station_id || t.next_station,
     arrival: t.arrival_time,
     departure: t.departure_time,
-    etaSeconds: 0,
+    etaSeconds: t.eta_seconds ?? 0,
     predictedBoarding: 0,
     predictedDeboarding: 0,
-    status: "At Station",
+    status: mappedStatus,
     coaches: t.coaches.map(adaptCoach),
+    journey_completed_pct: t.journey_completed_pct ?? undefined,
   };
 }
 
@@ -202,13 +217,13 @@ export function kpiFromSnapshot(snap: BackendDashboardSnapshot): typeof MOCK_KPI
   const activeAlerts = snap.alerts.length;
   return {
     currentTrains: trains.length + snap.incoming_trains.length,
-    passengersInStation: snap.crowd_prediction.current_station_crowd * 20,
+    passengersInStation: snap.crowd_prediction.current_station_crowd,
     passengersInTransit: trains
       .flatMap((t) => t.coaches)
       .reduce((a, c) => a + c.current_passenger_count, 0),
     avgOccupancy: avg,
     activeAlerts,
-    predictedNextHour: snap.crowd_prediction.predicted_30_min * 25,
+    predictedNextHour: snap.crowd_prediction.predicted_60_min ?? snap.crowd_prediction.predicted_30_min,
   };
 }
 
