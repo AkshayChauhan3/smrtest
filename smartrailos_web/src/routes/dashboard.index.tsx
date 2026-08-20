@@ -75,8 +75,16 @@ function Overview() {
 
   if (loading) return <OverviewSkeleton />;
 
-  const kpi = kpiQ.data ?? mockKpi;
-  const trainsRaw = trainsQ.data ?? TRAINS;
+  const kpi = kpiQ.data ?? (USE_MOCK ? mockKpi : {
+    currentTrains: 0,
+    passengersInStation: 0,
+    passengersInTransit: 0,
+    avgOccupancy: 0,
+    activeAlerts: 0,
+    predictedNextHour: 0,
+  });
+  
+  const trainsRaw = trainsQ.data ?? (USE_MOCK ? TRAINS : []);
   
   // ESP32 visibility: hide during online hours, show during offline hours
   const hasRealTrains = trainsRaw.some(t => t.id !== "ESP32_DEMO");
@@ -117,7 +125,7 @@ function Overview() {
       return (a.etaSeconds || 0) - (b.etaSeconds || 0);
     });
 
-  const alerts = alertsQ.data && alertsQ.data.length > 0 ? alertsQ.data : ALERTS;
+  const alerts = alertsQ.data ?? (USE_MOCK ? ALERTS : []);
   const visible = viewAll ? trains : trains.slice(0, 3);
   
   const hist = histQ.data;

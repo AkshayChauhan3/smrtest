@@ -152,47 +152,5 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
   );
 }
 
-export function RouteTimeline({ train }: { train: any }) {
-  const isBlue = train.line === "blue";
-  const route = isBlue
-    ? // synthetic route: 7 stops centered on Old High Court (bl-8)
-      ["bl-5", "bl-6", "bl-7", "bl-8", "bl-9", "bl-10", "bl-11"]
-    : ["rl-4", "rl-5", "rl-6", "rl-7", "rl-8", "rl-9", "rl-10"];
-  const currentIdx = route.indexOf(train.currentStationId);
-
-  return (
-    <div className="rounded-lg border border-white/5 bg-obsidian-800/40 p-4">
-      <h4 className="mb-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">Route</h4>
-      <div className="relative">
-        <div className={cn("absolute left-2 right-2 top-3 h-px", isBlue ? "bg-accent-blue-2/40" : "bg-danger/40")} />
-        <div className="relative flex justify-between">
-          {route.map((id, i) => {
-            const passed = i < currentIdx;
-            const current = i === currentIdx;
-            return (
-              <div key={id} className="flex w-16 flex-col items-center text-center">
-                <div
-                  className={cn(
-                    "z-10 grid size-6 place-items-center rounded-full border-2",
-                    current
-                      ? "border-accent-cyan bg-accent-cyan animate-pulse-soft"
-                      : passed
-                        ? "border-slate-600 bg-slate-600"
-                        : isBlue
-                          ? "border-accent-blue-2/40 bg-obsidian-900"
-                          : "border-danger/40 bg-obsidian-900",
-                  )}
-                >
-                  {current && <div className="size-2 rounded-full bg-obsidian-950" />}
-                </div>
-                <div className={cn("mt-2 line-clamp-2 text-[9px] font-medium leading-tight", current ? "text-accent-cyan" : "text-slate-500")}>
-                  {findStation(id)?.name}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
+import { RouteTimeline } from "@/components/srail/route-timeline";
+export { RouteTimeline };

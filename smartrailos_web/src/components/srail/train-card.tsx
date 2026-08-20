@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { OccupancyBar } from "./occupancy-bar";
 import { LineBadge, RiskBadge } from "./badges";
 import { findStation, type Train } from "@/lib/mock/data";
 import { formatEta } from "@/lib/use-live-tick";
-import { ArrowRight, ChevronRight, Sparkles } from "lucide-react";
+import { ArrowRight, ChevronRight, Sparkles, Clock, Timer } from "lucide-react";
 import { CoachDrillDownSheet } from "./coach-drilldown-sheet";
 
 export function TrainCard({ train, className }: { train: Train; className?: string }) {
@@ -12,6 +12,29 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
   const liveTrain = train;
   const current = findStation(train.currentStationId);
   const next = findStation(train.nextStationId);
+
+  // Live 1-second ticking countdown timer for every card
+  const [secondsLeft, setSecondsLeft] = useState(() => {
+    if (train.etaSeconds && train.etaSeconds > 0) return train.etaSeconds;
+    // Default initial seed based on train id hash
+    const seed = (train.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) % 120) + 45;
+    return seed;
+  });
+
+  useEffect(() => {
+    if (train.etaSeconds && train.etaSeconds > 0) {
+      setSecondsLeft(train.etaSeconds);
+    }
+  }, [train.id, train.etaSeconds]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSecondsLeft((prev) => (prev <= 1 ? 115 : prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const liveTimerFormatted = formatEta(secondsLeft);
 
   const totalCapacity = train.coaches.reduce((sum, c) => sum + (c.capacity || 400), 0) || 1200;
   const totalLivePax = train.coaches.reduce(
@@ -47,7 +70,7 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
           className,
         )}
       >
-        {/* Top Header: Train ID, Line, Status & ETA */}
+        {/* Top Header: Train ID, Line, Risk & LIVE TICKING TIMER */}
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="rounded bg-obsidian-800 px-2.5 py-1 font-mono text-xs font-bold text-accent-cyan ring-1 ring-white/10">
@@ -58,33 +81,35 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
 
           <div className="flex flex-wrap items-center gap-2">
             <RiskBadge train={liveTrain} />
-            <span className="font-mono text-[11px] uppercase tracking-wider">
-              {train.status === "At Station" ? (
-                <span className="inline-flex items-center gap-1 font-semibold text-emerald-400">
-                  <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  At Station
-                </span>
-              ) : train.status === "Approaching" ? (
-                <span className="inline-flex items-center gap-1 font-semibold text-cyan-400 animate-pulse">
-                  <span className="size-1.5 rounded-full bg-cyan-400" />
-                  Approaching
-                </span>
-              ) : (
-                <span className="text-slate-400">
-                  En Route · ETA <span className="font-bold text-white">{formatEta(train.etaSeconds)}</span>
-                </span>
-              )}
-            </span>
+            
+            {/* Prominent Live Ticking Timer Badge */}
+            <div className="flex items-center gap-1.5 rounded-lg border border-accent-cyan/30 bg-accent-cyan/10 px-2.5 py-1 font-mono text-xs font-extrabold text-accent-cyan shadow-sm shadow-accent-cyan/10">
+              <Clock className="size-3.5 text-accent-cyan animate-pulse" />
+              <span>
+                {train.status === "At Station"
+                  ? `DEPARTS IN ${liveTimerFormatted}`
+                  : train.status === "Approaching"
+                  ? `ARRIVES IN ${liveTimerFormatted}`
+                  : `EN ROUTE · ETA ${liveTimerFormatted}`}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Direction & Station Info */}
+        {/* Direction, Live Countdown & Timetable Info */}
         <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="text-base font-bold text-white group-hover:text-accent-cyan transition-colors">
             {train.direction}
           </h3>
-          <div className="font-mono text-[11px] text-slate-500">
-            Arr {train.arrival} · Dep {train.departure}
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[11px] font-bold text-amber-400">
+              <Timer className="size-3 animate-spin" style={{ animationDuration: "6s" }} />
+              <span>Remaining: {liveTimerFormatted}</span>
+            </div>
+            <div className="font-mono text-[11px] text-slate-500">
+              Arr {train.arrival} · Dep {train.departure}
+            </div>
           </div>
         </div>
 

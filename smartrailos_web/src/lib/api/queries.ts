@@ -47,6 +47,7 @@ export const queryKeys = {
   stationFeature: (stationId: string) => ["stations", stationId, "feature"] as const,
   snapshot: ["dashboard", "snapshot"] as const,
   kpiHistory: ["kpi", "history"] as const,
+  crowdForecast: ["analytics", "crowdForecast"] as const,
   hourlyFlow: ["analytics", "hourly"] as const,
   weeklyTrend: ["analytics", "weekly"] as const,
   platformHeatmap: ["platform", "heatmap"] as const,

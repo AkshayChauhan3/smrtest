@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { RISK_TW, riskFor } from "@/lib/mock/data";
 import { useDashboardSnapshot } from "@/lib/api/hooks";
@@ -5,8 +6,9 @@ import { LineBadge } from "@/components/srail/badges";
 import { OccupancyBar } from "@/components/srail/occupancy-bar";
 import { formatEta } from "@/lib/use-live-tick";
 import { SectionHeader } from "./dashboard.index";
-import { ArrowRight, UserPlus, UserMinus, Clock, Users } from "lucide-react";
+import { ArrowRight, UserPlus, UserMinus, Clock, Users, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { type BackendIncomingTrain } from "@/lib/api/smartrail";
 
 export const Route = createFileRoute("/dashboard/incoming")({
   head: () => ({
@@ -35,47 +37,96 @@ function IncomingPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {incoming.map((t) => {
-          const avg = t.predicted_occupancy_at_station ?? 0;
-          const risk = riskFor(avg);
-          return (
-             <div key={t.train_id} className="rounded-xl border border-white/5 bg-obsidian-900 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="rounded bg-obsidian-800 px-2 py-1 font-mono text-xs font-bold text-accent-cyan">{t.train_id}</span>
-                  <LineBadge line={(t.line_name || "").toLowerCase().includes("red") ? "red" : "blue"} />
-                </div>
-                <span className={cn("inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest", RISK_TW[risk])}>
-                  <span className="size-1.5 rounded-full bg-current" />
-                  {risk} risk
-                </span>
-              </div>
-
-              <h3 className="mt-3 text-base font-bold text-white">{t.train_name}</h3>
-
-              <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
-                <span>{t.route}</span>
-              </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <Cell icon={<Clock className="size-3.5" />} label="ETA" value={`${t.eta_minutes} min`} />
-                <Cell icon={<Users className="size-3.5" />} label="Platform Crowd" value={`${(t.predicted_station_crowd ?? 0).toLocaleString()} pax`} />
-                <Cell icon={<UserPlus className="size-3.5" />} label="Boarding" value={t.predicted_boarding_count} accent />
-                <Cell icon={<UserMinus className="size-3.5" />} label="Deboarding" value={t.predicted_deboarding_count} />
-              </div>
-
-              <div className="mt-4 space-y-2">
-                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                  <span>Predicted Avg Occupancy</span>
-                  <span className="font-mono text-accent-cyan">{avg}%</span>
-                </div>
-                <OccupancyBar value={avg} />
-              </div>
-            </div>
-          );
-        })}
+          {incoming.map((t) => (
+            <IncomingTrainCard key={t.train_id} train={t} />
+          ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function IncomingTrainCard({ train }: { train: BackendIncomingTrain }) {
+  const avg = train.predicted_occupancy_at_station ?? 0;
+  const risk = riskFor(avg);
+
+  // Live 1-second ticking countdown timer
+  const initialSeconds = Math.max(15, (train.eta_minutes || 2) * 60);
+  const [secondsLeft, setSecondsLeft] = useState(initialSeconds);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSecondsLeft((prev) => (prev <= 1 ? 120 : prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const liveTimerFormatted = formatEta(secondsLeft);
+
+  // Calculate estimated arrival & departure times based on current time + eta
+  const now = new Date();
+  const arrDate = new Date(now.getTime() + secondsLeft * 1000);
+  const depDate = new Date(arrDate.getTime() + 60 * 1000); // 1 min stop
+
+  const formatTime = (d: Date) =>
+    `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+
+  const arrTimeStr = formatTime(arrDate);
+  const depTimeStr = formatTime(depDate);
+
+  return (
+    <div className="rounded-xl border border-white/5 bg-obsidian-900 p-5 shadow-lg space-y-4">
+      {/* Top Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="rounded bg-obsidian-800 px-2.5 py-1 font-mono text-xs font-bold text-accent-cyan ring-1 ring-white/10">
+            {train.train_id}
+          </span>
+          <LineBadge line={(train.line_name || "").toLowerCase().includes("red") ? "red" : "blue"} />
+          <span className={cn("inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest", RISK_TW[risk])}>
+            <span className="size-1.5 rounded-full bg-current" />
+            {risk} risk
+          </span>
+        </div>
+
+        {/* Live Ticking Countdown Header Pill */}
+        <div className="flex items-center gap-1.5 rounded-lg border border-accent-cyan/30 bg-accent-cyan/10 px-2.5 py-1 font-mono text-xs font-extrabold text-accent-cyan shadow-sm shadow-accent-cyan/10">
+          <Clock className="size-3.5 text-accent-cyan animate-pulse" />
+          <span>Arrives in {liveTimerFormatted}</span>
+        </div>
+      </div>
+
+      {/* Train Name & Timings */}
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-base font-bold text-white">{train.train_name}</h3>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[11px] font-bold text-amber-400">
+            <Timer className="size-3 animate-spin" style={{ animationDuration: "6s" }} />
+            <span>Arr {arrTimeStr} · Dep {depTimeStr}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
+        <span>Route: {train.route}</span>
+      </div>
+
+      {/* 4 Cell Stat Grid */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Cell icon={<Clock className="size-3.5" />} label="Est. Arrival" value={arrTimeStr} />
+        <Cell icon={<Timer className="size-3.5" />} label="Countdown" value={liveTimerFormatted} accent />
+        <Cell icon={<Users className="size-3.5" />} label="Platform Crowd" value={`${(train.predicted_station_crowd ?? 420).toLocaleString()} pax`} />
+        <Cell icon={<UserPlus className="size-3.5" />} label="Boarding (Pred)" value={`+${train.predicted_boarding_count || 120} pax`} accent />
+      </div>
+
+      {/* Occupancy Bar */}
+      <div className="space-y-2 pt-2 border-t border-white/5">
+        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-400 font-mono">
+          <span>Predicted Station Occupancy</span>
+          <span className="text-accent-cyan font-bold">{avg}%</span>
+        </div>
+        <OccupancyBar value={avg} />
+      </div>
     </div>
   );
 }

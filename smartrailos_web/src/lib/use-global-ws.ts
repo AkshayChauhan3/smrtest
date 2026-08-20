@@ -6,13 +6,14 @@ export function useGlobalWebSocket(qc: QueryClient) {
   useEffect(() => {
     const rawWs = import.meta.env.VITE_REALTIME_WS_URL as string | undefined;
     const apiBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
-    const wsUrl = rawWs || (apiBase ? apiBase.replace(/^http/, "ws") + "/api/v1/ws/realtime" : undefined);
+    const wsUrl = rawWs || (apiBase ? apiBase.replace(/^http/, "ws") + "/api/v1/ws/realtime" : "ws://localhost:8000/api/v1/ws/realtime");
     if (!wsUrl) return;
 
     let ws: WebSocket | null = null;
     let reconnectTimer: any = null;
 
     function connect() {
+      if (!wsUrl) return;
       try {
         ws = new WebSocket(wsUrl);
 
