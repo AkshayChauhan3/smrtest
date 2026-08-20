@@ -1,11 +1,14 @@
 import { Bell, Search, AlertOctagon } from "lucide-react";
 import { useClock, formatTime, formatDate } from "@/lib/use-live-tick";
+import { useSimTime } from "@/lib/api/hooks";
 import { CURRENT_STATION } from "@/lib/mock/data";
 import { useEmergencyStatus } from "@/lib/use-emergency-status";
 
 export function DashboardTopNav() {
   const now = useClock();
   const emergencyActive = useEmergencyStatus();
+  const simTimeQ = useSimTime();
+  const isSimOverridden = simTimeQ.data?.is_overridden;
 
   return (
     <header className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-white/5 bg-obsidian-900/80 px-4 py-3 backdrop-blur sm:flex sm:flex-wrap sm:justify-between sm:gap-4 md:h-16 md:px-8 md:py-0">
@@ -19,10 +22,17 @@ export function DashboardTopNav() {
             Blue Line · Red Line · Platform 1–2
           </p>
         </div>
-        <div className="hidden shrink-0 rounded border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-[11px] tabular-nums text-slate-400 lg:block">
-          {formatTime(now)} IST · {formatDate(now)}
+        <div className="hidden shrink-0 items-center gap-1.5 rounded border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-[11px] tabular-nums text-slate-400 lg:flex">
+          {isSimOverridden && (
+            <span className="inline-flex items-center gap-1 rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-400 ring-1 ring-amber-500/30">
+              <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
+              SIM
+            </span>
+          )}
+          <span>{formatTime(now)} IST · {formatDate(now)}</span>
         </div>
       </div>
+
 
       {/* Right */}
       <div className="flex shrink-0 items-center gap-2 md:gap-3">

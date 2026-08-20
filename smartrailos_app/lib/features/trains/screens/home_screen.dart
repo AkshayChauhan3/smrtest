@@ -391,12 +391,16 @@ class HomeScreen extends ConsumerWidget {
             ),
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.directions_subway_rounded, size: 20),
-                SizedBox(width: 10),
-                Text(
-                  'SEARCH UPCOMING METRO TRAINS',
-                  style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.8, fontSize: 13),
+                SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'SEARCH UPCOMING METRO TRAINS',
+                    style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.8, fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),

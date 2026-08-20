@@ -47,13 +47,22 @@ export const queryKeys = {
   stationFeature: (stationId: string) => ["stations", stationId, "feature"] as const,
   snapshot: ["dashboard", "snapshot"] as const,
   kpiHistory: ["kpi", "history"] as const,
-  crowdForecast: ["crowd", "forecast"] as const,
   hourlyFlow: ["analytics", "hourly"] as const,
   weeklyTrend: ["analytics", "weekly"] as const,
   platformHeatmap: ["platform", "heatmap"] as const,
+  simTime: ["sim", "time"] as const,
 };
 
+export interface SimTimeData {
+  status: string;
+  is_overridden: boolean;
+  override_time: string | null;
+  system_time: string;
+  last_updated: string;
+}
+
 const LIVE_REFETCH_MS = 5_000; // Match the simulation runner's 5-second tick
+
 
 // ---------- Backend-backed queries ----------
 
@@ -238,3 +247,14 @@ export const platformHeatmapQuery = queryOptions<number[][]>({
   },
   refetchInterval: 15_000,
 });
+
+export const simTimeQuery = queryOptions<SimTimeData | null>({
+  queryKey: queryKeys.simTime,
+  queryFn: async () => {
+    if (USE_MOCK) return null;
+    return await apiFetch<SimTimeData>("/sim/time").catch(() => null);
+  },
+  refetchInterval: 15_000,
+  staleTime: 10_000,
+});
+
