@@ -29,3 +29,4 @@ class StationCrowdOut(BaseModel):
     predicted_15_min: int
     predicted_30_min: int
     predicted_60_min: int = 0
+    confidence_score: float = 0.92

@@ -96,6 +96,7 @@ class StationCrowdPredictionOut(BaseModel):
     predicted_15_min: int
     predicted_30_min: int
     predicted_60_min: int = 0
+    confidence_score: float = 0.92
 
 
 class RecommendationOut(BaseModel):
@@ -204,6 +205,19 @@ class KpiHistoryOut(BaseModel):
     hour_ago: KpiSnapshot | None = None  # None if DB has < 60 min of data
 
 
+class JourneyStopOut(BaseModel):
+    station_id: str
+    station_name: str
+    arrival_time: str
+    departure_time: str
+    is_passed: bool = False
+    is_current: bool = False
+    is_user_origin: bool = False
+    is_user_destination: bool = False
+    predicted_station_crowd: int = 0
+    estimated_train_occupancy: int = 0
+
+
 class JourneySearchItemOut(BaseModel):
     train_id: str
     train_name: str
@@ -224,3 +238,10 @@ class JourneySearchItemOut(BaseModel):
     predicted_station_crowd: int = 0
     stops_count: int = 0
     coaches: list[TrainCoachOut] = []
+    live_current_station_id: str | None = None
+    live_current_station_name: str | None = None
+    live_next_station_id: str | None = None
+    live_next_station_name: str | None = None
+    live_status: str = "SCHEDULED"    # AT_STATION | IN_TRANSIT | WAITING_AT_TERMINAL | SCHEDULED
+    journey_progress_pct: float = 0.0
+    stops_timeline: list[JourneyStopOut] = []

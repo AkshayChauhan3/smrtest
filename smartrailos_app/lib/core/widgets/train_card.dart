@@ -334,109 +334,210 @@ class TrainCard extends StatelessWidget {
   }
 
   Widget _buildStopsTimeline(BuildContext context) {
-    final stations = getStationsForLine(train.line);
-    final fromIdx = stations.indexWhere((s) => s.id == train.fromStationId);
-    final toIdx = stations.indexWhere((s) => s.id == train.toStationId);
-    if (fromIdx == -1 || toIdx == -1) return const SizedBox.shrink();
-
-    final List<Station> stops = [];
-    if (fromIdx <= toIdx) {
-      for (int i = fromIdx; i <= toIdx; i++) {
-        stops.add(stations[i]);
-      }
-    } else {
-      for (int i = fromIdx; i >= toIdx; i--) {
-        stops.add(stations[i]);
-      }
-    }
-
     final isBlueLine = train.line == MetroLine.blue;
     final lineColor = isBlueLine ? AppTheme.blueLine : AppTheme.redLine;
 
-    // Build the estimated passenger counts
-    final List<int> pcounts = [];
-    int currentP = train.totalPassengers;
-    if (currentP == 0) {
-      currentP = 320;
-    }
+    // Use live stops timeline if provided by backend, otherwise generate fallback stops
+    final List<JourneyStopModel> stops = train.stopsTimeline.isNotEmpty
+        ? train.stopsTimeline
+        : () {
+            final stations = getStationsForLine(train.line);
+            final fromIdx = stations.indexWhere((s) => s.id == train.fromStationId);
+            final toIdx = stations.indexWhere((s) => s.id == train.toStationId);
+            if (fromIdx == -1 || toIdx == -1) return <JourneyStopModel>[];
+            final list = <JourneyStopModel>[];
+            final step = fromIdx <= toIdx ? 1 : -1;
+            for (int i = fromIdx; (step > 0 ? i <= toIdx : i >= toIdx); i += step) {
+              final st = stations[i];
+              list.add(JourneyStopModel(
+                stationId: st.id,
+                stationName: st.name,
+                arrivalTime: '--:--',
+                departureTime: '--:--',
+                isUserOrigin: st.id == train.fromStationId,
+                isUserDestination: st.id == train.toStationId,
+                predictedStationCrowd: 120,
+                estimatedTrainOccupancy: train.totalPassengers,
+              ));
+            }
+            return list;
+          }();
 
-    for (int i = 0; i < stops.length; i++) {
-      final s = stops[i];
-      if (i == 0) {
-        pcounts.add(currentP);
-      } else {
-        final seed = (train.trainId.hashCode + s.id.hashCode) % 100;
-        final isBusy = s.name.contains('Central') || s.name.contains('High Court') || s.name.contains('Stadium') || s.name.contains('University');
-        final deboardPct = isBusy ? 0.15 : 0.08;
-        final deboard = (currentP * deboardPct).round();
-        final board = isBusy ? (80 + seed % 40) : (30 + seed % 20);
-        currentP = (currentP - deboard + board).clamp(50, 1100);
-        pcounts.add(currentP);
-      }
+    if (stops.isEmpty) return const SizedBox.shrink();
+
+    // Determine current live status label
+    String liveStatusBanner = '';
+    Color statusColor = AppTheme.signalGreen;
+    if (train.liveStatus == 'AT_STATION') {
+      liveStatusBanner = 'AT STATION: ${train.liveCurrentStationName ?? train.liveCurrentStationId ?? "Platform"}';
+      statusColor = AppTheme.signalGreen;
+    } else if (train.liveStatus == 'IN_TRANSIT') {
+      liveStatusBanner = 'EN ROUTE ➔ ${train.liveNextStationName ?? train.liveNextStationId ?? "Next Station"} (${train.etaMinutes}m ETA)';
+      statusColor = isBlueLine ? AppTheme.blueLine : AppTheme.redLine;
+    } else if (train.liveStatus == 'WAITING_AT_TERMINAL') {
+      liveStatusBanner = 'AT TERMINAL (${train.liveCurrentStationName ?? "Origin"})';
+      statusColor = AppTheme.signalAmber;
+    } else {
+      liveStatusBanner = 'SCHEDULED (${train.departureTime ?? "On Time"})';
+      statusColor = AppTheme.textMuted;
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'EST. PASSENGERS AT EACH STOP',
-          style: TextStyle(
-            color: AppTheme.textMuted,
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'LIVE ROUTE & CROWD TIMELINE',
+              style: TextStyle(
+                color: AppTheme.textMuted,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: statusColor.withOpacity(0.3), width: 0.8),
+                ),
+                child: Text(
+                  liveStatusBanner,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: List.generate(stops.length, (i) {
               final s = stops[i];
-              final count = pcounts[i];
               final isLast = i == stops.length - 1;
+              final isPassed = s.isPassed;
+              final isCurrent = s.isCurrent;
+              final isUserStop = s.isUserOrigin || s.isUserDestination;
+
+              final nodeColor = isCurrent
+                  ? AppTheme.signalGreen
+                  : isPassed
+                      ? AppTheme.textMuted.withOpacity(0.4)
+                      : isUserStop
+                          ? lineColor
+                          : lineColor.withOpacity(0.7);
 
               return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Node circle
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: lineColor,
-                          shape: BoxShape.circle,
-                        ),
+                      // Node Icon / Circle
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          if (isCurrent)
+                            Container(
+                              width: 18,
+                              height: 18,
+                              decoration: BoxDecoration(
+                                color: AppTheme.signalGreen.withOpacity(0.25),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          Container(
+                            width: isUserStop || isCurrent ? 12 : 8,
+                            height: isUserStop || isCurrent ? 12 : 8,
+                            decoration: BoxDecoration(
+                              color: nodeColor,
+                              shape: BoxShape.circle,
+                              border: isUserStop
+                                  ? Border.all(color: Colors.white, width: 1.5)
+                                  : null,
+                            ),
+                            child: isPassed
+                                ? const Icon(Icons.check, size: 6, color: Colors.black)
+                                : null,
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 6),
-                      // Station name
+                      // Station ID
                       Text(
-                        s.id,
-                        style: const TextStyle(
-                          color: AppTheme.textPrimary,
+                        s.stationId,
+                        style: TextStyle(
+                          color: isPassed
+                              ? AppTheme.textMuted.withOpacity(0.5)
+                              : isCurrent || isUserStop
+                                  ? Colors.white
+                                  : AppTheme.textPrimary,
                           fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: isUserStop || isCurrent ? FontWeight.bold : FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 2),
-                      // Passenger count
+                      // Arrival Time
                       Text(
-                        '$count pax',
+                        s.arrivalTime.isNotEmpty ? s.arrivalTime : '--:--',
                         style: AppTheme.tabularNumberStyle.copyWith(
-                          color: AppTheme.textMuted,
+                          color: isPassed
+                              ? AppTheme.textMuted.withOpacity(0.4)
+                              : isUserStop
+                                  ? lineColor
+                                  : AppTheme.textMuted,
                           fontSize: 8,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: isUserStop ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      // Platform crowd badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: isPassed
+                              ? Colors.transparent
+                              : AppTheme.surfaceElevated,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          isPassed ? 'Passed' : '${s.predictedStationCrowd} pax',
+                          style: TextStyle(
+                            color: isPassed
+                                ? AppTheme.textMuted.withOpacity(0.4)
+                                : AppTheme.textMuted,
+                            fontSize: 7.5,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   if (!isLast) ...[
-                    // Line segment connecting stops
+                    // Track connector line
                     Container(
-                      width: 40,
+                      margin: const EdgeInsets.only(top: 4),
+                      width: 44,
                       height: 2,
-                      color: lineColor.withOpacity(0.4),
+                      decoration: BoxDecoration(
+                        color: isPassed
+                            ? AppTheme.textMuted.withOpacity(0.2)
+                            : lineColor.withOpacity(0.4),
+                      ),
                     ),
                   ],
                 ],

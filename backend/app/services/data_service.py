@@ -19,7 +19,7 @@ from app.services.metro_engine import (
 from app.schemas.rail import (
     LineOut, StationOut, RouteOut, RouteStopOut, CoachOut,
     TrainCatalogueOut, IncomingTrainOut, StationCrowdPredictionOut, AlertOut,
-    TrainAtStationOut, TrainCoachOut, JourneySearchItemOut,
+    TrainAtStationOut, TrainCoachOut, JourneySearchItemOut, JourneyStopOut,
 )
 from app.schemas.occupancy import CoachOccupancyOut, TrainOccupancyOut, StationCrowdOut
 
@@ -548,6 +548,40 @@ class DataService:
 
                 pred_platform_crowd = self._crowd_at_station(from_seg["station"]["name"], dep_from_dt)
 
+                # Build stops_timeline for the complete route
+                stops_timeline = []
+                elapsed_s = int((now - dep_dt).total_seconds()) if is_live else 0
+                for s_idx, seg in enumerate(sched):
+                    s_id = seg["station"]["id"]
+                    s_name = seg["station"]["name"]
+                    arr_time = (dep_dt + timedelta(seconds=seg["arrive_offset"])).strftime("%H:%M")
+                    dep_time = (dep_dt + timedelta(seconds=seg["depart_offset"])).strftime("%H:%M")
+
+                    is_passed = False
+                    is_current = False
+                    if is_live:
+                        if seg["depart_offset"] < elapsed_s:
+                            is_passed = True
+                        elif seg["arrive_offset"] <= elapsed_s <= seg["depart_offset"]:
+                            is_current = True
+                        elif s_idx > 0 and sched[s_idx-1]["depart_offset"] <= elapsed_s < seg["arrive_offset"]:
+                            if live_state and live_state.get("next_station_id") == s_id:
+                                is_current = True
+
+                    s_pred_crowd = self._crowd_at_station(s_name, dep_dt + timedelta(seconds=seg["arrive_offset"]))
+                    stops_timeline.append(JourneyStopOut(
+                        station_id=s_id,
+                        station_name=s_name,
+                        arrival_time=arr_time,
+                        departure_time=dep_time,
+                        is_passed=is_passed,
+                        is_current=is_current,
+                        is_user_origin=(s_id == from_sid),
+                        is_user_destination=(s_id == to_sid),
+                        predicted_station_crowd=s_pred_crowd,
+                        estimated_train_occupancy=total_pax,
+                    ))
+
                 results.append(JourneySearchItemOut(
                     train_id=train_cfg["train_id"],
                     train_name=train_cfg["display_name"],
@@ -568,6 +602,13 @@ class DataService:
                     predicted_station_crowd=pred_platform_crowd,
                     stops_count=stops_count,
                     coaches=coaches,
+                    live_current_station_id=live_state.get("current_station_id") if live_state else None,
+                    live_current_station_name=live_state.get("current_station") if live_state else None,
+                    live_next_station_id=live_state.get("next_station_id") if live_state else None,
+                    live_next_station_name=live_state.get("next_station") if live_state else None,
+                    live_status=live_state.get("status", "SCHEDULED") if is_live else "SCHEDULED",
+                    journey_progress_pct=live_state.get("journey_completed_pct", 0.0) if is_live else 0.0,
+                    stops_timeline=stops_timeline,
                 ))
 
         # Sort by: (1) At platform train first, (2) smallest ETA

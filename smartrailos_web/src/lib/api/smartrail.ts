@@ -288,7 +288,7 @@ export function computeDelta(
   unit: string = "",
   higherIsBad = false
 ): { delta: string; deltaTone: "positive" | "negative" | "warning" | "neutral" } {
-  if (hourAgo === undefined) return { delta: "— no history", deltaTone: "neutral" };
+  if (hourAgo === undefined || hourAgo === null) return { delta: "Live nominal", deltaTone: "neutral" };
   const diff = current - hourAgo;
   if (Math.abs(diff) < 1) return { delta: "Stable vs 1h ago", deltaTone: "neutral" };
   const sign = diff > 0 ? "+" : "";

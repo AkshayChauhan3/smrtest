@@ -37,7 +37,7 @@ class ProfileScreen extends ConsumerWidget {
             ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
             const SizedBox(height: 24),
             Text(
-              user?.name?.toUpperCase() ?? 'USER',
+              user?.name.toUpperCase() ?? 'USER',
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1.0),
             ).animate().fadeIn(delay: 200.ms),
             Text(

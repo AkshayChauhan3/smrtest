@@ -79,7 +79,7 @@ class HomeScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'WELCOME,\n${user?.name?.toUpperCase() ?? "PASSENGER"}',
+                        'WELCOME,\n${user?.name.toUpperCase() ?? "PASSENGER"}',
                         style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1.0,

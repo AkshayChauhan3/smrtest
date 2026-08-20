@@ -118,6 +118,15 @@ class ApiService {
             journeyDurationMinutes: item['journey_duration_minutes'],
             destinationName: item['to_station_name'],
             predictedStationCrowd: item['predicted_station_crowd'],
+            liveCurrentStationId: item['live_current_station_id'],
+            liveCurrentStationName: item['live_current_station_name'],
+            liveNextStationId: item['live_next_station_id'],
+            liveNextStationName: item['live_next_station_name'],
+            liveStatus: item['live_status'] ?? 'SCHEDULED',
+            journeyProgressPct: ((item['journey_progress_pct'] ?? 0.0) as num).toDouble(),
+            stopsTimeline: (item['stops_timeline'] as List? ?? [])
+                .map((e) => JourneyStopModel.fromJson(e))
+                .toList(),
           );
         }).toList();
       }
