@@ -272,22 +272,66 @@ class TrainService:
                 st.journey_completed_pct = db_train.journey_completed_pct
                 st.current_position = db_train.current_position
                 
-                # Fetch latest occupancy snapshot from DB
+                # Fetch latest occupancy snapshot and ML estimations from DB
+                from sqlalchemy import select
+                from app.models.estimation import Estimation
+
+                latest_est_res = await self.db.execute(
+                    select(Estimation)
+                    .where(Estimation.train_id == train_id)
+                    .order_by(Estimation.created_at.desc())
+                    .limit(3)
+                )
+                est_rows = latest_est_res.scalars().all()
+                est_map = {e.coach_id: e for e in est_rows}
+
                 occupancy_db = await self.occupancy_repo.get_latest_by_train(train_id)
-                if occupancy_db:
-                    # Map coaches
-                    coaches_out = []
-                    if occupancy_db.coach_data:
-                        for c_data in occupancy_db.coach_data:
-                            coaches_out.append(TrainCoachOut(
-                                coach_number=c_data.get("coach_number") or c_data.get("coach_id"),
-                                coach_type=c_data.get("coach_type", "standard").lower(),
-                                capacity=c_data.get("capacity", 400),
-                                current_passenger_count=c_data.get("current_passenger_count") or c_data.get("current_passengers", 0),
-                                occupancy_percentage=int(round(float(c_data.get("occupancy_percentage") or c_data.get("occupancy_pct") or 0))),
-                                occupancy_status=c_data.get("occupancy_status", "moderate"),
-                            ))
-                        st.coaches = coaches_out
+                coaches_out = []
+                if occupancy_db and occupancy_db.coach_data:
+                    for idx, c_data in enumerate(occupancy_db.coach_data):
+                        c_id = str(c_data.get("coach_number") or c_data.get("coach_id") or f"C{idx+1}")
+                        c_id_norm = "C1" if "1" in c_id else "C2" if ("2" in c_id or "l" in c_id.lower()) else "C3"
+                        e = est_map.get(c_id_norm)
+
+                        curr_p = int(c_data.get("current_passenger_count") or c_data.get("current_passengers", 0))
+                        curr_pct = int(round(float(c_data.get("occupancy_percentage") or c_data.get("occupancy_pct") or 0)))
+                        
+                        if e and e.estimated_next_passengers is not None:
+                            est_dep_p = e.estimated_next_passengers
+                            est_dep_pct = int(round((est_dep_p / 400.0) * 100.0))
+                        else:
+                            est_dep_p = max(0, min(400, int(curr_p * 1.08) if curr_p > 0 else 50))
+                            est_dep_pct = int(round((est_dep_p / 400.0) * 100.0))
+
+                        coaches_out.append(TrainCoachOut(
+                            coach_number=c_id,
+                            coach_type=c_data.get("coach_type", "standard").lower(),
+                            capacity=c_data.get("capacity", 400),
+                            current_passenger_count=curr_p,
+                            occupancy_percentage=curr_pct,
+                            occupancy_status=c_data.get("occupancy_status", "moderate"),
+                            estimated_departure_passengers=est_dep_p,
+                            estimated_departure_occupancy_pct=est_dep_pct,
+                        ))
+                    st.coaches = coaches_out
+                elif st.coaches:
+                    # Enrich existing simulated coaches
+                    for idx, c in enumerate(st.coaches):
+                        c_id_norm = f"C{idx+1}"
+                        e = est_map.get(c_id_norm)
+                        if e and e.estimated_next_passengers is not None:
+                            c.estimated_departure_passengers = e.estimated_next_passengers
+                            c.estimated_departure_occupancy_pct = int(round((e.estimated_next_passengers / 400.0) * 100.0))
+                        else:
+                            c.estimated_departure_passengers = max(0, min(400, int(c.current_passenger_count * 1.08) if c.current_passenger_count > 0 else 50))
+                            c.estimated_departure_occupancy_pct = int(round((c.estimated_departure_passengers / 400.0) * 100.0))
+
+                # Compute whole-train estimated departure totals
+                if st.coaches:
+                    total_est = sum(c.estimated_departure_passengers or c.current_passenger_count for c in st.coaches)
+                    st.estimated_departure_passengers = total_est
+                    st.estimated_departure_occupancy_pct = int(round((total_est / 1200.0) * 100.0))
+
             enriched_trains.append(st)
 
         # Inject ESP32_DEMO if active
@@ -555,9 +599,10 @@ class TrainService:
                                 # Let's provide a better fallback based on base * station factor if c_arr_p == 0
                                 if c_arr_p == 0 and c_dep_p == 0:
                                     # Very basic fallback for UI
-                                    import random
-                                    # Deterministic random based on train_id and station_id so it doesn't flicker
-                                    base_seed = hash(f"{row.train_id}_{station_id}_{cid}") % 100
+                                    import hashlib
+                                    # Deterministic hash based on train_id and station_id so it doesn't flicker across process restarts
+                                    key_str = f"{row.train_id}_{station_id}_{cid}"
+                                    base_seed = int(hashlib.md5(key_str.encode()).hexdigest()[:4], 16) % 100
                                     
                                     c_arr_p = 40 + base_seed if ctype == "general" else 20 + (base_seed // 2)
                                     c_arr_pct = round((c_arr_p / 400.0) * 100.0, 1)

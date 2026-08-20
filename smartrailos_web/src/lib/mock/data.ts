@@ -49,7 +49,10 @@ export interface Coach {
   id: string;
   label: string;
   capacity: number;
-  occupancy: number; // 0-100
+  occupancy: number; // 0-100 (Real-time live)
+  passengers?: number; // Real-time live count
+  estimatedOccupancy?: number; // 0-100 (ML estimated at departure)
+  estimatedPassengers?: number; // ML estimated count at departure
 }
 
 export function statusFromOccupancy(pct: number): CoachStatus {
@@ -92,6 +95,8 @@ export interface Train {
   coaches: Coach[];
   status: "Approaching" | "At Station" | "Departing" | "En Route";
   journey_completed_pct?: number;
+  estimatedDeparturePassengers?: number;
+  estimatedDepartureOccupancy?: number;
 }
 
 export const TRAINS: Train[] = [

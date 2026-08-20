@@ -1,27 +1,18 @@
 import { useEffect, useState } from "react";
-import { TRAINS, type Train } from "@/lib/mock/data";
+import { type Train } from "@/lib/mock/data";
+import { useTrains } from "@/lib/api/hooks";
 
-// Live train state. When VITE_REALTIME_WS_URL is set, subscribes to the
-// backend WebSocket. Otherwise simulates ticks locally so the UI feels live.
 export function useLiveTrains(): Train[] {
-  const [trains, setTrains] = useState<Train[]>(TRAINS);
+  const trainsQuery = useTrains();
+  const [trains, setTrains] = useState<Train[]>([]);
 
   useEffect(() => {
-    const wsUrl = import.meta.env.VITE_REALTIME_WS_URL as string | undefined;
-
-    if (wsUrl) {
-      const ws = new WebSocket(wsUrl);
-      ws.onmessage = (ev) => {
-        try {
-          const data = JSON.parse(ev.data);
-          if (Array.isArray(data)) setTrains(data);
-        } catch {
-          // ignore malformed frames
-        }
-      };
-      return () => ws.close();
+    if (trainsQuery.data) {
+      setTrains(trainsQuery.data);
     }
+  }, [trainsQuery.data]);
 
+  useEffect(() => {
     const id = setInterval(() => {
       setTrains((prev) =>
         prev.map((t) => {
@@ -33,5 +24,5 @@ export function useLiveTrains(): Train[] {
     return () => clearInterval(id);
   }, []);
 
-  return trains;
+  return trains.length > 0 ? trains : (trainsQuery.data ?? []);
 }

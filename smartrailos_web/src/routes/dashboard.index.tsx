@@ -82,15 +82,43 @@ function Overview() {
   const hasRealTrains = trainsRaw.some(t => t.id !== "ESP32_DEMO");
   const trainsFiltered = hasRealTrains ? trainsRaw.filter(t => t.id !== "ESP32_DEMO") : trainsRaw;
 
-  // Prioritize ESP32_DEMO to top
-  const trains = [...trainsFiltered].sort((a, b) => {
-    if (a.id === "ESP32_DEMO") return -1;
-    if (b.id === "ESP32_DEMO") return 1;
-    return 0;
-  });
+  // Sort trains dynamically by proximity & relevance to Old High Court Interchange
+  const [lineFilter, setLineFilter] = useState<"all" | "blue" | "red">("all");
+  const [viewAll, setViewAll] = useState(false);
+
+  const trains = [...trainsFiltered]
+    .filter((t) => (lineFilter === "all" ? true : t.line === lineFilter))
+    .sort((a, b) => {
+      if (a.id === "ESP32_DEMO") return -1;
+      if (b.id === "ESP32_DEMO") return 1;
+
+      // 1. Prioritize trains stopped at or heading into Old High Court (BL11 / RL07)
+      const aAtInterchange =
+        a.currentStationId === "BL11" ||
+        a.currentStationId === "RL07" ||
+        a.nextStationId === "BL11" ||
+        a.nextStationId === "RL07";
+      const bAtInterchange =
+        b.currentStationId === "BL11" ||
+        b.currentStationId === "RL07" ||
+        b.nextStationId === "BL11" ||
+        b.nextStationId === "RL07";
+
+      if (aAtInterchange && !bAtInterchange) return -1;
+      if (!aAtInterchange && bAtInterchange) return 1;
+
+      // 2. Active status priority
+      if (a.status === "At Station" && b.status !== "At Station") return -1;
+      if (b.status === "At Station" && a.status !== "At Station") return 1;
+      if (a.status === "Approaching" && b.status !== "Approaching") return -1;
+      if (b.status === "Approaching" && a.status !== "Approaching") return 1;
+
+      // 3. Lowest ETA
+      return (a.etaSeconds || 0) - (b.etaSeconds || 0);
+    });
 
   const alerts = alertsQ.data && alertsQ.data.length > 0 ? alertsQ.data : ALERTS;
-  const visible = trains.slice(0, 3);
+  const visible = viewAll ? trains : trains.slice(0, 3);
   
   const hist = histQ.data;
   const ago = hist?.hour_ago ?? undefined;
@@ -142,13 +170,46 @@ function Overview() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
         <div className="space-y-6 xl:col-span-8">
           <section>
-            <SectionHeader title="Live Train Status" right={`${visible.length} of ${trains.length} active`} />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <SectionHeader title="Live Train Status" right={`${visible.length} of ${trains.length} active`} />
+              
+              <div className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-obsidian-800/60 p-1 text-[10px] font-bold uppercase tracking-wider">
+                <button
+                  onClick={() => setLineFilter("all")}
+                  className={cn(
+                    "rounded px-2 py-0.5 transition-colors",
+                    lineFilter === "all" ? "bg-accent-cyan text-obsidian-950" : "text-slate-400 hover:text-white"
+                  )}
+                >
+                  All ({trainsFiltered.length})
+                </button>
+                <button
+                  onClick={() => setLineFilter("blue")}
+                  className={cn(
+                    "rounded px-2 py-0.5 transition-colors",
+                    lineFilter === "blue" ? "bg-accent-blue-2 text-white" : "text-slate-400 hover:text-white"
+                  )}
+                >
+                  Blue Line
+                </button>
+                <button
+                  onClick={() => setLineFilter("red")}
+                  className={cn(
+                    "rounded px-2 py-0.5 transition-colors",
+                    lineFilter === "red" ? "bg-danger text-white" : "text-slate-400 hover:text-white"
+                  )}
+                >
+                  Red Line
+                </button>
+              </div>
+            </div>
+
             <div className="mt-4 space-y-4">
               {trains.length === 0 ? (
                 <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-obsidian-900/50 text-center">
                   <TrainFront className="mb-2 size-6 text-slate-500" />
                   <p className="text-sm font-medium text-slate-300">No Active Trains</p>
-                  <p className="text-xs text-slate-500">There are currently no active trains on the network.</p>
+                  <p className="text-xs text-slate-500">There are currently no active trains matching this filter.</p>
                 </div>
               ) : (
                 visible.map((t, i) => (
@@ -158,6 +219,17 @@ function Overview() {
                 ))
               )}
             </div>
+
+            {trains.length > 3 && (
+              <div className="mt-3 text-center">
+                <button
+                  onClick={() => setViewAll(!viewAll)}
+                  className="rounded-lg border border-white/5 bg-obsidian-800/40 px-4 py-1.5 text-xs font-semibold text-accent-cyan hover:bg-obsidian-800 hover:border-accent-cyan/30 transition-all"
+                >
+                  {viewAll ? "Show Top 3 Only" : `Show All ${trains.length} Active Trains`}
+                </button>
+              </div>
+            )}
           </section>
 
           <LiveTrainTicker />

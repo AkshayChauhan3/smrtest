@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { TRAINS, BLUE_LINE, RED_LINE, type Train } from "@/lib/mock/data";
 import { useTrains } from "@/lib/api/hooks";
+import { USE_MOCK } from "@/lib/api/client";
 import { LineBadge } from "./badges";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +24,10 @@ export function LiveTrainTicker({ className }: { className?: string }) {
   const [seconds, setSeconds] = useState(0);
   const trainsQ = useTrains();
   const trainsRaw = trainsQ.data ?? [];
-  const hasRealTrains = trainsRaw.some(t => t.id !== "ESP32_DEMO");
+  const hasRealTrains = trainsRaw.some((t) => t.id !== "ESP32_DEMO");
+  const displayTrains = hasRealTrains
+    ? trainsRaw.filter((t) => t.id !== "ESP32_DEMO")
+    : (USE_MOCK ? TRAINS : trainsRaw);
 
   useEffect(() => {
     const id = setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -38,19 +42,22 @@ export function LiveTrainTicker({ className }: { className?: string }) {
           Live Network Position
         </h3>
         <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500">
-          {TRAINS.length} active
+          {displayTrains.length} active
         </span>
       </div>
 
       <div className="mt-5 space-y-4">
-        {!hasRealTrains ? (
+        {displayTrains.length === 0 ? (
           <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-obsidian-900/50 text-center">
             <p className="text-sm font-medium text-slate-300">System Offline</p>
             <p className="text-xs text-slate-500">Live position tracking is currently paused.</p>
           </div>
         ) : (
-          TRAINS.map((t) => {
-            const pct = progressFor(t, seconds);
+          displayTrains.map((t) => {
+            const pct =
+              typeof t.journey_completed_pct === "number" && t.journey_completed_pct > 0
+                ? t.journey_completed_pct
+                : progressFor(t, seconds);
             const lineColor = t.line === "blue" ? "bg-accent-blue-2" : "bg-danger";
             return (
               <div key={t.id} className="space-y-1.5">

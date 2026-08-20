@@ -30,6 +30,8 @@ export interface BackendCoach {
   current_passenger_count: number;
   occupancy_percentage: number;
   occupancy_status: string;
+  estimated_departure_passengers?: number | null;
+  estimated_departure_occupancy_pct?: number | null;
 }
 
 export interface BackendTrainAtStation {
@@ -47,6 +49,8 @@ export interface BackendTrainAtStation {
   eta_seconds?: number | null;
   journey_completed_pct?: number | null;
   current_position?: number | null;
+  estimated_departure_passengers?: number | null;
+  estimated_departure_occupancy_pct?: number | null;
   coaches: BackendCoach[];
 }
 
@@ -107,14 +111,25 @@ export function adaptStation(s: BackendStation, index: number): Station {
 }
 
 function adaptCoach(c: BackendCoach, i: number): Coach {
+  const currPax = c.current_passenger_count ?? Math.round(((c.capacity || 400) * c.occupancy_percentage) / 100);
+  const estPax =
+    c.estimated_departure_passengers ??
+    Math.min(c.capacity || 400, Math.round(currPax * 1.08) || 50);
+  const estPct =
+    c.estimated_departure_occupancy_pct ??
+    Math.min(100, Math.round((estPax / (c.capacity || 400)) * 100));
+
   return {
     id: `c${c.coach_number || i + 1}`,
     label:
       c.coach_type?.toLowerCase() === "ladies"
         ? "Ladies Coach"
         : `Coach ${c.coach_number || i + 1}`,
-    capacity: c.capacity,
+    capacity: c.capacity || 400,
     occupancy: c.occupancy_percentage,
+    passengers: currPax,
+    estimatedOccupancy: estPct,
+    estimatedPassengers: estPax,
   };
 }
 
@@ -126,6 +141,14 @@ export function adaptTrain(t: BackendTrainAtStation): Train {
   } else if (st === "IN_TRANSIT") {
     mappedStatus = (t.eta_seconds !== undefined && t.eta_seconds !== null && t.eta_seconds <= 60) ? "Approaching" : "En Route";
   }
+
+  const coaches = t.coaches.map(adaptCoach);
+  const totalEstPax =
+    t.estimated_departure_passengers ??
+    coaches.reduce((acc, c) => acc + (c.estimatedPassengers ?? c.passengers ?? 0), 0);
+  const totalEstPct =
+    t.estimated_departure_occupancy_pct ??
+    Math.min(100, Math.round((totalEstPax / 1200) * 100));
 
   return {
     id: t.train_id,
@@ -142,8 +165,10 @@ export function adaptTrain(t: BackendTrainAtStation): Train {
     predictedBoarding: 0,
     predictedDeboarding: 0,
     status: mappedStatus,
-    coaches: t.coaches.map(adaptCoach),
+    coaches,
     journey_completed_pct: t.journey_completed_pct ?? undefined,
+    estimatedDeparturePassengers: totalEstPax,
+    estimatedDepartureOccupancy: totalEstPct,
   };
 }
 

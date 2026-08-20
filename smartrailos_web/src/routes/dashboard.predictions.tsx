@@ -90,24 +90,27 @@ function Predictions() {
           {trains.length === 0 ? (
             <div className="py-8 text-center text-sm text-slate-500 md:col-span-2">No active trains right now</div>
           ) : trains.map((t) => {
-            const avg = Math.round(t.coaches.reduce((s, c) => s + c.occupancy, 0) / t.coaches.length);
+            const totalCapacity = t.coaches.reduce((acc, c) => acc + (c.capacity || 400), 0);
+            const totalPax = t.coaches.reduce((acc, c) => acc + (c.passengers ?? Math.round(((c.capacity || 400) * c.occupancy) / 100)), 0);
+            const avg = Math.round(t.coaches.reduce((s, c) => s + c.occupancy, 0) / Math.max(1, t.coaches.length));
             const pred = Math.min(99, avg + Math.round(avg * 0.08));
+            const predPax = Math.min(totalCapacity, Math.round(totalPax * 1.08));
             return (
               <div key={t.id} className="rounded-lg border border-white/5 bg-obsidian-800/40 p-4">
                 <div className="flex items-baseline justify-between">
-                  <span className="font-mono text-xs text-accent-cyan">{t.id}</span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{riskFor(t)} risk</span>
+                  <span className="font-mono text-xs font-bold text-accent-cyan">{t.id}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{riskFor(t)} risk</span>
                 </div>
                 <div className="mt-2 text-sm font-bold text-white">{t.direction}</div>
                 <div className="mt-3 flex items-end gap-6 font-mono">
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-slate-500">Now</div>
-                    <div className="text-xl font-bold text-white">{avg}%</div>
+                    <div className="text-[10px] uppercase tracking-widest text-slate-500">Current Load</div>
+                    <div className="text-lg font-bold text-white">{totalPax.toLocaleString()} <span className="text-xs text-slate-400 font-normal">pax ({avg}%)</span></div>
                   </div>
-                  <div className="text-slate-600">→</div>
+                  <div className="text-slate-600 text-lg">→</div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-slate-500">In 5 min</div>
-                    <div className="text-xl font-bold text-accent-cyan">{pred}%</div>
+                    <div className="text-[10px] uppercase tracking-widest text-accent-cyan/80">Estimated (5 min)</div>
+                    <div className="text-lg font-bold text-accent-cyan">{predPax.toLocaleString()} <span className="text-xs text-accent-cyan/70 font-normal">pax ({pred}%)</span></div>
                   </div>
                 </div>
               </div>

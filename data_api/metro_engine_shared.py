@@ -79,8 +79,9 @@ LADIES_COACH_FACTOR = 0.70
 # ══════════════════════════════════════════════
 
 def _seed_float(train_id: str, now: datetime, salt: str = "") -> float:
-    """Returns a stable pseudo-random float [0,1) for a given train+minute."""
-    key = f"{train_id}:{now.year}{now.month}{now.day}{now.hour}{now.minute}:{salt}"
+    """Returns a stable pseudo-random float [0,1) for a given train+5-minute window."""
+    bucket = (now.minute // 5) * 5
+    key = f"{train_id}:{now.year}{now.month}{now.day}{now.hour}{bucket:02d}:{salt}"
     h   = int(hashlib.md5(key.encode()).hexdigest()[:8], 16)
     return (h % 10000) / 10000.0
 

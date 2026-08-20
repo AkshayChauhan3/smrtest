@@ -35,14 +35,16 @@ function LiveTrainsPage() {
           <table className="w-full min-w-[920px] text-sm">
             <thead className="bg-obsidian-800/50 text-[10px] font-bold uppercase tracking-widest text-slate-500">
               <tr>
-                {["Train ID", "Direction", "Line", "Current → Next", "Arr / Dep", "Avg Occ.", "Risk", "Status", ""].map((h) => (
+                {["Train ID", "Direction", "Line", "Current → Next", "Arr / Dep", "Passengers", "Occupancy", "Risk", "Status", ""].map((h) => (
                   <th key={h} className="px-4 py-3 text-left font-bold">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {trains.map((t) => {
-                const avg = Math.round(t.coaches.reduce((s, c) => s + c.occupancy, 0) / t.coaches.length);
+                const totalCapacity = t.coaches.reduce((acc, c) => acc + (c.capacity || 400), 0);
+                const totalPax = t.coaches.reduce((acc, c) => acc + (c.passengers ?? Math.round(((c.capacity || 400) * c.occupancy) / 100)), 0);
+                const avg = Math.round(t.coaches.reduce((s, c) => s + c.occupancy, 0) / Math.max(1, t.coaches.length));
                 const risk = riskFor(t);
                 return (
                   <tr key={t.id} className="hover:bg-white/[0.02]">
@@ -55,7 +57,15 @@ function LiveTrainsPage() {
                       <span className="text-accent-cyan">{findStation(t.nextStationId)?.name}</span>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-slate-400">{t.arrival} / {t.departure}</td>
-                    <td className="px-4 py-3"><div className="w-28"><OccupancyBar value={avg} /></div></td>
+                    <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-300">
+                      <span className="text-white">{totalPax.toLocaleString()}</span>
+                      <span className="text-slate-500 font-normal"> / {totalCapacity.toLocaleString()}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="w-32">
+                        <OccupancyBar value={avg} showPaxCount={false} />
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <span className={cn("inline-flex rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest", RISK_TW[risk])}>{risk}</span>
                     </td>
