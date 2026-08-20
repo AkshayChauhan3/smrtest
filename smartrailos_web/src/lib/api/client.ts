@@ -1,7 +1,12 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+// Default to localhost:8000 if not explicitly defined in .env
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL !== undefined
+    ? import.meta.env.VITE_API_BASE_URL
+    : "http://localhost:8000";
 // All backend endpoints live under /api/v1 (FastAPI router prefix).
 export const API_V1_PREFIX = "/api/v1";
 export const USE_MOCK = !API_BASE_URL;
+
 
 export class ApiError extends Error {
   constructor(

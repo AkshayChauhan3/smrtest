@@ -99,8 +99,8 @@ class DataService:
                     direction=self._direction_label(mt.get("direction", "")),
                     current_station=mt.get("current_station", ""),
                     next_station=mt.get("next_station") or "",
-                    arrival_time=self._time_to_iso(now, mt.get("arrived_at_station")),
-                    departure_time=self._time_to_iso(now, mt.get("departs_station_at")),
+                    arrival_time=self._time_to_hhmm(now, mt.get("arrived_at_station")),
+                    departure_time=self._time_to_hhmm(now, mt.get("departs_station_at")),
                     current_occupancy=mt.get("train_current_passengers", 0),
                     coaches=coaches,
                 )
@@ -257,8 +257,8 @@ class DataService:
                     train_name=train.get("display_name") or self._train_name(train),
                     line_name=self._line_name(train),
                     direction=self._direction_label(train.get("direction", "")),
-                    arrival_time=self._time_to_iso(now, train.get("arrived_at_station")) if train.get("arrives_in_sec") == 0 else self._offset_to_iso(now, train.get("arrives_in_sec", 0)),
-                    departure_time=self._time_to_iso(now, train.get("departs_station_at")),
+                    arrival_time=self._time_to_hhmm(now, train.get("arrived_at_station")) if train.get("arrives_in_sec") == 0 else self._offset_to_hhmm(now, train.get("arrives_in_sec", 0)),
+                    departure_time=self._time_to_hhmm(now, train.get("departs_station_at")),
                     current_station=train.get("current_station", ""),
                     current_station_id=train.get("current_station_id"),
                     next_station=train.get("next_station") or "",
@@ -279,9 +279,9 @@ class DataService:
             # Use arrived_at_station as arrival_time if AT_STATION, otherwise offset
             eta_sec = train.get("eta_to_next_station_sec", 0)
             if train.get("status") in ("AT_STATION", "WAITING_AT_TERMINAL"):
-                arr_time = self._time_to_iso(now, train.get("arrived_at_station"))
+                arr_time = self._time_to_hhmm(now, train.get("arrived_at_station"))
             else:
-                arr_time = self._offset_to_iso(now, eta_sec)
+                arr_time = self._offset_to_hhmm(now, eta_sec)
                 
             trains.append(
                 TrainAtStationOut(
@@ -290,7 +290,7 @@ class DataService:
                     line_name=self._line_name(train),
                     direction=self._direction_label(train.get("direction", "")),
                     arrival_time=arr_time,
-                    departure_time=self._time_to_iso(now, train.get("departs_station_at")),
+                    departure_time=self._time_to_hhmm(now, train.get("departs_station_at")),
                     current_station=train.get("current_station", ""),
                     current_station_id=train.get("current_station_id"),
                     next_station=train.get("next_station") or "",
@@ -430,16 +430,27 @@ class DataService:
         ]
 
     @staticmethod
-    def _time_to_iso(now: datetime, hhmm: str | None) -> str:
+    def _time_to_hhmm(now: datetime, hhmm: str | None) -> str:
         if not hhmm:
-            return now.isoformat()
-        hour, minute = [int(part) for part in hhmm.split(":", 1)]
-        return datetime(now.year, now.month, now.day, hour, minute).isoformat()
+            return now.strftime("%H:%M")
+        if "T" in str(hhmm):
+            try:
+                return datetime.fromisoformat(str(hhmm)).strftime("%H:%M")
+            except Exception:
+                pass
+        if ":" in str(hhmm):
+            parts = str(hhmm).split(":")
+            return f"{int(parts[0]):02d}:{int(parts[1]):02d}"
+        return str(hhmm)
 
     @staticmethod
-    def _offset_to_iso(now: datetime, seconds: int | float) -> str:
+    def _offset_to_hhmm(now: datetime, seconds: int | float) -> str:
         from datetime import timedelta
-        return (now + timedelta(seconds=float(seconds))).isoformat()
+        return (now + timedelta(seconds=float(seconds))).strftime("%H:%M")
+
+    # Maintain alias for compatibility
+    _time_to_iso = _time_to_hhmm
+    _offset_to_iso = _offset_to_hhmm
 
     @staticmethod
     def _route_label(train: dict, station_name: str) -> str:

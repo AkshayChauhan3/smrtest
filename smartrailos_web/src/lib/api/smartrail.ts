@@ -133,6 +133,30 @@ function adaptCoach(c: BackendCoach, i: number): Coach {
   };
 }
 
+export function formatTimeString(raw?: string | null): string {
+  if (!raw) return "--:--";
+  const s = String(raw).trim();
+  if (s.includes("T")) {
+    try {
+      const d = new Date(s);
+      if (!isNaN(d.getTime())) {
+        const h = String(d.getHours()).padStart(2, "0");
+        const m = String(d.getMinutes()).padStart(2, "0");
+        return `${h}:${m}`;
+      }
+    } catch {}
+  }
+  if (s.includes(":")) {
+    const parts = s.split(":");
+    if (parts.length >= 2) {
+      const h = parts[0].padStart(2, "0");
+      const m = parts[1].padStart(2, "0");
+      return `${h}:${m}`;
+    }
+  }
+  return s;
+}
+
 export function adaptTrain(t: BackendTrainAtStation): Train {
   let mappedStatus: "Approaching" | "At Station" | "Departing" | "En Route" = "At Station";
   const st = (t.status || "").toUpperCase();
@@ -159,8 +183,8 @@ export function adaptTrain(t: BackendTrainAtStation): Train {
     destinationId: "",
     currentStationId: t.current_station_id || t.current_station,
     nextStationId: t.next_station_id || t.next_station,
-    arrival: t.arrival_time,
-    departure: t.departure_time,
+    arrival: formatTimeString(t.arrival_time),
+    departure: formatTimeString(t.departure_time),
     etaSeconds: t.eta_seconds ?? 0,
     predictedBoarding: 0,
     predictedDeboarding: 0,

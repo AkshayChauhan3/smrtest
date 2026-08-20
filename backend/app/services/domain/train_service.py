@@ -161,8 +161,8 @@ class TrainService:
                         direction=train.direction,
                         current_station=station.name if station else "",
                         next_station=next_station.name if next_station else "",
-                        arrival_time=train.updated_at.isoformat(),
-                        departure_time=train.updated_at.isoformat(),
+                        arrival_time=train.updated_at.strftime("%H:%M") if hasattr(train.updated_at, 'strftime') else "00:00",
+                        departure_time=train.updated_at.strftime("%H:%M") if hasattr(train.updated_at, 'strftime') else "00:00",
                         current_occupancy=occupancy_db.total_passengers if occupancy_db else 0,
                         coaches=[
                             CoachOut(
@@ -523,8 +523,8 @@ class TrainService:
         return StationCurrentStateResponse(
             train_id=target_train.get("train_id"),
             current_passenger_count=target_train.get("train_current_passengers", 0),
-            arrival_time=self.sim_service._time_to_iso(now, target_train.get("arrived_at_station")),
-            departure_time=self.sim_service._time_to_iso(now, target_train.get("departs_station_at")),
+            arrival_time=self.sim_service._time_to_hhmm(now, target_train.get("arrived_at_station")),
+            departure_time=self.sim_service._time_to_hhmm(now, target_train.get("departs_station_at")),
             coaches=coaches_out,
             status=status_label,
             eta_seconds=eta_sec
@@ -720,8 +720,8 @@ class TrainService:
 
                 results.append(StationFeatureStateResponse(
                     train_id=upcoming_train_id,
-                    estimated_arrival_time=est_arrival_dt.isoformat(),
-                    estimated_departure_time=est_departure_dt.isoformat(),
+                    estimated_arrival_time=est_arrival_dt.strftime("%H:%M"),
+                    estimated_departure_time=est_departure_dt.strftime("%H:%M"),
                     estimated_passenger_incoming=sum(est.current_passengers or 0 for est in coach_estimations),
                     estimated_alighting=sum(est.estimated_alighting or 0 for est in coach_estimations),
                     estimated_boarding=sum(est.estimated_boarding or 0 for est in coach_estimations),
@@ -775,8 +775,8 @@ class TrainService:
 
                 results.append(StationFeatureStateResponse(
                     train_id=upcoming_train_id,
-                    estimated_arrival_time=est_arrival_dt.isoformat(),
-                    estimated_departure_time=est_departure_dt.isoformat(),
+                    estimated_arrival_time=est_arrival_dt.strftime("%H:%M"),
+                    estimated_departure_time=est_departure_dt.strftime("%H:%M"),
                     estimated_passenger_incoming=sum(c.arrival_passengers for c in coaches_out),
                     estimated_alighting=int(total_alighting),
                     estimated_boarding=int(total_boarding),

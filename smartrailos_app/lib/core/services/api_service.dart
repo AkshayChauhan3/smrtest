@@ -1,11 +1,11 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_config.dart';
 import '../constants/metro_data.dart';
-import '../../features/auth/models/user_model.dart';
 import '../../features/trains/models/train_model.dart';
 import '../../features/trains/models/coach_model.dart';
 import '../../features/trains/models/announcement_model.dart';
@@ -13,161 +13,155 @@ import '../../features/trains/models/announcement_model.dart';
 final apiServiceProvider = Provider((ref) => ApiService());
 
 class ApiService {
-  Future<Map<String, String>> _getAuthHeaders() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-    if (token == null) return {'Content-Type': 'application/json'};
-    return AppConfig.authHeaders(token);
+  Future<Map<String, String>> _getHeaders() async {
+    return {'Content-Type': 'application/json'};
   }
 
-  // AUTH
-  Future<UserModel> login(String email, String password) async {
-    final res = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/api/v1/auth/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password}),
-    );
-    if (res.statusCode != 200) {
-      throw Exception('Login failed: ${res.body}');
+  /// Sends a GET request, automatically trying candidate URLs on network failure
+  Future<http.Response> _httpGet(String path, {Map<String, String>? headers}) async {
+    final candidates = [
+      AppConfig.baseUrl,
+      ...AppConfig.candidateUrls.where((u) => u != AppConfig.baseUrl),
+    ];
+
+    Object? lastError;
+    for (final base in candidates) {
+      try {
+        final uri = Uri.parse('$base$path');
+        final res = await http.get(uri, headers: headers).timeout(const Duration(seconds: 4));
+        if (res.statusCode < 500) {
+          AppConfig.setWorkingUrl(base);
+          return res;
+        }
+      } catch (e) {
+        lastError = e;
+      }
     }
-    final data = jsonDecode(res.body);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', data['access_token']);
-    
-    final name = email.split('@')[0];
-    await prefs.setString('user_name', name);
-    await prefs.setString('user_email', email);
-    
-    return UserModel(userId: 'uid-${email.hashCode}', name: name, email: email);
+    throw Exception('Unable to reach backend at any host (${AppConfig.candidateUrls.join(", ")}): $lastError');
   }
 
-  Future<UserModel> register(String name, String email, String password) async {
-    final res = await http.post(
-      Uri.parse('${AppConfig.baseUrl}/api/v1/auth/register'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'full_name': name, 'email': email, 'password': password, 'role': 'passenger'}),
-    );
-    if (res.statusCode != 201) {
-      throw Exception('Registration failed: ${res.body}');
-    }
-    // backend register doesn't return token, so auto-login
-    return login(email, password);
-  }
-
-  Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-  }
-
-  Future<UserModel?> checkAuth() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-    if (token == null) return null;
-    final name = prefs.getString('user_name') ?? 'User';
-    final email = prefs.getString('user_email') ?? '';
-    return UserModel(userId: 'mock-uid', name: name, email: email);
-  }
 
   // TRAINS
   Future<List<TrainModel>> getUpcomingTrains(MetroLine line, String fromStationId, String toStationId) async {
-    try {
-      final headers = await _getAuthHeaders();
+    final headers = await _getHeaders();
 
-      final resSearch = await http.get(
-        Uri.parse('${AppConfig.baseUrl}/api/v1/trains/search?from_station=$fromStationId&to_station=$toStationId'),
-        headers: headers,
-      );
+    final resSearch = await _httpGet(
+      '/api/v1/trains/search?from_station=$fromStationId&to_station=$toStationId',
+      headers: headers,
+    );
 
-      if (resSearch.statusCode == 200) {
-        final list = jsonDecode(resSearch.body) as List;
-        return list.map((item) {
-          final coaches = (item['coaches'] as List? ?? []).map((c) {
-            final coachIdStr = c['coach_number']?.toString() ?? '1';
-            final cleanId = coachIdStr.replaceAll(RegExp(r'[^0-9]'), '');
-            return CoachModel(
-              coachNumber: int.tryParse(cleanId.isNotEmpty ? cleanId : '1') ?? 1,
-              type: (c['coach_type'] ?? 'standard').toString().toLowerCase() == 'ladies' ? 'Ladies' : 'General',
-              capacity: c['capacity'] ?? 400,
-              currentPassengers: c['current_passenger_count'] ?? 0,
-            );
-          }).toList();
-
-          final isPlatform = item['is_at_platform'] == true;
-          final totalPax = item['current_occupancy'] ?? 0;
-
-          return TrainModel(
-            trainId: item['train_id'] ?? '',
-            displayName: item['train_name'] ?? item['train_id'] ?? '',
-            line: (item['line_code'] ?? '').toString().toUpperCase() == 'RL' ? MetroLine.red : MetroLine.blue,
-            direction: item['direction'] ?? 'UP',
-            etaMinutes: item['eta_minutes'] ?? 0,
-            departureMinutes: (item['eta_minutes'] ?? 0) + 1,
-            coaches: coaches,
-            status: totalPax >= 1020
-                ? TrainStatus.full
-                : totalPax >= 600
-                    ? TrainStatus.moderate
-                    : TrainStatus.normal,
-            currentPositionIndex: 0,
-            fromStationId: fromStationId,
-            toStationId: toStationId,
-            announcements: [],
-            arrivalTime: item['arrival_time'],     // Destination arrival time!
-            departureTime: item['departure_time'], // Origin departure time!
-            isAtPlatform: isPlatform,
-            journeyDurationMinutes: item['journey_duration_minutes'],
-            destinationName: item['to_station_name'],
-            predictedStationCrowd: item['predicted_station_crowd'],
-            liveCurrentStationId: item['live_current_station_id'],
-            liveCurrentStationName: item['live_current_station_name'],
-            liveNextStationId: item['live_next_station_id'],
-            liveNextStationName: item['live_next_station_name'],
-            liveStatus: item['live_status'] ?? 'SCHEDULED',
-            journeyProgressPct: ((item['journey_progress_pct'] ?? 0.0) as num).toDouble(),
-            stopsTimeline: (item['stops_timeline'] as List? ?? [])
-                .map((e) => JourneyStopModel.fromJson(e))
-                .toList(),
+    if (resSearch.statusCode == 200) {
+      final list = jsonDecode(resSearch.body) as List;
+      return list.map((item) {
+        final coaches = (item['coaches'] as List? ?? []).map((c) {
+          final coachIdStr = c['coach_number']?.toString() ?? '1';
+          final cleanId = coachIdStr.replaceAll(RegExp(r'[^0-9]'), '');
+          return CoachModel(
+            coachNumber: int.tryParse(cleanId.isNotEmpty ? cleanId : '1') ?? 1,
+            type: (c['coach_type'] ?? 'standard').toString().toLowerCase() == 'ladies' ? 'Ladies' : 'General',
+            capacity: c['capacity'] ?? 400,
+            currentPassengers: c['current_passenger_count'] ?? 0,
           );
         }).toList();
-      }
-    } catch (e) {
-      print('General error in getUpcomingTrains: $e');
+
+        final isPlatform = item['is_at_platform'] == true;
+        final totalPax = item['current_occupancy'] ?? 0;
+
+        return TrainModel(
+          trainId: item['train_id'] ?? '',
+          displayName: item['train_name'] ?? item['train_id'] ?? '',
+          line: (item['line_code'] ?? '').toString().toUpperCase() == 'RL' ? MetroLine.red : MetroLine.blue,
+          direction: item['direction'] ?? 'UP',
+          etaMinutes: item['eta_minutes'] ?? 0,
+          departureMinutes: (item['eta_minutes'] ?? 0) + 1,
+          coaches: coaches,
+          status: totalPax >= 1020
+              ? TrainStatus.full
+              : totalPax >= 600
+                  ? TrainStatus.moderate
+                  : TrainStatus.normal,
+          currentPositionIndex: 0,
+          fromStationId: fromStationId,
+          toStationId: toStationId,
+          announcements: [],
+          arrivalTime: item['arrival_time'],     // Destination arrival time
+          departureTime: item['departure_time'], // Origin departure time
+          isAtPlatform: isPlatform,
+          journeyDurationMinutes: item['journey_duration_minutes'],
+          destinationName: item['to_station_name'],
+          predictedStationCrowd: item['predicted_station_crowd'],
+          liveCurrentStationId: item['live_current_station_id'],
+          liveCurrentStationName: item['live_current_station_name'],
+          liveNextStationId: item['live_next_station_id'],
+          liveNextStationName: item['live_next_station_name'],
+          liveStatus: item['live_status'] ?? 'SCHEDULED',
+          journeyProgressPct: ((item['journey_progress_pct'] ?? 0.0) as num).toDouble(),
+          stopsTimeline: (item['stops_timeline'] as List? ?? [])
+              .map((e) => JourneyStopModel.fromJson(e))
+              .toList(),
+        );
+      }).toList();
+    } else {
+      throw Exception('Server error searching trains (${resSearch.statusCode}): ${resSearch.body}');
     }
-    return [];
   }
 
   Future<TrainModel> getTrainDetail(String trainId) async {
-    final headers = await _getAuthHeaders();
-    final res = await http.get(
-      Uri.parse('${AppConfig.baseUrl}/api/v1/trains/at-station'),
+    final headers = await _getHeaders();
+    final res = await _httpGet(
+      '/api/v1/trains/at-station',
       headers: headers,
     );
     if (res.statusCode == 200) {
       final list = jsonDecode(res.body) as List;
       final t = list.firstWhere((e) => e['train_id'] == trainId, orElse: () => null);
       if (t != null) {
-        return TrainModel(
-          trainId: t['train_id'],
-          displayName: t['train_name'],
-          line: t['line_name'].toString().toLowerCase().contains('blue') ? MetroLine.blue : MetroLine.red,
-          direction: t['direction'],
-          etaMinutes: 0,
-          departureMinutes: 2,
-          coaches: (t['coaches'] as List? ?? []).map((c) => CoachModel(
-            coachNumber: int.tryParse(c['coach_number']?.toString() ?? '0') ?? 0,
-            type: c['coach_type'] ?? 'General',
-            capacity: c['capacity'] ?? 175,
+        final coaches = (t['coaches'] as List? ?? []).map((c) {
+          final coachIdStr = c['coach_number']?.toString() ?? '1';
+          final cleanId = coachIdStr.replaceAll(RegExp(r'[^0-9]'), '');
+          return CoachModel(
+            coachNumber: int.tryParse(cleanId.isNotEmpty ? cleanId : '1') ?? 1,
+            type: (c['coach_type'] ?? 'standard').toString().toLowerCase() == 'ladies' ? 'Ladies' : 'General',
+            capacity: c['capacity'] ?? 400,
             currentPassengers: c['current_passenger_count'] ?? 0,
-          )).toList(),
-          status: TrainStatus.normal,
+          );
+        }).toList();
+
+        final totalPax = coaches.fold(0, (s, c) => s + c.currentPassengers);
+        final line = t['line_name'].toString().toLowerCase().contains('blue') ? MetroLine.blue : MetroLine.red;
+        final isPlatform = (t['status'] ?? '').toString().toUpperCase() == 'AT_STATION';
+
+        return TrainModel(
+          trainId: t['train_id'] ?? trainId,
+          displayName: t['train_name'] ?? trainId,
+          line: line,
+          direction: t['direction'] ?? 'UP',
+          etaMinutes: ((t['eta_seconds'] ?? 0) / 60).round(),
+          departureMinutes: 2,
+          coaches: coaches,
+          status: totalPax >= 1020
+              ? TrainStatus.full
+              : totalPax >= 600
+                  ? TrainStatus.moderate
+                  : TrainStatus.normal,
           currentPositionIndex: 0,
-          fromStationId: t['current_station'],
-          toStationId: t['next_station'],
+          fromStationId: t['current_station_id'] ?? t['current_station'] ?? '',
+          toStationId: t['next_station_id'] ?? t['next_station'] ?? '',
           announcements: [],
+          arrivalTime: t['arrival_time'],
+          departureTime: t['departure_time'],
+          isAtPlatform: isPlatform,
+          liveCurrentStationId: t['current_station_id'],
+          liveCurrentStationName: t['current_station'],
+          liveNextStationId: t['next_station_id'],
+          liveNextStationName: t['next_station'],
+          liveStatus: t['status'] ?? (isPlatform ? 'AT_STATION' : 'IN_TRANSIT'),
+          journeyProgressPct: ((t['journey_completed_pct'] ?? 0.0) as num).toDouble(),
+          stopsTimeline: [],
         );
       }
     }
-    throw Exception('Train not found');
+    throw Exception('Train $trainId not found');
   }
 
   Future<List<CoachModel>> getCoachOccupancy(String trainId) async {
@@ -181,9 +175,9 @@ class ApiService {
 
   Future<List<AnnouncementModel>> getActiveAnnouncements(String stationId) async {
     try {
-      final headers = await _getAuthHeaders();
-      final res = await http.get(
-        Uri.parse('${AppConfig.baseUrl}/api/v1/announcements/active'),
+      final headers = await _getHeaders();
+      final res = await _httpGet(
+        '/api/v1/announcements/active',
         headers: headers,
       );
       if (res.statusCode == 200) {
@@ -197,40 +191,41 @@ class ApiService {
         )).toList();
       }
     } catch (e) {
-      print('Error fetching announcements: $e');
+      debugPrint('Error fetching announcements: $e');
     }
     return [];
   }
 
-  // USER DATA
-  Future<List<dynamic>> getSavedRoutes() async {
-    final auth = await checkAuth();
-    if (auth != null) {
+  // SAVED ROUTES (COMMUTER PREFERENCES)
+  Future<List<Map<String, String>>> getSavedRoutes() async {
+    final prefs = await SharedPreferences.getInstance();
+    final routesJson = prefs.getString('saved_commuter_routes');
+    if (routesJson != null) {
       try {
-        final headers = await _getAuthHeaders();
-        final res = await http.get(
-          Uri.parse('${AppConfig.baseUrl}/api/v1/users/${auth.userId}/saved-routes'),
-          headers: headers,
-        );
-        if (res.statusCode == 200) {
-          return jsonDecode(res.body) as List;
-        }
-      } catch (e) {
-        print('Error fetching saved routes: $e');
-      }
+        final list = jsonDecode(routesJson) as List;
+        return list.map((e) => Map<String, String>.from(e)).toList();
+      } catch (_) {}
     }
-    return [];
+    return [
+      {
+        'lineId': 'blue',
+        'fromStationId': 'BL08',
+        'toStationId': 'BL18',
+        'label': 'Old High Court → Thaltej',
+      },
+      {
+        'lineId': 'red',
+        'fromStationId': 'RL02',
+        'toStationId': 'RL08',
+        'label': 'Sabarmati → Old High Court',
+      },
+    ];
   }
 
-  Future<void> saveRoute(dynamic route) async {
-    final auth = await checkAuth();
-    if (auth != null) {
-      final headers = await _getAuthHeaders();
-      await http.post(
-        Uri.parse('${AppConfig.baseUrl}/api/v1/users/${auth.userId}/saved-routes'),
-        headers: headers,
-        body: jsonEncode(route),
-      );
-    }
+  Future<void> saveRoute(Map<String, String> route) async {
+    final prefs = await SharedPreferences.getInstance();
+    final existing = await getSavedRoutes();
+    existing.add(route);
+    await prefs.setString('saved_commuter_routes', jsonEncode(existing));
   }
 }

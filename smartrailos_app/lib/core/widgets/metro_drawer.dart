@@ -1,0 +1,478 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../constants/app_config.dart';
+import '../constants/theme.dart';
+
+class MetroDrawer extends StatelessWidget {
+  const MetroDrawer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      backgroundColor: AppTheme.surfaceDark,
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            _buildHeader(context),
+            const Divider(height: 1, color: Color(0x14FFFFFF)),
+
+            // Scrollable Content
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                children: [
+                  // Network Status Pill
+                  _buildNetworkStatusPill(),
+                  const SizedBox(height: 20),
+
+                  // Line Status Overview
+                  const Text(
+                    'METRO CORRIDORS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                      color: AppTheme.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildLineStatusTile(
+                    title: 'Line 1 · Blue Line',
+                    route: 'Vastral Gam ↔ Thaltej Gam',
+                    stationsCount: '18 Stations',
+                    color: AppTheme.blueLine,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/lines?line=blue');
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _buildLineStatusTile(
+                    title: 'Line 2 · Red Line',
+                    route: 'APMC ↔ Motera Stadium',
+                    stationsCount: '15 Stations',
+                    color: AppTheme.redLine,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/lines?line=red');
+                    },
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Interchange Hub Highlight
+                  _buildInterchangeCard(context),
+
+                  const SizedBox(height: 24),
+
+                  // Quick Links
+                  const Text(
+                    'TRANSIT SERVICES',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                      color: AppTheme.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  _buildDrawerNavItem(
+                    icon: Icons.alt_route_rounded,
+                    label: 'Trip Planner & Search',
+                    subtitle: 'Find upcoming train arrivals',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.go('/home');
+                    },
+                  ),
+                  _buildDrawerNavItem(
+                    icon: Icons.hub_rounded,
+                    label: 'Network & Station Explorer',
+                    subtitle: 'Full interactive line map',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/lines');
+                    },
+                  ),
+                  _buildDrawerNavItem(
+                    icon: Icons.sensors_rounded,
+                    label: 'Live Radar & Telemetry',
+                    subtitle: 'ESP32 platform passenger feed',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/live');
+                    },
+                  ),
+                  _buildDrawerNavItem(
+                    icon: Icons.confirmation_number_outlined,
+                    label: 'Smart QR Pass & Commutes',
+                    subtitle: 'Digital ticket & saved routes',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/profile');
+                    },
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Telemetry Diagnostics
+                  _buildTelemetryDiagnosticCard(),
+                ],
+              ),
+            ),
+
+            // Footer
+            _buildFooter(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppTheme.blueLine, AppTheme.redLine],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.blueLine.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Center(
+              child: Icon(Icons.directions_subway_rounded, color: Colors.white, size: 24),
+            ),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SMARTRAIL OS',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    letterSpacing: 1.0,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Ahmedabad Metro Transit',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppTheme.textMuted,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close_rounded, color: AppTheme.textMuted, size: 20),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNetworkStatusPill() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.signalGreen.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.signalGreen.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: AppTheme.signalGreen,
+              shape: BoxShape.circle,
+            ),
+          ).animate().fadeIn(duration: 400.ms),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ALL SYSTEMS NOMINAL',
+                  style: TextStyle(
+                    color: AppTheme.signalGreen,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                SizedBox(height: 1),
+                Text(
+                  '32 Stations · Normal Frequency (8 min)',
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLineStatusTile({
+    required String title,
+    required String route,
+    required String stationsCount,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceElevated,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x14FFFFFF)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        route,
+                        style: const TextStyle(color: AppTheme.textMuted, fontSize: 10),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    stationsCount,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInterchangeCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppTheme.blueLine.withValues(alpha: 0.1),
+            AppTheme.redLine.withValues(alpha: 0.1),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0x26FFFFFF)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceDark,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.transfer_within_a_station_rounded, color: AppTheme.signalAmber, size: 20),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'INTERCHANGE HUB',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 9,
+                    color: AppTheme.signalAmber,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Old High Court Station',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                SizedBox(height: 1),
+                Text(
+                  'Seamless transfer: Blue ↔ Red Lines',
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawerNavItem({
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceElevated,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x14FFFFFF)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          dense: true,
+          leading: Icon(icon, color: AppTheme.blueLine, size: 20),
+          title: Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimary),
+          ),
+          subtitle: Text(
+            subtitle,
+            style: const TextStyle(color: AppTheme.textMuted, fontSize: 10),
+          ),
+          trailing: const Icon(Icons.chevron_right_rounded, size: 16, color: AppTheme.textMuted),
+          onTap: onTap,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTelemetryDiagnosticCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceElevated,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x14FFFFFF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.wifi_tethering_rounded, size: 14, color: AppTheme.signalGreen),
+              SizedBox(width: 6),
+              Text(
+                'LIVE TELEMETRY ENGINE',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 9,
+                  color: AppTheme.signalGreen,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Host: ${AppConfig.baseUrl}',
+            style: const TextStyle(color: AppTheme.textMuted, fontSize: 10, fontFamily: 'monospace'),
+          ),
+          const SizedBox(height: 2),
+          const Text(
+            'Sensors: ESP32 Dual-Beam Optical Inflow',
+            style: TextStyle(color: AppTheme.textMuted, fontSize: 10),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Expanded(
+            child: Text(
+              'SmartRail OS v2.4 (Commuter)',
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 10),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppTheme.blueLine, shape: BoxShape.circle)),
+              const SizedBox(width: 4),
+              Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppTheme.redLine, shape: BoxShape.circle)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

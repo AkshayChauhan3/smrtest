@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SectionHeader } from "./dashboard.index";
 import { HOURLY_FLOW, riskFor } from "@/lib/mock/data";
-import { useTrains } from "@/lib/api/hooks";
+import { useTrains, useHourlyFlow } from "@/lib/api/hooks";
 import { Sparkles, TrendingUp } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 
@@ -17,6 +17,7 @@ export const Route = createFileRoute("/dashboard/predictions")({
 
 function Predictions() {
   const trainsQ = useTrains();
+  const flowQ = useHourlyFlow();
   const trains = trainsQ.data ?? [];
 
   const sorted = [...trains].sort((a, b) => {
@@ -35,7 +36,16 @@ function Predictions() {
 
   const mostBoardingTrain = [...trains].sort((a, b) => (b.predictedBoarding || 0) - (a.predictedBoarding || 0))[0];
 
-  const forecast = HOURLY_FLOW.slice(14, 22).map((d) => ({ ...d, predicted: Math.round(d.inflow * 1.08) }));
+  const rawFlow = flowQ.data ?? HOURLY_FLOW;
+  const forecast = rawFlow.map((d: any) => {
+    const inflow = d.boarding ?? d.inflow ?? 0;
+    return {
+      hour: d.hour,
+      inflow,
+      predicted: Math.round(inflow * 1.08),
+    };
+  });
+
   
   if (trainsQ.isLoading) {
     return <div className="py-20 text-center text-sm text-slate-500">Loading live predictions…</div>;

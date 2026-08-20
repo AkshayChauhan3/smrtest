@@ -5,6 +5,7 @@ import { OccupancyBar } from "@/components/srail/occupancy-bar";
 import { KpiCard } from "@/components/srail/kpi-card";
 import { AnimatedNumber } from "@/components/srail/animated-number";
 import { useStations, useTrains, useStationCurrent, useStationFeature } from "@/lib/api/hooks";
+import { formatTimeString } from "@/lib/api/smartrail";
 import { SectionHeader } from "@/routes/dashboard.index";
 import { cn } from "@/lib/utils";
 
@@ -177,10 +178,10 @@ function StationDetail() {
                     {currentData.current_passenger_count?.toLocaleString() ?? 0}
                   </td>
                   <td className="px-6 py-4 font-mono text-slate-400">
-                    {currentData.arrival_time || "--:--"}
+                    {formatTimeString(currentData.arrival_time)}
                   </td>
                   <td className="px-6 py-4 font-mono text-slate-400">
-                    {currentData.departure_time || "--:--"}
+                    {formatTimeString(currentData.departure_time)}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-400 ring-1 ring-inset ring-emerald-500/20">
@@ -263,7 +264,7 @@ function StationDetail() {
                         {f.train_id}
                       </td>
                       <td className="px-6 py-4 font-mono text-white font-semibold">
-                        {f.estimated_arrival_time || "--:--"}
+                        {formatTimeString(f.estimated_arrival_time)}
                       </td>
                       <td className="px-6 py-4 text-white">
                         {f.estimated_passenger_incoming?.toLocaleString() ?? 0}

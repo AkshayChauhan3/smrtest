@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
+
 def test_user_registration_and_login():
     with TestClient(app) as client:
         # 1. Register a new user
@@ -74,3 +75,4 @@ def test_saved_routes():
         assert saved_list[0]["toStationId"] == "BL11"
         assert saved_list[0]["label"] == "Home Commute"
         assert "id" in saved_list[0]
+

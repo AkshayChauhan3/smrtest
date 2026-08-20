@@ -171,10 +171,10 @@ def build_train_roster(now: datetime) -> list:
     trains = []
     configs = [
         # (id_prefix, direction, line_name, line_code, t_start, t_end, sched, dur, deps, count)
-        ("BL-UP", "UP",   "Blue Line", "BL", "Vastral Gam",    "Thaltej Gam",    BL_UP_SCHED,   BL_UP_DUR,   bl_up,   11),  # GMRC Phase-1: 6 UP trains (fixed from 12)
-        ("BL-DO", "DOWN", "Blue Line", "BL", "Thaltej Gam",    "Vastral Gam",    BL_DOWN_SCHED, BL_DOWN_DUR, bl_down,  5),  # GMRC Phase-1: 5 DOWN trains
-        ("RL-UP", "UP",   "Red Line",  "RL", "APMC",           "Motera Stadium", RL_UP_SCHED,   RL_UP_DUR,   rl_up,    5),  # GMRC Phase-1: 5 UP trains
-        ("RL-DO", "DOWN", "Red Line",  "RL", "Motera Stadium", "APMC",           RL_DOWN_SCHED, RL_DOWN_DUR, rl_down,  5),  # GMRC Phase-1: 5 DOWN trains
+        ("BL-UP", "UP",   "Blue Line", "BL", "Vastral Gam",    "Thaltej Gam",    BL_UP_SCHED,   BL_UP_DUR,   bl_up,   6),
+        ("BL-DO", "DOWN", "Blue Line", "BL", "Thaltej Gam",    "Vastral Gam",    BL_DOWN_SCHED, BL_DOWN_DUR, bl_down, 5),
+        ("RL-UP", "UP",   "Red Line",  "RL", "APMC",           "Motera Stadium", RL_UP_SCHED,   RL_UP_DUR,   rl_up,   5),
+        ("RL-DO", "DOWN", "Red Line",  "RL", "Motera Stadium", "APMC",           RL_DOWN_SCHED, RL_DOWN_DUR, rl_down, 5),
     ]
     for prefix, direction, line_name, line_code, t_start, t_end, sched, dur, deps, count in configs:
         for i in range(count):
@@ -204,16 +204,20 @@ def occupancy_base_factor(now: datetime, train_id: str) -> float:
     is_weekend = now.weekday() >= 5
     noise      = (_seed_float(train_id, now, "base") - 0.5) * 0.08   # ±4%
 
-    # Force higher base traffic for demonstration purposes so dashboard shows Moderate/High/Critical
+    if is_weekend:
+        return max(0, min(1, (0.35 if 10 <= h <= 19 else 0.15) + noise))
+
     if 8.0 <= h < 11.0:
         peak = 1.0 - abs(h - 9.0) / 1.5
-        return max(0, min(1, 0.85 + 0.45 * peak + noise))
-    if 17.0 <= h < 23.0: # Extend evening peak to 11 PM
-        peak = 1.0 - abs(h - 19.5) / 3.0
-        return max(0, min(1, 0.80 + 0.45 * peak + noise))
+        return max(0, min(1, 0.55 + 0.45 * peak + noise))
+    if 17.0 <= h < 20.0:
+        peak = 1.0 - abs(h - 18.5) / 1.5
+        return max(0, min(1, 0.50 + 0.45 * peak + noise))
     if 11.0 <= h < 17.0:
-        return max(0, min(1, 0.65 + noise))
-    return max(0, min(1, 0.50 + noise))
+        return max(0, min(1, 0.25 + noise))
+    if h < 7.0 or h >= 21.0:
+        return max(0, min(1, 0.08 + noise * 0.5))
+    return max(0, min(1, 0.20 + noise))
 
 
 def _crowd_label(pct: float) -> str:
@@ -261,7 +265,6 @@ def compute_coach_passengers(
 
     IN_TRANSIT: returns frozen post-boarding count from last station.
     """
-    # When in transit, use the departure time of the last station so counts are 100% frozen between stations
     now_ref = station_dep_dt if (is_in_transit and station_dep_dt is not None) else now
     base   = occupancy_base_factor(now_ref, train_id)
     pos    = station_idx / max(total_st - 1, 1)
@@ -280,24 +283,21 @@ def compute_coach_passengers(
     is_last  = (station_idx == total_st - 1)
 
     if is_first:
-        # Train arrives empty at origin terminal, then passengers board
         pre_alight_count = 0
         post_board_count = int(target_occ * TRAIN_CAPACITY)
     elif is_last:
-        # Train arrives with passengers at destination terminal, then everyone alights
         prev_pos         = max(0, station_idx - 1) / max(total_st - 1, 1)
         prev_factor      = max(0.35, math.sin(prev_pos * math.pi)) if direction == "UP" else max(0.35, math.sin((1 - prev_pos) * math.pi))
         pre_alight_count = int(base * prev_factor * station_boost * TRAIN_CAPACITY)
         post_board_count = 0
     else:
-        # Intermediate station: passengers alight from previous stop, then new passengers board
         prev_pos         = max(0, station_idx - 1) / max(total_st - 1, 1)
         prev_factor      = max(0.35, math.sin(prev_pos * math.pi)) if direction == "UP" else max(0.35, math.sin((1 - prev_pos) * math.pi))
         pre_alight_count = int(base * prev_factor * station_boost * TRAIN_CAPACITY)
         post_board_count = int(target_occ * TRAIN_CAPACITY)
 
     if is_in_transit:
-        # Strictly locked at post-boarding level of last station
+        # Strictly locked at post-boarding level
         total_pax = post_board_count
         phase     = "IN_TRANSIT"
         progress  = 1.0
@@ -652,3 +652,136 @@ class MetroEngine:
         }
 
 engine = MetroEngine()
+
+
+# ══════════════════════════════════════════════
+#  STATION CURRENT AND FEATURE HELPERS
+# ══════════════════════════════════════════════
+
+def get_station_current_state(station_id: str, train_states: list, now: datetime) -> dict:
+    """Finds if a train is currently dwelling at the station, matching current time with arrival/departure."""
+    for ts in train_states:
+        if ts.get("status") == "AT_STATION" and ts.get("current_station_id") == station_id:
+            return {
+                "train_id": ts["train_id"],
+                "current_passenger_count": ts["train_current_passengers"],
+                "arrival_time": ts["arrived_at_station"],
+                "departure_time": ts["departs_station_at"],
+            }
+    return {
+        "train_id": None,
+        "current_passenger_count": 0,
+        "arrival_time": None,
+        "departure_time": None,
+    }
+
+
+def get_station_feature_predictions(station_id: str, train_objects: list, now: datetime) -> dict | None:
+    """
+    Scans train schedules to find the closest upcoming train heading towards station_id.
+    Computes estimated arrival, departure, passenger counts upon arrival, boarding,
+    alighting, and final passenger count after departure.
+    """
+    now_minutes = now.hour * 60 + now.minute
+    candidates = []
+
+    for train in train_objects:
+        departures = train["all_departures"]
+        slot_idx   = train["slot_index"]
+        n_trains   = train["n_trains"]
+        my_departures = departures[slot_idx::n_trains]
+        if not my_departures:
+            continue
+
+        schedule = train["schedule"]
+        
+        # Find index of the station_id in this train's schedule
+        st_idx = next((i for i, seg in enumerate(schedule) if seg["station"]["id"] == station_id), None)
+        if st_idx is None:
+            continue
+
+        # Look up active departure
+        active_dep_min = next((d for d in reversed(my_departures) if d <= now_minutes), None)
+        
+        # Case 1: Train has active trip running
+        if active_dep_min is not None:
+            dep_dt = datetime(now.year, now.month, now.day, active_dep_min//60, active_dep_min%60)
+            elapsed_s = int((now - dep_dt).total_seconds())
+            if elapsed_s <= train["trip_duration"]:
+                # Check if this station is in the future
+                seg = schedule[st_idx]
+                if seg["arrive_offset"] > elapsed_s:
+                    arr_dt = dep_dt + timedelta(seconds=seg["arrive_offset"])
+                    dep_dt_sched = dep_dt + timedelta(seconds=seg["depart_offset"])
+                    candidates.append({
+                        "train": train,
+                        "arrival_dt": arr_dt,
+                        "departure_time": dep_dt_sched.strftime("%H:%M"),
+                        "station_idx": st_idx,
+                    })
+
+        # Case 2: Train is waiting for a future trip (or has finished its current trip and waiting next)
+        future = [d for d in my_departures if d > now_minutes]
+        if future:
+            next_dep_min = future[0]
+            next_dep_dt = datetime(now.year, now.month, now.day, next_dep_min//60, next_dep_min%60)
+            seg = schedule[st_idx]
+            arr_dt = next_dep_dt + timedelta(seconds=seg["arrive_offset"])
+            dep_dt_sched = next_dep_dt + timedelta(seconds=seg["depart_offset"])
+            candidates.append({
+                "train": train,
+                "arrival_dt": arr_dt,
+                "departure_time": dep_dt_sched.strftime("%H:%M"),
+                "station_idx": st_idx,
+            })
+
+    if not candidates:
+        return None
+
+    # Sort candidates by arrival time (ascending) to find the closest one
+    candidates.sort(key=lambda x: x["arrival_dt"])
+    best = candidates[0]
+    
+    train = best["train"]
+    station_idx = best["station_idx"]
+    arrival_dt = best["arrival_dt"]
+    departure_time_str = best["departure_time"]
+    
+    # Calculate estimations for this train at this station
+    base = occupancy_base_factor(arrival_dt, train["train_id"])
+    schedule = train["schedule"]
+    station = schedule[station_idx]["station"]
+    
+    is_first = (station_idx == 0)
+    is_last = (station_idx == len(schedule) - 1)
+    
+    if is_first or is_last:
+        pre_alight_count = 0
+        post_board_count = 0
+    else:
+        # Pre-arrival passengers = post-boarding count at previous station
+        prev_idx = station_idx - 1
+        prev_pos = prev_idx / max(len(schedule) - 1, 1)
+        prev_factor = math.sin(prev_pos * math.pi) if train["direction"] == "UP" else math.sin((1 - prev_pos) * math.pi)
+        prev_station_boost = 1.25 if schedule[prev_idx]["station"].get("busy") else 1.0
+        pre_alight_count = int(base * prev_factor * prev_station_boost * TRAIN_CAPACITY)
+        
+        # Target post-boarding passengers at S
+        pos = station_idx / max(len(schedule) - 1, 1)
+        pos_factor = math.sin(pos * math.pi) if train["direction"] == "UP" else math.sin((1 - pos) * math.pi)
+        station_boost = 1.25 if station.get("busy") else 1.0
+        post_board_count = int(base * pos_factor * station_boost * TRAIN_CAPACITY)
+        
+    alight_rate = 0.30 if not station.get("busy") else 0.45
+    alighted = int(pre_alight_count * alight_rate)
+    boarded = max(0, post_board_count - (pre_alight_count - alighted))
+    
+    return {
+        "train_id": train["train_id"],
+        "estimated_arrival_time": arrival_dt.strftime("%H:%M"),
+        "estimated_departure_time": departure_time_str,
+        "estimated_passenger_incoming": pre_alight_count,
+        "estimated_alighting": alighted,
+        "estimated_boarding": boarded,
+        "estimated_station_passenger_count": post_board_count,
+    }
