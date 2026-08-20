@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 30
     jwt_refresh_token_expire_days: int = 7
     database_url: str = "sqlite+aiosqlite:///smartrailos_dev.db"
+    # Development override: pin the simulation clock to this HH:MM time at startup.
+    # Useful when running outside the 06:20-22:09 service window.
+    # Set via env var DEV_SIM_TIME=09:00 or in .env, or pass --dev-time to the dev script.
+    dev_sim_time: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

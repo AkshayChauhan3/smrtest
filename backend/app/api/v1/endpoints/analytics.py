@@ -7,6 +7,7 @@ import logging
 from app.db.session import get_db
 from app.models.train import OccupancySnapshot
 from app.models.route import StationCrowdSnapshot
+from app.core.sim_clock import sim_clock
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -14,7 +15,7 @@ router = APIRouter()
 @router.get("/heatmap")
 async def get_heatmap(db: AsyncSession = Depends(get_db)):
     """Returns a 7x24 matrix for platform heatmap. Queries actual DB history."""
-    now = datetime.now()
+    now = sim_clock.now()
     cutoff = now - timedelta(days=7)
     
     # We query the DB, but since data is wiped every 24h, most days will be 0.
@@ -45,7 +46,7 @@ async def get_heatmap(db: AsyncSession = Depends(get_db)):
 @router.get("/crowd-forecast")
 async def get_crowd_forecast(db: AsyncSession = Depends(get_db)):
     """Returns mathematical forecast for the next 4 hours based on current DB load."""
-    now = datetime.now()
+    now = sim_clock.now()
     
     stmt = select(func.sum(StationCrowdSnapshot.current_crowd)).where(
         StationCrowdSnapshot.timestamp >= now - timedelta(minutes=5)
@@ -69,7 +70,7 @@ async def get_crowd_forecast(db: AsyncSession = Depends(get_db)):
 @router.get("/hourly-flow")
 async def get_hourly_flow(db: AsyncSession = Depends(get_db)):
     """Returns passenger boarding vs alighting flow for the day from DB."""
-    now = datetime.now()
+    now = sim_clock.now()
     start_of_day = now.replace(hour=0, minute=0, second=0)
     
     stmt = (
@@ -98,7 +99,7 @@ async def get_hourly_flow(db: AsyncSession = Depends(get_db)):
 @router.get("/weekly-trend")
 async def get_weekly_trend(db: AsyncSession = Depends(get_db)):
     """Returns total passenger counts for the past 7 days from DB."""
-    now = datetime.now()
+    now = sim_clock.now()
     cutoff = now - timedelta(days=7)
     
     stmt = (

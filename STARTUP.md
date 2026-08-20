@@ -24,6 +24,16 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 > **Interactive Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)  
 > **Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
 
+#### 🛠️ Dev Mode — Override Simulation Time
+
+Use this when running **outside service hours** (06:20–22:09). The clock starts at the given time and advances in real-time (e.g. 12:00 → 12:01 → 12:02...).
+
+```bash
+# Start with sim clock pinned to midday (advances with real time)
+DEV_SIM_TIME=12:00 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+
 ---
 
 ### 2️⃣ Terminal 2: Web Command Center (TanStack Start + React)

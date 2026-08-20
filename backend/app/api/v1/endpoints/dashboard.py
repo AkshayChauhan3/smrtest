@@ -25,11 +25,13 @@ async def get_kpi_history(db: AsyncSession = Depends(get_db)) -> KpiHistoryOut:
     from sqlalchemy import select, func
     from app.models.train import OccupancySnapshot
     from app.models.route import StationCrowdSnapshot
+    from app.core.sim_clock import sim_clock
 
-    now = datetime.now()
+    now = sim_clock.now()   # Use sim_clock so dev-time overrides are respected
     cutoff_now   = now - timedelta(minutes=2)
     cutoff_h_lo  = now - timedelta(minutes=62)
     cutoff_h_hi  = now - timedelta(minutes=58)
+
 
     async def _snap(ts_from: datetime, ts_to: datetime) -> KpiSnapshot | None:
         t_res = await db.execute(
