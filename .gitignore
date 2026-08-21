@@ -33,6 +33,7 @@ htmlcov/
 # --- Build artifacts ---
 build/
 dist/
+zips_for_claude/
 *.egg-info/
 .eggs/
 
