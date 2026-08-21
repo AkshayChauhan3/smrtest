@@ -30,6 +30,8 @@ export interface BackendCoach {
   current_passenger_count: number;
   occupancy_percentage: number;
   occupancy_status: string;
+  estimated_departure_passengers?: number | null;
+  estimated_departure_occupancy_pct?: number | null;
 }
 
 export interface BackendTrainAtStation {

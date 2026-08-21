@@ -4,10 +4,12 @@ export function OccupancyBar({
   value,
   label,
   className,
+  showPaxCount,
 }: {
   value: number;
   label?: string;
   className?: string;
+  showPaxCount?: boolean;
 }) {
   const status =
     value < 50 ? "bg-success" : value < 75 ? "bg-warning" : value < 90 ? "bg-orange-500" : "bg-danger";

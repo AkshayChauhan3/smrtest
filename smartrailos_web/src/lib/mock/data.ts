@@ -56,6 +56,9 @@ export interface Coach {
   label: string;
   capacity: number;
   occupancy: number; // 0-100
+  passengers?: number;
+  estimatedOccupancy?: number;
+  estimatedPassengers?: number;
 }
 
 export function statusFromOccupancy(pct: number): CoachStatus {
@@ -103,6 +106,8 @@ export interface Train {
   coaches: Coach[];
   status: "Approaching" | "At Station" | "Departing" | "En Route";
   journey_completed_pct?: number;
+  estimatedDeparturePassengers?: number;
+  estimatedDepartureOccupancy?: number;
 }
 
 export const TRAINS: Train[] = [
