@@ -9,7 +9,6 @@ import '../models/train_model.dart';
 import '../models/coach_model.dart';
 import '../models/announcement_model.dart';
 import '../providers/train_search_provider.dart';
-import '../widgets/train_position_diagram.dart';
 
 class TrainDetailScreen extends ConsumerWidget {
   final String trainId;
@@ -44,14 +43,28 @@ class TrainDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // If we have full initial train data passed directly, use it and allow async refresh in background
-    if (initialTrain != null) {
-      return _buildScaffoldWithTrain(context, ref, initialTrain!);
+    final effectiveFrom = initialTrain?.fromStationId ?? '';
+    final effectiveTo = initialTrain?.toStationId ?? '';
+    final effectiveLine = initialTrain?.line.name ?? 'blue';
+
+    final params = (
+      trainId: trainId,
+      fromStationId: effectiveFrom,
+      toStationId: effectiveTo,
+      lineId: effectiveLine,
+    );
+
+    final trainAsync = ref.watch(liveTrainDetailProvider(params));
+
+    // Prefer freshly streamed live train telemetry; fallback to initialTrain during initial load
+    final TrainModel? train = trainAsync.value ?? initialTrain;
+
+    if (train != null) {
+      return _buildScaffoldWithTrain(context, ref, train, params);
     }
 
-    final trainAsync = ref.watch(trainDetailProvider(trainId));
     return trainAsync.when(
-      data: (train) => _buildScaffoldWithTrain(context, ref, train),
+      data: (t) => _buildScaffoldWithTrain(context, ref, t, params),
       loading: () => Scaffold(
         appBar: AppBar(title: Text('TRAIN $trainId')),
         body: const Center(
@@ -90,7 +103,7 @@ class TrainDetailScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton.icon(
-                  onPressed: () => ref.invalidate(trainDetailProvider(trainId)),
+                  onPressed: () => ref.invalidate(liveTrainDetailProvider(params)),
                   icon: const Icon(Icons.refresh, size: 16),
                   label: const Text('RETRY'),
                 ),
@@ -102,7 +115,7 @@ class TrainDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildScaffoldWithTrain(BuildContext context, WidgetRef ref, TrainModel train) {
+  Widget _buildScaffoldWithTrain(BuildContext context, WidgetRef ref, TrainModel train, TrainDetailParams params) {
     final isBlue = train.line == MetroLine.blue;
     final lineColor = isBlue ? AppTheme.blueLine : AppTheme.redLine;
     final lineName = isBlue ? 'Blue Line (Line 1)' : 'Red Line (Line 2)';
@@ -112,6 +125,13 @@ class TrainDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(train.trainId == 'ESP32_DEMO' ? 'ESP32 SENSOR TRAIN' : train.displayName.toUpperCase()),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, size: 20, color: AppTheme.textSecondary),
+            tooltip: 'Refresh Telemetry',
+            onPressed: () {
+              ref.invalidate(liveTrainDetailProvider(params));
+            },
+          ),
           Container(
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -143,8 +163,16 @@ class TrainDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      body: RefreshIndicator(
+        color: lineColor,
+        backgroundColor: AppTheme.surfaceElevated,
+        onRefresh: () async {
+          ref.invalidate(liveTrainDetailProvider(params));
+          await ref.read(liveTrainDetailProvider(params).future);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -169,27 +197,7 @@ class TrainDetailScreen extends ConsumerWidget {
 
             const SizedBox(height: 24),
 
-            // ── Section 2: Live Tracking Diagram ─────────────────────────
-            _buildSectionTitle('LIVE ROUTE TRACKING', Icons.alt_route_rounded),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceElevated,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0x1AFFFFFF)),
-              ),
-              child: TrainPositionDiagram(
-                stations: getStationsForLine(isBlue ? MetroLine.blue : MetroLine.red),
-                currentPositionIndex: train.currentPositionIndex,
-                fromStationId: train.fromStationId,
-                toStationId: train.toStationId,
-              ),
-            ).animate().fadeIn(delay: 150.ms).slideY(begin: 0.05, end: 0),
-
-            const SizedBox(height: 24),
-
-            // ── Section 3: Coach Occupancy Breakdown ─────────────────────
+            // ── Section 2: Coach Occupancy Breakdown ─────────────────────
             _buildSectionTitle('COACH OCCUPANCY & COMPOSITION', Icons.directions_subway_rounded),
             const SizedBox(height: 12),
             _buildCoachSection(train, lineColor)
@@ -234,8 +242,9 @@ class TrainDetailScreen extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildSectionTitle(String title, IconData icon) {
     return Row(

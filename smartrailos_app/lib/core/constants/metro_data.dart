@@ -21,6 +21,20 @@ class Station {
     required this.lineId,
     required this.sequenceIndex,
   });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Station &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          lineId == other.lineId;
+
+  @override
+  int get hashCode => id.hashCode ^ lineId.hashCode;
+
+  @override
+  String toString() => '$id - $name';
 }
 
 const List<Station> blueLineStations = [

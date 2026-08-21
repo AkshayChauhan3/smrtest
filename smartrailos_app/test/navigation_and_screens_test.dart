@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smartrailos_app/core/constants/metro_data.dart';
 import 'package:smartrailos_app/core/constants/theme.dart';
 import 'package:smartrailos_app/core/widgets/floating_nav.dart';
 import 'package:smartrailos_app/core/widgets/metro_drawer.dart';
+import 'package:smartrailos_app/core/widgets/station_selector.dart';
+import 'package:smartrailos_app/features/trains/screens/home_screen.dart';
 import 'package:smartrailos_app/features/trains/screens/lines_screen.dart';
 import 'package:smartrailos_app/features/trains/screens/live_radar_screen.dart';
 import 'package:smartrailos_app/features/profile/screens/profile_screen.dart';
+import 'package:smartrailos_app/features/trains/providers/train_search_provider.dart';
 
 void main() {
   testWidgets('FloatingNav renders 4 tabs with active label and railway icons', (WidgetTester tester) async {
@@ -29,12 +33,35 @@ void main() {
     expect(find.byIcon(Icons.alt_route_rounded), findsOneWidget);
     expect(find.byIcon(Icons.hub_outlined), findsOneWidget);
     expect(find.byIcon(Icons.sensors_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.confirmation_number_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.tune_rounded), findsOneWidget);
 
     // Tap on the Lines tab
     await tester.tap(find.byIcon(Icons.hub_outlined));
     await tester.pump();
     expect(tappedIndex, 1);
+  });
+
+  testWidgets('FloatingNav renders all 4 tabs across narrow viewports without RenderFlex overflow', (WidgetTester tester) async {
+    for (int i = 0; i < 4; i++) {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: Scaffold(
+            body: FloatingNav(
+              currentIndex: i,
+              onTap: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
   });
 
   testWidgets('MetroDrawer renders network status, corridors, and interchange info', (WidgetTester tester) async {
@@ -93,7 +120,7 @@ void main() {
     expect(find.text('Kalupur Metro Station'), findsOneWidget);
   });
 
-  testWidgets('ProfileScreen renders Digital Pass, QR Token, and Commuter Stats', (WidgetTester tester) async {
+  testWidgets('ProfileScreen renders Commuter Stats and Saved Shortcuts without digital pass card', (WidgetTester tester) async {
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(
@@ -103,13 +130,77 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.text('PASS & PREFERENCES'), findsOneWidget);
-    expect(find.text('AHMEDABAD METRO'), findsOneWidget);
-    expect(find.text('DIGITAL COMMUTER PASS'), findsOneWidget);
-    expect(find.text('₹340.00'), findsOneWidget);
-    expect(find.byIcon(Icons.qr_code_2_rounded), findsOneWidget);
+    expect(find.text('COMMUTER PREFERENCES'), findsOneWidget);
+    expect(find.text('DIGITAL COMMUTER PASS'), findsNothing);
+    expect(find.text('₹340.00'), findsNothing);
     expect(find.text('142'), findsOneWidget);
     expect(find.text('TRIPS COMPLETED'), findsOneWidget);
     expect(find.text('SAVED COMMUTE SHORTCUTS'), findsOneWidget);
+    expect(find.text('TELEMETRY & SENSOR SYSTEM'), findsOneWidget);
+  });
+
+  testWidgets('StationSelector handles selected station gracefully even if not in stations list', (WidgetTester tester) async {
+    const foreignStation = Station(id: 'XX99', name: 'Alien Station', lineId: MetroLine.red, sequenceIndex: 99);
+    
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme,
+        home: Scaffold(
+          body: StationSelector(
+            label: 'TEST DROPDOWN',
+            stations: blueLineStations,
+            selectedStation: foreignStation,
+            icon: Icons.trip_origin,
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('TEST DROPDOWN'), findsOneWidget);
+  });
+
+  testWidgets('HomeScreen renders without FREQUENT METRO HUBS and handles line switching', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: HomeScreen(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    // Verify Frequent Metro Hubs section is removed
+    expect(find.text('FREQUENT METRO HUBS'), findsNothing);
+
+    // Verify Search Card and Station Dropdowns
+    expect(find.text('ORIGIN & DESTINATION'), findsOneWidget);
+    expect(find.text('FROM STATION (BOARDING)'), findsOneWidget);
+    expect(find.text('TO STATION (DESTINATION)'), findsOneWidget);
+    expect(find.text('POPULAR COMMUTE ROUTES'), findsOneWidget);
+  });
+
+  testWidgets('HomeScreen allows selecting and switching red line stations without assertion crash', (WidgetTester tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    // Select Red line and set fromStation
+    container.read(selectedLineProvider.notifier).state = MetroLine.red;
+    const jivrajPark = Station(id: 'RL02', name: 'Jivraj Park', lineId: MetroLine.red, sequenceIndex: 1);
+    container.read(fromStationProvider.notifier).state = jivrajPark;
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: HomeScreen(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Jivraj Park'), findsOneWidget);
+    expect(find.text('TO STATION (DESTINATION)'), findsOneWidget);
   });
 }

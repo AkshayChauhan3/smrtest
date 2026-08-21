@@ -136,13 +136,6 @@ class HomeScreen extends ConsumerWidget {
                           .fadeIn(delay: 300.ms)
                           .slideY(begin: 0.1, end: 0),
                       
-                      const SizedBox(height: 24),
-
-                      // Quick Hub Station Chips
-                      _buildQuickStationChips(ref, selectedLine, stations)
-                          .animate()
-                          .fadeIn(delay: 350.ms),
-
                       const SizedBox(height: 28),
                       
                       // Popular Commutes
@@ -353,7 +346,12 @@ class HomeScreen extends ConsumerWidget {
             stations: stations,
             selectedStation: fromStation,
             icon: Icons.trip_origin_rounded,
-            onChanged: (val) => ref.read(fromStationProvider.notifier).state = val,
+            onChanged: (val) {
+              ref.read(fromStationProvider.notifier).state = val;
+              if (val != null && ref.read(toStationProvider)?.id == val.id) {
+                ref.read(toStationProvider.notifier).state = null;
+              }
+            },
           ),
           
           const SizedBox(height: 12),
@@ -363,7 +361,12 @@ class HomeScreen extends ConsumerWidget {
             stations: stations.where((s) => s.id != fromStation?.id).toList(),
             selectedStation: toStation,
             icon: Icons.place_rounded,
-            onChanged: (val) => ref.read(toStationProvider.notifier).state = val,
+            onChanged: (val) {
+              ref.read(toStationProvider.notifier).state = val;
+              if (val != null && ref.read(fromStationProvider)?.id == val.id) {
+                ref.read(fromStationProvider.notifier).state = null;
+              }
+            },
           ),
           
           const SizedBox(height: 20),
@@ -407,54 +410,6 @@ class HomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildQuickStationChips(WidgetRef ref, MetroLine line, List<Station> stations) {
-    final popularIds = line == MetroLine.blue
-        ? ['BL08', 'BL11', 'BL17', 'BL01']
-        : ['RL07', 'RL15', 'RL01', 'RL12'];
-
-    final popularStations = stations.where((s) => popularIds.contains(s.id)).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'FREQUENT METRO HUBS',
-          style: TextStyle(
-            color: AppTheme.textMuted,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: popularStations.map((station) {
-            return ActionChip(
-              backgroundColor: AppTheme.surfaceElevated,
-              side: const BorderSide(color: Color(0x1AFFFFFF)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              avatar: const Icon(Icons.directions_subway_rounded, size: 14, color: AppTheme.textMuted),
-              label: Text(
-                station.name,
-                style: const TextStyle(fontSize: 11, color: AppTheme.textPrimary, fontWeight: FontWeight.w600),
-              ),
-              onPressed: () {
-                final currentFrom = ref.read(fromStationProvider);
-                if (currentFrom == null) {
-                  ref.read(fromStationProvider.notifier).state = station;
-                } else if (currentFrom.id != station.id) {
-                  ref.read(toStationProvider.notifier).state = station;
-                }
-              },
-            );
-          }).toList(),
-        ),
-      ],
     );
   }
 

@@ -19,7 +19,7 @@ class FloatingNav extends StatelessWidget {
     (icon: Icons.alt_route_rounded, activeIcon: Icons.alt_route_rounded, label: 'Plan'),
     (icon: Icons.hub_outlined, activeIcon: Icons.hub_rounded, label: 'Lines'),
     (icon: Icons.sensors_rounded, activeIcon: Icons.sensors_rounded, label: 'Radar'),
-    (icon: Icons.confirmation_number_outlined, activeIcon: Icons.confirmation_number_rounded, label: 'Pass'),
+    (icon: Icons.tune_rounded, activeIcon: Icons.tune_rounded, label: 'Settings'),
   ];
 
   @override
@@ -56,15 +56,17 @@ class FloatingNav extends StatelessWidget {
                 final isSelected = currentIndex == index;
 
                 return Expanded(
+                  flex: isSelected ? 3 : 2,
                   child: GestureDetector(
                     onTap: () => onTap(index),
                     behavior: HitTestBehavior.opaque,
-                    child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                       child: AnimatedContainer(
                         duration: 300.ms,
                         curve: Curves.easeOutCubic,
                         padding: EdgeInsets.symmetric(
-                          horizontal: isSelected ? 14 : 10,
+                          horizontal: isSelected ? 10 : 4,
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
@@ -86,24 +88,29 @@ class FloatingNav extends StatelessWidget {
                               : null,
                         ),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
                               isSelected ? item.activeIcon : item.icon,
                               color: isSelected ? activeColor : AppTheme.textMuted,
-                              size: 22,
+                              size: 20,
                             ),
                             if (isSelected) ...[
-                              const SizedBox(width: 6),
-                              Text(
-                                item.label,
-                                style: TextStyle(
-                                  color: activeColor,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 12,
-                                  letterSpacing: 0.5,
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  item.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: false,
+                                  style: TextStyle(
+                                    color: activeColor,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                    letterSpacing: 0.3,
+                                  ),
                                 ),
-                              ).animate().fadeIn(duration: 200.ms).slideX(begin: -0.2, end: 0),
+                              ),
                             ],
                           ],
                         ),

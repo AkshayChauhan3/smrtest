@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/metro_data.dart';
 import '../../../core/services/api_service.dart';
@@ -25,6 +26,58 @@ final trainResultsProvider = StreamProvider.family<List<TrainModel>, ({String li
   }
 });
 
+
+typedef TrainDetailParams = ({
+  String trainId,
+  String fromStationId,
+  String toStationId,
+  String lineId,
+});
+
+/// Auto-refreshing live telemetry stream provider for individual trains.
+/// Polls the server every 4 seconds to sync passenger counts, stops, and ETA.
+final liveTrainDetailProvider = StreamProvider.autoDispose.family<TrainModel, TrainDetailParams>((ref, params) {
+  final api = ref.read(apiServiceProvider);
+  final line = MetroLine.values.firstWhere(
+    (e) => e.name == params.lineId,
+    orElse: () => MetroLine.blue,
+  );
+
+  Future<TrainModel> fetch() async {
+    if (params.fromStationId.isNotEmpty && params.toStationId.isNotEmpty) {
+      try {
+        final upcoming = await api.getUpcomingTrains(line, params.fromStationId, params.toStationId);
+        final match = upcoming.firstWhere(
+          (t) => t.trainId == params.trainId,
+          orElse: () => upcoming.first,
+        );
+        return match;
+      } catch (_) {}
+    }
+    return await api.getTrainDetail(params.trainId);
+  }
+
+  final controller = StreamController<TrainModel>();
+  Timer? timer;
+
+  fetch().then((t) {
+    if (!controller.isClosed) controller.add(t);
+  }).catchError((_) {});
+
+  timer = Timer.periodic(const Duration(seconds: 4), (_) async {
+    try {
+      final t = await fetch();
+      if (!controller.isClosed) controller.add(t);
+    } catch (_) {}
+  });
+
+  ref.onDispose(() {
+    timer?.cancel();
+    controller.close();
+  });
+
+  return controller.stream;
+});
 
 final trainDetailProvider = FutureProvider.family<TrainModel, String>((ref, trainId) async {
   return ref.read(apiServiceProvider).getTrainDetail(trainId);
