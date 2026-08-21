@@ -270,9 +270,11 @@ class DataService:
                     eta_seconds=arr_sec,
                     origin_station_id=train.get("origin_station_id"),
                     destination_station_id=train.get("destination_station_id"),
-                    predicted_boarding_count=max(0, int(self._crowd_at_station(station_name, now) * 0.08)),
-                    predicted_deboarding_count=max(0, int(pax * 0.06)),
-                    predicted_occupancy=int((min(capacity, int(pax * 1.06)) / max(capacity, 1)) * 100),
+                    predicted_boarding_count=max(15, int(max(pax, 180) * 0.12)),
+                    predicted_deboarding_count=max(10, int(max(pax, 180) * 0.08)),
+                    predicted_occupancy=min(100, int((min(capacity, int(pax + max(15, int(max(pax, 180) * 0.12)) - max(10, int(max(pax, 180) * 0.08)))) / max(capacity, 1)) * 100)),
+                    estimated_departure_passengers=int(min(capacity, int(pax + max(15, int(max(pax, 180) * 0.12)) - max(10, int(max(pax, 180) * 0.08))))),
+                    estimated_departure_occupancy=min(100, int((min(capacity, int(pax + max(15, int(max(pax, 180) * 0.12)) - max(10, int(max(pax, 180) * 0.08)))) / max(capacity, 1)) * 100)),
                 )
             )
         return trains

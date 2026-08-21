@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { KpiCard } from "@/components/srail/kpi-card";
 import { TrainCard } from "@/components/srail/train-card";
-import { CrowdForecast } from "@/components/srail/crowd-forecast";
-
+import { ActiveTrainsSlider } from "@/components/srail/active-trains-slider";
+import { StandingTrainsCard } from "@/components/srail/standing-trains-card";
 import { AnimatedNumber } from "@/components/srail/animated-number";
 import { LiveTrainTicker } from "@/components/srail/live-train-ticker";
 import {
@@ -97,18 +97,12 @@ function Overview() {
 
   return (
     <div className="animate-fade-in-up space-y-8 px-4 py-6 md:px-8 md:py-8">
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         <KpiCard
           label="Current Trains"
           value={<AnimatedNumber value={kpi.currentTrains} format={(n) => String(Math.round(n)).padStart(2, "0")} />}
           {...computeDelta(kpi.currentTrains, ago?.active_trains)}
           icon={<TrainFront className="size-4" />}
-        />
-        <KpiCard
-          label="In Station"
-          value={<AnimatedNumber value={kpi.passengersInStation} />}
-          {...computeDelta(kpi.passengersInStation, ago?.total_station_crowd, " pax", true)}
-          icon={<Users className="size-4" />}
         />
         <KpiCard
           label="In Transit"
@@ -140,45 +134,80 @@ function Overview() {
       </section>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        {/* Left Column: Active Train Units 1st, Live Network Position 2nd */}
         <div className="space-y-6 xl:col-span-8">
-          <section>
-            <SectionHeader title="Live Train Status" right={`${visible.length} of ${trains.length} active`} />
-            <div className="mt-4 space-y-4">
-              {trains.length === 0 ? (
-                <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-obsidian-900/50 text-center">
-                  <TrainFront className="mb-2 size-6 text-slate-500" />
-                  <p className="text-sm font-medium text-slate-300">No Active Trains</p>
-                  <p className="text-xs text-slate-500">There are currently no active trains on the network.</p>
-                </div>
-              ) : (
-                visible.map((t, i) => (
-                  <div key={t.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 80}ms` }}>
-                    <TrainCard train={t} />
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
+          {/* Active Train Units Side-Slider Carousel */}
+          <ActiveTrainsSlider trains={trains} />
 
+          {/* Live Network Position Second */}
           <LiveTrainTicker />
-
-          <CrowdForecast />
         </div>
 
+        {/* Right Column: Standing Trains At Station & Alerts */}
         <aside className="space-y-6 xl:col-span-4">
-          <section className="rounded-xl border border-white/5 bg-obsidian-900 p-5">
-            <SectionHeader title="Recent Alerts" right="Last hour" />
-            <ul className="mt-4 space-y-3">
-              {alerts.filter((a) => !a.resolved).slice(0, 3).map((a) => (
-                <li key={a.id} className="flex items-start gap-3 border-l-2 border-warning/60 pl-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-bold text-white">{a.title}</div>
-                    <div className="mt-0.5 text-[11px] text-slate-500">{a.description}</div>
-                  </div>
-                  <span className="font-mono text-[10px] text-slate-600">{a.time}</span>
-                </li>
-              ))}
+          {/* Standing Trains on Stations with Live Passenger Count */}
+          <StandingTrainsCard />
+
+          {/* Recent Alerts Feed */}
+          <section className="rounded-2xl border-0 bg-[#141720] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.25)] backdrop-blur-xl">
+            <SectionHeader title="Recent Alerts" right="Live Stream" />
+            <ul className="mt-5 space-y-3.5">
+              {alerts.filter((a) => !a.resolved).slice(0, 4).map((a) => {
+                const isEmergency = a.severity === "Emergency" || a.severity === "Overcrowding";
+                return (
+                  <li
+                    key={a.id}
+                    className={cn(
+                      "group relative rounded-xl border p-3.5 transition-all duration-200",
+                      isEmergency
+                        ? "border-rose-500/30 bg-rose-500/10 hover:border-rose-500/50"
+                        : "border-white/5 bg-white/[0.02] hover:border-white/10 hover:bg-white/[0.04]"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "size-1.5 rounded-full",
+                              isEmergency ? "bg-rose-400 animate-ping" : "bg-amber-400"
+                            )}
+                          />
+                          <span className="truncate text-xs font-bold text-white">{a.title}</span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-slate-400 leading-relaxed">{a.description}</div>
+                      </div>
+                      <span className="shrink-0 font-mono text-[10px] text-slate-500">{a.time}</span>
+                    </div>
+                  </li>
+                );
+              })}
+              {alerts.filter((a) => !a.resolved).length === 0 && (
+                <div className="flex h-24 flex-col items-center justify-center text-center text-xs text-slate-500">
+                  <span className="size-2 rounded-full bg-emerald-400 mb-2" />
+                  All transit lines nominal · No active alerts
+                </div>
+              )}
             </ul>
+          </section>
+
+          {/* Interchange Status Card */}
+          <section className="rounded-2xl border-0 bg-[#141720] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.25)] backdrop-blur-xl">
+            <SectionHeader title="Interchange Hub" right="Platform 1 & 2" />
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between rounded-lg bg-white/[0.03] p-3 text-xs">
+                <span className="text-slate-300 font-medium">Blue Line Throughput</span>
+                <span className="font-mono font-bold text-blue-400">99.4% On Time</span>
+              </div>
+              <div className="flex items-center justify-between rounded-lg bg-white/[0.03] p-3 text-xs">
+                <span className="text-slate-300 font-medium">Red Line Throughput</span>
+                <span className="font-mono font-bold text-rose-400">98.8% On Time</span>
+              </div>
+              <div className="flex items-center justify-between rounded-lg bg-white/[0.03] p-3 text-xs">
+                <span className="text-slate-300 font-medium">Station Turnstile Gates</span>
+                <span className="font-mono font-bold text-emerald-400">All 12 Active</span>
+              </div>
+            </div>
           </section>
         </aside>
       </div>
@@ -203,9 +232,9 @@ export function SectionHeader({ title, right }: { title: string; right?: string 
 function OverviewSkeleton() {
   return (
     <div className="space-y-8 px-4 py-6 md:px-8 md:py-8">
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-white/5 bg-obsidian-900 p-5">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="rounded-2xl border-0 bg-[#141720] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.25)]">
             <div className={cn("skeleton h-3 w-20")} />
             <div className={cn("skeleton mt-4 h-7 w-24")} />
             <div className={cn("skeleton mt-3 h-2 w-16")} />
