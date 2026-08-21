@@ -508,107 +508,112 @@ class TrainService:
             if feat_tbl is not None:
                 res = await self.db.execute(select(feat_tbl).order_by(feat_tbl.c.estimated_arrival_time.asc()))
                 rows = res.fetchall()
-                if rows and rows[0].timestamp and (datetime.now() - rows[0].timestamp).total_seconds() < 30:
-                    results = []
-                    for row in rows:
-                        # Fetch ML estimation for this train/station
-                        ml_estimations = []
-                        if row.train_id:
-                            latest_ts_res = await self.db.execute(
-                                select(Estimation.created_at)
-                                .where(Estimation.train_id == row.train_id)
-                                .where(Estimation.next_station_id == station_id)
-                                .order_by(Estimation.created_at.desc())
-                                .limit(1)
-                            )
-                            latest_ts = latest_ts_res.scalar_one_or_none()
-                            if latest_ts:
-                                rows_res = await self.db.execute(
-                                    select(Estimation)
+                if rows and rows[0].timestamp:
+                    from app.core.sim_clock import sim_clock
+                    ref_now = sim_clock.now()
+                    try:
+                        first_ts = rows[0].timestamp if isinstance(rows[0].timestamp, datetime) else datetime.fromisoformat(str(rows[0].timestamp))
+                        age_seconds = abs((ref_now - first_ts).total_seconds())
+                    except Exception:
+                        age_seconds = 0
+                    if age_seconds < 60:
+                        results = []
+                        for row in rows:
+                            # Fetch ML estimation for this train/station
+                            ml_estimations = []
+                            if row.train_id:
+                                latest_ts_res = await self.db.execute(
+                                    select(Estimation.created_at)
                                     .where(Estimation.train_id == row.train_id)
                                     .where(Estimation.next_station_id == station_id)
-                                    .where(Estimation.created_at == latest_ts)
+                                    .order_by(Estimation.created_at.desc())
+                                    .limit(1)
                                 )
-                                ml_estimations = rows_res.scalars().all()
+                                latest_ts = latest_ts_res.scalar_one_or_none()
+                                if latest_ts:
+                                    rows_res = await self.db.execute(
+                                        select(Estimation)
+                                        .where(Estimation.train_id == row.train_id)
+                                        .where(Estimation.next_station_id == station_id)
+                                        .where(Estimation.created_at == latest_ts)
+                                    )
+                                    ml_estimations = rows_res.scalars().all()
 
-                        ml_map = {e.coach_id: e for e in ml_estimations}
+                            ml_map = {e.coach_id: e for e in ml_estimations}
 
-                        coaches_out = []
-                        for cid, ctype, arr_p, arr_pct, dep_p, dep_pct in [
-                            ("C1", "general", row.arr_c1_passengers, row.arr_c1_pct, row.dep_c1_passengers, row.dep_c1_pct),
-                            ("C2", "ladies", row.arr_c2_passengers, row.arr_c2_pct, row.dep_c2_passengers, row.dep_c2_pct),
-                            ("C3", "general", row.arr_c3_passengers, row.arr_c3_pct, row.dep_c3_passengers, row.dep_c3_pct),
-                        ]:
-                            ml_est = ml_map.get(cid)
+                            coaches_out = []
+                            for cid, ctype, arr_p, arr_pct, dep_p, dep_pct in [
+                                ("C1", "general", row.arr_c1_passengers, row.arr_c1_pct, row.dep_c1_passengers, row.dep_c1_pct),
+                                ("C2", "ladies", row.arr_c2_passengers, row.arr_c2_pct, row.dep_c2_passengers, row.dep_c2_pct),
+                                ("C3", "general", row.arr_c3_passengers, row.arr_c3_pct, row.dep_c3_passengers, row.dep_c3_pct),
+                            ]:
+                                ml_est = ml_map.get(cid)
 
-                            if ml_est:
-                                # Use ML predictions
-                                c_arr_p = ml_est.current_passengers or 0
-                                c_arr_pct = round((c_arr_p / 400.0) * 100.0, 1)
-                                c_dep_p = ml_est.estimated_next_passengers or 0
-                                c_dep_pct = round((c_dep_p / 400.0) * 100.0, 1)
-                                conf = ml_est.confidence_score
-                                risk = ml_est.risk_level
-                            else:
-                                # Use table simulation fallback
-                                c_arr_p = arr_p or 0
-                                c_arr_pct = float(arr_pct or 0.0)
-                                c_dep_p = dep_p or 0
-                                c_dep_pct = float(dep_pct or 0.0)
-                                conf = None
-                                risk = None
-
-                                # FIX for the 0s: if it's inactive train, the simulation runner might have set it to 0 due to pos_factor 0.
-                                # Let's provide a better fallback based on base * station factor if c_arr_p == 0
-                                if c_arr_p == 0 and c_dep_p == 0:
-                                    # Very basic fallback for UI
-                                    import random
-                                    # Deterministic random based on train_id and station_id so it doesn't flicker
-                                    base_seed = hash(f"{row.train_id}_{station_id}_{cid}") % 100
-                                    
-                                    c_arr_p = 40 + base_seed if ctype == "general" else 20 + (base_seed // 2)
+                                if ml_est:
+                                    # Use ML predictions
+                                    c_arr_p = ml_est.current_passengers or 0
                                     c_arr_pct = round((c_arr_p / 400.0) * 100.0, 1)
-                                    c_dep_p = c_arr_p + 15
+                                    c_dep_p = ml_est.estimated_next_passengers or 0
                                     c_dep_pct = round((c_dep_p / 400.0) * 100.0, 1)
+                                    conf = ml_est.confidence_score
+                                    risk = ml_est.risk_level
+                                else:
+                                    # Use table simulation fallback
+                                    c_arr_p = arr_p or 0
+                                    c_arr_pct = float(arr_pct or 0.0)
+                                    c_dep_p = dep_p or 0
+                                    c_dep_pct = float(dep_pct or 0.0)
+                                    conf = None
+                                    risk = None
 
-                            coaches_out.append(CoachEstimationStateOut(
-                                coach_id=cid,
-                                coach_type=ctype,
-                                capacity=400,
-                                arrival_passengers=c_arr_p,
-                                arrival_occupancy_pct=c_arr_pct,
-                                departure_passengers=c_dep_p,
-                                departure_occupancy_pct=c_dep_pct,
-                                confidence_score=conf,
-                                risk_level=risk
+                                    # FIX for the 0s: if it's inactive train, the simulation runner might have set it to 0 due to pos_factor 0.
+                                    # Let's provide a better fallback based on base * station factor if c_arr_p == 0
+                                    if c_arr_p == 0 and c_dep_p == 0:
+                                        # Deterministic random based on train_id and station_id so it doesn't flicker
+                                        base_seed = hash(f"{row.train_id}_{station_id}_{cid}") % 100
+                                        c_arr_p = 40 + base_seed if ctype == "general" else 20 + (base_seed // 2)
+                                        c_arr_pct = round((c_arr_p / 400.0) * 100.0, 1)
+                                        c_dep_p = c_arr_p + 15
+                                        c_dep_pct = round((c_dep_p / 400.0) * 100.0, 1)
+
+                                coaches_out.append(CoachEstimationStateOut(
+                                    coach_id=cid,
+                                    coach_type=ctype,
+                                    capacity=400,
+                                    arrival_passengers=c_arr_p,
+                                    arrival_occupancy_pct=c_arr_pct,
+                                    departure_passengers=c_dep_p,
+                                    departure_occupancy_pct=c_dep_pct,
+                                    confidence_score=conf,
+                                    risk_level=risk
+                                ))
+
+                            # Recalculate totals based on coaches_out
+                            arr_tot = sum(c.arrival_passengers for c in coaches_out)
+                            dep_tot = sum(c.departure_passengers for c in coaches_out)
+                            
+                            alight_tot = 0
+                            board_tot = 0
+                            for c in coaches_out:
+                                if c.coach_id in ml_map:
+                                    alight_tot += (ml_map[c.coach_id].estimated_alighting or 0)
+                                    board_tot += (ml_map[c.coach_id].estimated_boarding or 0)
+                                else:
+                                    a = int(c.arrival_passengers * 0.15)
+                                    alight_tot += a
+                                    board_tot += max(0, c.departure_passengers - c.arrival_passengers + a)
+
+                            results.append(StationFeatureStateResponse(
+                                train_id=row.train_id,
+                                estimated_arrival_time=row.estimated_arrival_time,
+                                estimated_departure_time=row.estimated_departure_time,
+                                estimated_passenger_incoming=arr_tot,
+                                estimated_alighting=alight_tot,
+                                estimated_boarding=board_tot,
+                                estimated_station_passenger_count=dep_tot,
+                                coaches=coaches_out,
                             ))
-
-                        # Recalculate totals based on coaches_out
-                        arr_tot = sum(c.arrival_passengers for c in coaches_out)
-                        dep_tot = sum(c.departure_passengers for c in coaches_out)
-                        
-                        alight_tot = 0
-                        board_tot = 0
-                        for c in coaches_out:
-                            if c.coach_id in ml_map:
-                                alight_tot += (ml_map[c.coach_id].estimated_alighting or 0)
-                                board_tot += (ml_map[c.coach_id].estimated_boarding or 0)
-                            else:
-                                a = int(c.arrival_passengers * 0.15)
-                                alight_tot += a
-                                board_tot += max(0, c.departure_passengers - c.arrival_passengers + a)
-
-                        results.append(StationFeatureStateResponse(
-                            train_id=row.train_id,
-                            estimated_arrival_time=row.estimated_arrival_time,
-                            estimated_departure_time=row.estimated_departure_time,
-                            estimated_passenger_incoming=arr_tot,
-                            estimated_alighting=alight_tot,
-                            estimated_boarding=board_tot,
-                            estimated_station_passenger_count=dep_tot,
-                            coaches=coaches_out,
-                        ))
-                    return results
+                        return results
 
         now = self.sim_service.parse_sim_time(sim_time)
         train_states = self.sim_service.engine.all_trains(now)
