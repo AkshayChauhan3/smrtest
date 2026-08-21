@@ -408,7 +408,24 @@ class TrainService:
             if t.get("status") in ("AT_STATION", "WAITING_AT_TERMINAL") and t.get("current_station_id") == station_id:
                 target_train = t
                 status_label = "at_platform"
+                
+                # Calculate time until departure
                 eta_sec = 0
+                sched = schedules_map.get(t["train_id"], [])
+                t_idx = next((i for i, seg in enumerate(sched) if seg["station"]["id"] == station_id), None)
+                if t_idx is not None:
+                    dep_str = t.get("departed_terminal_at") or t.get("departs_station_at")
+                    if dep_str:
+                        try:
+                            from datetime import datetime, timedelta
+                            dep_h, dep_m = map(int, dep_str.split(":"))
+                            dep_dt = datetime(now.year, now.month, now.day, dep_h, dep_m)
+                            target_dep = dep_dt + timedelta(seconds=sched[t_idx]["depart_offset"])
+                            eta_sec = int((target_dep - now).total_seconds())
+                            if eta_sec < 0:
+                                eta_sec = 0
+                        except ValueError:
+                            pass
                 break
 
         # 2. Recent Departure Check (within 120 seconds)

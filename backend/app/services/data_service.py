@@ -282,16 +282,15 @@ class DataService:
         now = now or sim_clock.now()
         trains = []
         for train in self.engine.all_trains(now):
-            if train.get("status") == "NOT_IN_SERVICE":
+            status = train.get("status", "")
+            if status == "NOT_IN_SERVICE":
                 continue
-            
-            # Use arrived_at_station as arrival_time if AT_STATION, otherwise offset
-            eta_sec = train.get("eta_to_next_station_sec", 0)
+            eta_sec = max(0, train.get("eta_to_next_station_sec", 0))
             if train.get("status") in ("AT_STATION", "WAITING_AT_TERMINAL"):
-                arr_time = self._time_to_iso(now, train.get("arrived_at_station"))
+                arr_time = self._time_to_hhmm(now, train.get("arrived_at_station"))
                 status_val = "At Station"
             else:
-                arr_time = self._offset_to_iso(now, eta_sec)
+                arr_time = self._offset_to_hhmm(now, eta_sec)
                 status_val = "En Route" if eta_sec > 60 else "Approaching"
             
             if train.get("delay_minutes", 0) > 0:
@@ -309,16 +308,16 @@ class DataService:
                     line_name=self._line_name(train),
                     direction=self._direction_label(train.get("direction", "")),
                     arrival_time=arr_time,
-                    departure_time=self._time_to_iso(now, train.get("departs_station_at")),
+                    departure_time=self._time_to_hhmm(now, train.get("departs_station_at")),
                     current_station=train.get("current_station", ""),
                     current_station_id=train.get("current_station_id"),
                     next_station=train.get("next_station") or "",
                     next_station_id=train.get("next_station_id"),
+                    status=status_val,
+                    eta_seconds=eta_sec,
                     coaches=self._train_coaches(train.get("coaches", [])),
                     journey_completed_pct=train.get("journey_completed_pct"),
                     current_position=train.get("current_position"),
-                    status=status_val,
-                    eta_seconds=eta_sec,
                     origin_station_id=train.get("origin_station_id"),
                     destination_station_id=train.get("destination_station_id"),
                     predicted_boarding_count=max(0, int(pax * 0.08)),

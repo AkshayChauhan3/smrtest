@@ -211,9 +211,22 @@ async def run_simulation_step():
                 if t.get("status") in ("AT_STATION", "WAITING_AT_TERMINAL") and t.get("current_station_id") == sid:
                     target_train = t
                     status_label = "at_platform"
-                    eta_sec      = 0
                     sched = schedules_map.get(t["train_id"], [])
                     sched_idx = next((i for i, seg in enumerate(sched) if seg["station"]["id"] == sid), None)
+                    
+                    eta_sec = 0
+                    if sched_idx is not None:
+                        dep_str = t.get("departed_terminal_at") or t.get("departs_station_at")
+                        if dep_str:
+                            try:
+                                dep_h, dep_m = map(int, dep_str.split(":"))
+                                dep_dt = datetime(now.year, now.month, now.day, dep_h, dep_m)
+                                target_dep = dep_dt + _td(seconds=sched[sched_idx]["depart_offset"])
+                                eta_sec = int((target_dep - now).total_seconds())
+                                if eta_sec < 0:
+                                    eta_sec = 0
+                            except ValueError:
+                                pass
                     break
 
             # Priority 2 – just departed (IN_TRANSIT, left this station ≤120 s ago)

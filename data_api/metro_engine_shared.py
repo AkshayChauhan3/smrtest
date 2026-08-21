@@ -448,7 +448,8 @@ def get_train_state(train: dict, now: datetime) -> dict:
             next_station_id = schedule[i+1]["station"]["id"] if i < len(schedule)-1 else None
             arrived_at   = (dep_dt + timedelta(seconds=seg["arrive_offset"])).strftime("%H:%M")
             departs_at   = (dep_dt + timedelta(seconds=seg["depart_offset"])).strftime("%H:%M")
-            eta_sec      = 0
+            # Key fix: seconds REMAINING until this train departs this station
+            eta_sec      = max(0, seg["depart_offset"] - elapsed_s)
             is_in_transit    = False
             elapsed_in_dwell = elapsed_s - seg["arrive_offset"]
             dwell_sec        = seg["depart_offset"] - seg["arrive_offset"]
@@ -456,18 +457,17 @@ def get_train_state(train: dict, now: datetime) -> dict:
             current_position = round(station_positions[i], 2)
             break
     else:
-        cur_idx      = len(schedule) - 1
-        status       = "AT_STATION"
-        seg          = schedule[-1]
-        prev_station = schedule[-2]["station"]["name"]
-        next_station = None
-        next_station_id = None
-        arrived_at   = (dep_dt + timedelta(seconds=seg["arrive_offset"])).strftime("%H:%M")
-        is_in_transit    = False
-        elapsed_in_dwell = elapsed_s - seg["arrive_offset"]
-        dwell_sec        = seg["depart_offset"] - seg["arrive_offset"]
-
-        current_position = round(station_positions[-1], 2)
+        # for-else: no segment matched, meaning elapsed_s > last station's depart_offset.
+        # The train has completed its trip. Transition to WAITING_AT_TERMINAL for the
+        # next departure, or NOT_IN_SERVICE if there is no next departure soon.
+        future = [d for d in my_departures if d > now_minutes]
+        if future:
+            next_dep_dt = datetime(now.year, now.month, now.day, future[0]//60, future[0]%60)
+            if (next_dep_dt - now).total_seconds() > 180:
+                return _not_running(train, now)
+            return _waiting_at_terminal(train, now, future[0])
+        else:
+            return _not_running(train, now)
 
     current_station = schedule[cur_idx]["station"]
 

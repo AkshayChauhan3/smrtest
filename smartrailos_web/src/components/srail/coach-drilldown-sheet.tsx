@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/sheet";
 import { OccupancyBar } from "./occupancy-bar";
 import { LineBadge } from "./badges";
+import { RouteTimeline } from "./route-timeline";
 import {
   findStation,
   OCC_TEXT,
@@ -98,6 +99,35 @@ export function CoachDrillDownSheet({
             </SheetHeader>
 
             <div className="space-y-6 px-6 py-6">
+              {/* Heading to Next Station Banner */}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent-cyan/20 bg-accent-cyan/10 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="grid size-10 place-items-center rounded-lg bg-accent-cyan/20 text-accent-cyan ring-1 ring-accent-cyan/30">
+                    <TrainFront className="size-5" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-accent-cyan">
+                      Active Route Segment
+                    </div>
+                    <div className="text-sm font-extrabold text-white">
+                      Heading to: <span className="text-accent-cyan">{next?.name ?? train.nextStationId}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 font-mono text-xs">
+                  <div className="rounded bg-obsidian-900/80 px-2.5 py-1 text-slate-300 ring-1 ring-white/10">
+                    <span className="text-slate-500">From:</span> {current?.name ?? train.currentStationId}
+                  </div>
+                  <ArrowRight className="size-3 text-slate-500" />
+                  <div className="rounded bg-accent-cyan/20 px-2.5 py-1 font-bold text-accent-cyan ring-1 ring-accent-cyan/30">
+                    <span className="text-accent-cyan/70">Next:</span> {next?.name ?? train.nextStationId}
+                  </div>
+                </div>
+              </div>
+
+              {/* Route Timeline Component with Next Stations List */}
+              <RouteTimeline train={train} />
               <section className="grid grid-cols-2 gap-3">
                 <SummaryTile
                   icon={<Users className="size-3.5" />}
