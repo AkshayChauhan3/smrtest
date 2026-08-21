@@ -13,28 +13,71 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
   const current = findStation(train.currentStationId);
   const next = findStation(train.nextStationId);
 
-  // Live 1-second ticking countdown timer for every card
-  const [secondsLeft, setSecondsLeft] = useState(() => {
-    if (train.etaSeconds && train.etaSeconds > 0) return train.etaSeconds;
-    // Default initial seed based on train id hash
-    const seed = (train.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) % 120) + 45;
-    return seed;
-  });
+  const isServerAtStation = train.status === "At Station" || train.status === "Departing";
+
+  // Pick the right ETA source based on status:
+  const etaSource = isServerAtStation
+    ? (train.departureEtaSeconds ?? train.etaSeconds)
+    : (train.arrivalEtaSeconds ?? train.etaSeconds);
+
+  // Target time in ms for current phase
+  const [targetMs, setTargetMs] = useState(() => Date.now() + Math.max(0, etaSource ?? 0) * 1000);
+  const [phaseSeconds, setPhaseSeconds] = useState(() => Math.max(0, etaSource ?? 0));
+  const [dwellElapsed, setDwellElapsed] = useState(0);
+  const [postDepSeconds, setPostDepSeconds] = useState(0);
 
   useEffect(() => {
-    if (train.etaSeconds && train.etaSeconds > 0) {
-      setSecondsLeft(train.etaSeconds);
-    }
-  }, [train.id, train.etaSeconds]);
+    const newTarget = Date.now() + Math.max(0, etaSource ?? 0) * 1000;
+    setTargetMs((prev) => (Math.abs(prev - newTarget) > 2500 ? newTarget : prev));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [train.id, train.status, etaSource]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setSecondsLeft((prev) => (prev <= 1 ? 115 : prev - 1));
+    const id = setInterval(() => {
+      const remaining = Math.round((targetMs - Date.now()) / 1000);
+
+      if (remaining > 0) {
+        setPhaseSeconds(remaining);
+        setDwellElapsed(0);
+        setPostDepSeconds(0);
+      } else {
+        const overtime = Math.abs(remaining);
+        setPhaseSeconds(0);
+
+        if (isServerAtStation) {
+          // Dwelling train has departed: count post-departure window (0 to 30s)
+          setPostDepSeconds(overtime);
+        } else {
+          // Approaching train has arrived: simulate standard 30s station halt
+          if (overtime <= 30) {
+            setDwellElapsed(overtime);
+            setPostDepSeconds(0);
+          } else {
+            // Station halt finished: now departed
+            setDwellElapsed(30);
+            setPostDepSeconds(overtime - 30);
+          }
+        }
+      }
     }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    return () => clearInterval(id);
+  }, [targetMs, isServerAtStation]);
 
-  const liveTimerFormatted = formatEta(secondsLeft);
+  // Auto-remove card 30 seconds after departure
+  if (postDepSeconds >= 30) {
+    return null;
+  }
+
+  // Derive active display phase
+  const isHalting = isServerAtStation ? phaseSeconds > 0 : (phaseSeconds <= 0 && dwellElapsed < 30);
+  const isDeparted = isServerAtStation ? phaseSeconds <= 0 : (phaseSeconds <= 0 && dwellElapsed >= 30);
+  const isApproaching = !isServerAtStation && phaseSeconds > 0 && phaseSeconds <= 60;
+  const isEnRoute = !isServerAtStation && phaseSeconds > 60;
+
+  const haltTimeLeft = isServerAtStation ? phaseSeconds : Math.max(0, 30 - dwellElapsed);
+  const timerFormatted = formatEta(
+    isHalting ? haltTimeLeft : phaseSeconds
+  );
 
   const totalCapacity = train.coaches.reduce((sum, c) => sum + (c.capacity || 400), 0) || 1200;
   const totalLivePax = train.coaches.reduce(
@@ -82,15 +125,34 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
           <div className="flex flex-wrap items-center gap-2">
             <RiskBadge train={liveTrain} />
             
-            {/* Prominent Live Ticking Timer Badge */}
-            <div className="flex items-center gap-1.5 rounded-lg border border-accent-cyan/30 bg-accent-cyan/10 px-2.5 py-1 font-mono text-xs font-extrabold text-accent-cyan shadow-sm shadow-accent-cyan/10">
-              <Clock className="size-3.5 text-accent-cyan animate-pulse" />
+            {/* Prominent Live Ticking Timer Badge with Real Dynamic Color Flow */}
+            <div
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg border px-3 py-1 font-mono text-xs font-extrabold shadow-sm transition-colors",
+                isDeparted
+                  ? "border-rose-500/50 bg-rose-500/20 text-rose-300 shadow-rose-500/20"
+                  : isHalting
+                  ? "border-amber-500/40 bg-amber-500/15 text-amber-300 shadow-amber-500/10"
+                  : isApproaching
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-300 shadow-amber-500/10 animate-pulse"
+                  : "border-accent-cyan/30 bg-accent-cyan/10 text-accent-cyan shadow-accent-cyan/10"
+              )}
+            >
+              <Clock
+                className={cn(
+                  "size-3.5",
+                  isDeparted ? "text-rose-400" : (isHalting || isApproaching) ? "text-amber-400" : "text-accent-cyan",
+                  "animate-pulse"
+                )}
+              />
               <span>
-                {train.status === "At Station"
-                  ? `DEPARTS IN ${liveTimerFormatted}`
-                  : train.status === "Approaching"
-                  ? `ARRIVES IN ${liveTimerFormatted}`
-                  : `EN ROUTE · ETA ${liveTimerFormatted}`}
+                {isDeparted
+                  ? `DEPARTED · EN ROUTE (${Math.max(0, 30 - postDepSeconds)}s)`
+                  : isHalting
+                  ? `STATION HALT · ${timerFormatted} LEFT`
+                  : isApproaching
+                  ? `ARRIVES IN ${timerFormatted}`
+                  : `EN ROUTE · ETA ${timerFormatted}`}
               </span>
             </div>
           </div>
@@ -102,21 +164,50 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
             {train.direction}
           </h3>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[11px] font-bold text-amber-400">
+          <div className="flex items-center gap-2.5">
+            <div
+              className={cn(
+                "flex items-center gap-1.5 rounded border px-2 py-0.5 font-mono text-[11px] font-bold",
+                isDeparted
+                  ? "border-rose-500/40 bg-rose-500/15 text-rose-400"
+                  : isHalting
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                  : isApproaching
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                  : "border-accent-cyan/30 bg-accent-cyan/10 text-accent-cyan"
+              )}
+            >
               <Timer className="size-3 animate-spin" style={{ animationDuration: "6s" }} />
-              <span>Remaining: {liveTimerFormatted}</span>
+              <span>
+                {isDeparted
+                  ? `Departed · Next: ${next?.name ?? train.nextStationId}`
+                  : isHalting
+                  ? `Halt: ${timerFormatted}`
+                  : `ETA: ${timerFormatted}`}
+              </span>
             </div>
-            <div className="font-mono text-[11px] text-slate-500">
-              Arr {train.arrival} · Dep {train.departure}
+            <div className="font-mono text-[11px] text-slate-400">
+              <span className="text-slate-500">Arr</span> {train.arrival} · <span className="text-slate-500">Dep</span> {train.departure}
             </div>
           </div>
         </div>
 
         <div className="mt-2.5 flex items-center gap-2 text-xs text-slate-400">
-          <span className="text-slate-300 font-medium">{current?.name ?? train.currentStationId}</span>
+          <span className="text-slate-300 font-medium">
+            {isDeparted
+              ? `Departed: ${current?.name ?? train.currentStationId}`
+              : isHalting
+              ? `At Platform: ${next?.name ?? current?.name ?? train.currentStationId}`
+              : (current?.name ?? train.currentStationId)}
+          </span>
           <ArrowRight className="size-3 text-slate-600" />
-          <span className="text-accent-cyan font-medium">{next?.name ?? train.nextStationId}</span>
+          <span className="text-accent-cyan font-semibold">
+            {isDeparted
+              ? `En Route to: ${next?.name ?? train.nextStationId}`
+              : isHalting
+              ? `Next Departure: ${next?.name ?? train.nextStationId}`
+              : `Heading to: ${next?.name ?? train.nextStationId}`}
+          </span>
         </div>
 
         {/* Estimated Departure Passenger Count at Old High Court Banner */}

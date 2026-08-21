@@ -23,16 +23,28 @@ let lastSyncTime = 0;
 export async function syncServerClock() {
   if (USE_MOCK) return;
   try {
+    const start = Date.now();
     const res = await apiFetch<{
       is_overridden: boolean;
       system_time: string;
     }>("/sim/time");
     
-    if (res && res.system_time) {
-      const serverDate = new Date(res.system_time.replace(" ", "T"));
-      if (!isNaN(serverDate.getTime())) {
-        globalSimOffsetMs = serverDate.getTime() - Date.now();
+    if (res) {
+      if (!res.is_overridden) {
+        // When not simulating a custom time, use client's exact system clock
+        globalSimOffsetMs = null;
         lastSyncTime = Date.now();
+        return;
+      }
+
+      if (res.system_time) {
+        const rtt = Date.now() - start;
+        const serverDate = new Date(res.system_time.replace(" ", "T"));
+        if (!isNaN(serverDate.getTime())) {
+          const adjustedServerMs = serverDate.getTime() + Math.floor(rtt / 2);
+          globalSimOffsetMs = adjustedServerMs - Date.now();
+          lastSyncTime = Date.now();
+        }
       }
     }
   } catch {

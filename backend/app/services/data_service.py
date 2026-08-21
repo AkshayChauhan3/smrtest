@@ -273,16 +273,21 @@ class DataService:
         now = now or sim_clock.now()
         trains = []
         for train in self.engine.all_trains(now):
-            if train.get("status") == "NOT_IN_SERVICE":
+            status = train.get("status", "")
+            if status == "NOT_IN_SERVICE":
                 continue
-            
-            # Use arrived_at_station as arrival_time if AT_STATION, otherwise offset
-            eta_sec = train.get("eta_to_next_station_sec", 0)
-            if train.get("status") in ("AT_STATION", "WAITING_AT_TERMINAL"):
+
+            # The engine now correctly sets eta_to_next_station_sec for every status:
+            # - AT_STATION: seconds remaining until the train departs this station
+            # - WAITING_AT_TERMINAL: seconds until the terminal departure
+            # - IN_TRANSIT: seconds until arrival at next station
+            eta_sec = max(0, train.get("eta_to_next_station_sec", 0))
+
+            if status in ("AT_STATION", "WAITING_AT_TERMINAL"):
                 arr_time = self._time_to_hhmm(now, train.get("arrived_at_station"))
             else:
                 arr_time = self._offset_to_hhmm(now, eta_sec)
-                
+
             trains.append(
                 TrainAtStationOut(
                     train_id=train.get("train_id", ""),
@@ -295,7 +300,7 @@ class DataService:
                     current_station_id=train.get("current_station_id"),
                     next_station=train.get("next_station") or "",
                     next_station_id=train.get("next_station_id"),
-                    status=train.get("status", "IN_TRANSIT"),
+                    status=status,
                     eta_seconds=eta_sec,
                     coaches=self._train_coaches(train.get("coaches", [])),
                     journey_completed_pct=train.get("journey_completed_pct"),

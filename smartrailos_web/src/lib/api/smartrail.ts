@@ -46,7 +46,7 @@ export interface BackendTrainAtStation {
   next_station: string;
   next_station_id?: string | null;
   status?: string;
-  eta_seconds?: number | null;
+  eta_seconds?: number | null;  // For AT_STATION: secs until departure. For IN_TRANSIT: secs until arrival.
   journey_completed_pct?: number | null;
   current_position?: number | null;
   estimated_departure_passengers?: number | null;
@@ -158,13 +158,21 @@ export function formatTimeString(raw?: string | null): string {
 }
 
 export function adaptTrain(t: BackendTrainAtStation): Train {
-  let mappedStatus: "Approaching" | "At Station" | "Departing" | "En Route" = "At Station";
   const st = (t.status || "").toUpperCase();
-  if (st === "AT_STATION" || st === "WAITING_AT_TERMINAL") {
+  const isAtStation = st === "AT_STATION" || st === "WAITING_AT_TERMINAL";
+  const isInTransit = st === "IN_TRANSIT";
+
+  let mappedStatus: "Approaching" | "At Station" | "Departing" | "En Route" = "At Station";
+  if (isAtStation) {
     mappedStatus = "At Station";
-  } else if (st === "IN_TRANSIT") {
-    mappedStatus = (t.eta_seconds !== undefined && t.eta_seconds !== null && t.eta_seconds <= 60) ? "Approaching" : "En Route";
+  } else if (isInTransit) {
+    mappedStatus = (t.eta_seconds != null && t.eta_seconds <= 60) ? "Approaching" : "En Route";
   }
+
+  // For AT_STATION: eta_seconds = seconds until departure
+  // For IN_TRANSIT: eta_seconds = seconds until arrival at next station
+  const departureEtaSeconds = isAtStation ? (t.eta_seconds ?? 0) : null;
+  const arrivalEtaSeconds = isInTransit ? (t.eta_seconds ?? null) : null;
 
   const coaches = t.coaches.map(adaptCoach);
   const totalEstPax =
@@ -186,6 +194,8 @@ export function adaptTrain(t: BackendTrainAtStation): Train {
     arrival: formatTimeString(t.arrival_time),
     departure: formatTimeString(t.departure_time),
     etaSeconds: t.eta_seconds ?? 0,
+    departureEtaSeconds,
+    arrivalEtaSeconds,
     predictedBoarding: 0,
     predictedDeboarding: 0,
     status: mappedStatus,

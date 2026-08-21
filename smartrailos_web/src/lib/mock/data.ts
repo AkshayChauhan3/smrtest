@@ -90,6 +90,10 @@ export interface Train {
   arrival: string;
   departure: string;
   etaSeconds: number;
+  /** Seconds until this train departs the current station (only set when status = AT_STATION) */
+  departureEtaSeconds?: number | null;
+  /** Seconds until this train arrives at the next station (only set when status = IN_TRANSIT) */
+  arrivalEtaSeconds?: number | null;
   predictedBoarding: number;
   predictedDeboarding: number;
   coaches: Coach[];
