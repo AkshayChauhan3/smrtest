@@ -235,3 +235,21 @@ export const platformHeatmapQuery = queryOptions<number[][]>({
   },
   refetchInterval: 15_000,
 });
+
+export interface SimTimeData {
+  status: string;
+  is_overridden: boolean;
+  override_time: string | null;
+  system_time: string;
+  last_updated: string;
+}
+
+export const simTimeQuery = queryOptions<SimTimeData | null>({
+  queryKey: queryKeys.simTime,
+  queryFn: async () => {
+    if (USE_MOCK) return null;
+    return await apiFetch<SimTimeData>("/sim/time").catch(() => null);
+  },
+  refetchInterval: 15_000,
+  staleTime: 10_000,
+});

@@ -1,10 +1,6 @@
-"""Data service adapter between metro_engine simulation and API contracts."""
-
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.core.sim_clock import sim_clock
 from typing import Iterable
-
-from app.core.sim_clock import sim_clock
 
 from fastapi import HTTPException
 
@@ -21,7 +17,7 @@ from app.services.metro_engine import (
 from app.schemas.rail import (
     LineOut, StationOut, RouteOut, RouteStopOut, CoachOut,
     TrainCatalogueOut, IncomingTrainOut, StationCrowdPredictionOut, AlertOut,
-    TrainAtStationOut, TrainCoachOut,
+    TrainAtStationOut, TrainCoachOut, JourneySearchItemOut, JourneyStopOut,
 )
 from app.schemas.occupancy import CoachOccupancyOut, TrainOccupancyOut, StationCrowdOut
 
@@ -498,6 +494,190 @@ class DataService:
     def _station_exists(self, station_name: str) -> bool:
         needle = station_name.lower().strip()
         return any(needle in station.name.lower() for station in self._stations_cache)
+
+    def search_journey(self, from_station: str, to_station: str, now: datetime = None) -> list[JourneySearchItemOut]:
+        """
+        Searches upcoming trains travelling from from_station to to_station.
+        Calculates exact departure, arrival, duration, intermediate timeline, and live occupancy.
+        """
+        now = now or sim_clock.now()
+
+        # Resolve station IDs / Names
+        from_sid = self._resolve_station_id(from_station)
+        to_sid = self._resolve_station_id(to_station)
+
+        if not from_sid or not to_sid:
+            return []
+
+        if from_sid == to_sid:
+            return []
+
+        live_trains = {t["train_id"]: t for t in self.engine.all_trains(now) if t.get("status") != "NOT_IN_SERVICE"}
+
+        results = []
+        for train_cfg in self.engine._trains:
+            sched = train_cfg["schedule"]
+            # Find indices of from_station and to_station in this route
+            from_idx = next(
+                (i for i, seg in enumerate(sched)
+                 if seg["station"]["id"] == from_sid or seg["station"]["name"].lower() == from_station.lower()),
+                None
+            )
+            to_idx = next(
+                (i for i, seg in enumerate(sched)
+                 if seg["station"]["id"] == to_sid or seg["station"]["name"].lower() == to_station.lower()),
+                None
+            )
+
+            # Must contain both, and from must come strictly BEFORE to (direction check)
+            if from_idx is None or to_idx is None or from_idx >= to_idx:
+                continue
+
+            from_seg = sched[from_idx]
+            to_seg = sched[to_idx]
+            duration_min = max(1, round((to_seg["arrive_offset"] - from_seg["depart_offset"]) / 60))
+            stops_count = to_idx - from_idx
+
+            # Check all departure slots of this train
+            departures = train_cfg["all_departures"][train_cfg["slot_index"]::train_cfg["n_trains"]]
+            for dep_min in departures:
+                dep_dt = datetime(now.year, now.month, now.day, dep_min // 60, dep_min % 60)
+                dep_from_dt = dep_dt + timedelta(seconds=from_seg["depart_offset"])
+                arr_to_dt = dep_dt + timedelta(seconds=to_seg["arrive_offset"])
+
+                eta_sec = int((dep_from_dt - now).total_seconds())
+                # Include trains starting from 2 minutes before departure (dwelling) up to 24 hours ahead
+                if eta_sec < -120:
+                    continue
+
+                eta_min = max(0, round(eta_sec / 60))
+
+                # Check live state for this specific departure slot
+                live_state = live_trains.get(train_cfg["train_id"])
+                is_live = False
+                is_at_platform = False
+                if live_state and abs(eta_sec) <= 180:
+                    is_live = True
+                    if live_state.get("current_station_id") == from_sid and live_state.get("status") in ("AT_STATION", "WAITING_AT_TERMINAL"):
+                        is_at_platform = True
+                        eta_min = 0
+
+                # Get coaches
+                if live_state and live_state.get("coaches"):
+                    coaches = self._train_coaches(live_state["coaches"])
+                    total_pax = live_state.get("train_current_passengers", 0)
+                else:
+                    # Timetable occupancy estimation based on time-of-day
+                    from app.services.metro_engine import occupancy_base_factor
+                    base_factor = occupancy_base_factor(dep_from_dt, train_cfg["train_id"])
+                    c1_pax = max(10, min(400, int(400 * base_factor * 0.9)))
+                    c2_pax = max(5, min(400, int(400 * base_factor * 0.6)))
+                    c3_pax = max(10, min(400, int(400 * base_factor * 0.85)))
+                    total_pax = c1_pax + c2_pax + c3_pax
+                    coaches = [
+                        TrainCoachOut(coach_number="C1", coach_type="standard", capacity=400, current_passenger_count=c1_pax, occupancy_percentage=int(c1_pax / 4), occupancy_status=self._crowding_to_status("MODERATE" if c1_pax > 150 else "EMPTY")),
+                        TrainCoachOut(coach_number="C2", coach_type="ladies", capacity=400, current_passenger_count=c2_pax, occupancy_percentage=int(c2_pax / 4), occupancy_status=self._crowding_to_status("MODERATE" if c2_pax > 150 else "EMPTY")),
+                        TrainCoachOut(coach_number="C3", coach_type="standard", capacity=400, current_passenger_count=c3_pax, occupancy_percentage=int(c3_pax / 4), occupancy_status=self._crowding_to_status("MODERATE" if c3_pax > 150 else "EMPTY")),
+                    ]
+
+                pred_platform_crowd = self._crowd_at_station(from_seg["station"]["name"], dep_from_dt)
+
+                # Build stops_timeline for the complete route
+                stops_timeline = []
+                elapsed_s = int((now - dep_dt).total_seconds()) if is_live else 0
+                for s_idx, seg in enumerate(sched):
+                    s_id = seg["station"]["id"]
+                    s_name = seg["station"]["name"]
+                    arr_time = (dep_dt + timedelta(seconds=seg["arrive_offset"])).strftime("%H:%M")
+                    dep_time = (dep_dt + timedelta(seconds=seg["depart_offset"])).strftime("%H:%M")
+
+                    is_passed = False
+                    is_current = False
+                    if is_live:
+                        if seg["depart_offset"] < elapsed_s:
+                            is_passed = True
+                        elif seg["arrive_offset"] <= elapsed_s <= seg["depart_offset"]:
+                            is_current = True
+                        elif s_idx > 0 and sched[s_idx-1]["depart_offset"] <= elapsed_s < seg["arrive_offset"]:
+                            if live_state and live_state.get("next_station_id") == s_id:
+                                is_current = True
+
+                    s_pred_crowd = self._crowd_at_station(s_name, dep_dt + timedelta(seconds=seg["arrive_offset"]))
+                    stops_timeline.append(JourneyStopOut(
+                        station_id=s_id,
+                        station_name=s_name,
+                        arrival_time=arr_time,
+                        departure_time=dep_time,
+                        is_passed=is_passed,
+                        is_current=is_current,
+                        is_user_origin=(s_id == from_sid),
+                        is_user_destination=(s_id == to_sid),
+                        predicted_station_crowd=s_pred_crowd,
+                        estimated_train_occupancy=total_pax,
+                    ))
+
+                results.append(JourneySearchItemOut(
+                    train_id=train_cfg["train_id"],
+                    train_name=train_cfg["display_name"],
+                    line_name=train_cfg["line_name"],
+                    line_code=train_cfg["line_code"],
+                    direction=train_cfg["direction"],
+                    from_station_id=from_seg["station"]["id"],
+                    from_station_name=from_seg["station"]["name"],
+                    to_station_id=to_seg["station"]["id"],
+                    to_station_name=to_seg["station"]["name"],
+                    departure_time=dep_from_dt.strftime("%H:%M"),
+                    arrival_time=arr_to_dt.strftime("%H:%M"),
+                    eta_minutes=eta_min,
+                    journey_duration_minutes=duration_min,
+                    is_at_platform=is_at_platform,
+                    is_live=is_live,
+                    current_occupancy=total_pax,
+                    predicted_station_crowd=pred_platform_crowd,
+                    stops_count=stops_count,
+                    coaches=coaches,
+                    live_current_station_id=live_state.get("current_station_id") if live_state else None,
+                    live_current_station_name=live_state.get("current_station") if live_state else None,
+                    live_next_station_id=live_state.get("next_station_id") if live_state else None,
+                    live_next_station_name=live_state.get("next_station") if live_state else None,
+                    live_status=live_state.get("status", "SCHEDULED") if is_live else "SCHEDULED",
+                    journey_progress_pct=live_state.get("journey_completed_pct", 0.0) if is_live else 0.0,
+                    stops_timeline=stops_timeline,
+                ))
+
+        # Sort by: (1) At platform train first, (2) smallest ETA
+        results.sort(key=lambda x: (0 if x.is_at_platform else 1, x.eta_minutes))
+        return results
+
+    def _resolve_station_id(self, needle: str) -> str | None:
+        needle_clean = needle.strip().lower()
+        # Check by station ID
+        for st in self._stations_cache:
+            if st.id.lower() == needle_clean:
+                return st.id
+        # Check by station name exact or substring
+        for st in self._stations_cache:
+            if st.name.lower() == needle_clean or needle_clean in st.name.lower():
+                return st.id
+        return None
+
+    @staticmethod
+    def _parse_sim_time(sim_time: str | None) -> datetime:
+        now = sim_clock.now()
+        if not sim_time:
+            return now
+        try:
+            hour, minute = [int(p) for p in sim_time.split(":", 1)]
+            return datetime(now.year, now.month, now.day, hour, minute)
+        except Exception:
+            return now
+
+    def parse_sim_time(self, sim_time: str | None) -> datetime:
+        return self._parse_sim_time(sim_time)
+
+    def _station_exists(self, station_name: str) -> bool:
+        needle = station_name.lower().strip()
+        return any(needle in station.name.lower() or needle == station.id.lower() for station in self._stations_cache)
 
     def station_exists(self, station_name: str) -> bool:
         return self._station_exists(station_name)
