@@ -28,25 +28,28 @@
 #define TRIG2_PIN           27
 #define ECHO2_PIN           33
 
-// Status LED (Optional, builtin LED is GPIO 2 on standard ESP32 DevKit)
+// Status LED (Builtin LED is GPIO 2 on standard ESP32 DevKit)
 #define LED_PIN             2
 
-// ─── Directional Detection Parameters ─────────────────────────────────────────
-// Obstacle detection threshold distance in centimeters (hands within 45cm trigger crossing)
-#define THRESHOLD_CM        45.0
+// ─── Directional Detection & Filtering Parameters ─────────────────────────────
+// Hysteresis detection distance (hands/passengers closer than this trigger entry)
+#define THRESHOLD_ENTER_CM  42.0
+
+// Hysteresis release distance (must clear beyond this to register clear)
+#define THRESHOLD_LEAVE_CM  48.0
 
 // Maximum time in milliseconds allowed for a full traversal before resetting to IDLE
-#define TIMEOUT_MS          2500
+#define TIMEOUT_MS          2200
 
-// Cooldown in milliseconds between consecutive passenger counts
-#define COOLDOWN_MS         400
+// Cooldown in milliseconds after a successful count before next crossing can start
+#define COOLDOWN_MS         450
 
 // Spacing delay in milliseconds between pinging S1 and S2 to avoid echo cross-talk
-#define SENSOR_SPACING_MS   25
+#define SENSOR_SPACING_MS   20
 
 // ─── Transit & Coach Metadata ─────────────────────────────────────────────────
 #define DEVICE_ID           "ESP32_COACH_01"
-#define DEFAULT_STATION_ID  "BL08"        // e.g. Old High Court (BL08) or NULL for all
+#define DEFAULT_STATION_ID  "BL08"        // e.g. Old High Court (BL08)
 #define DEFAULT_COACH_ID    "C1"
 #define COACH_CAPACITY      400
 

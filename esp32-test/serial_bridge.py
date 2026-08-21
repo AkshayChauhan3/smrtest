@@ -131,7 +131,7 @@ def main():
                 if not line:
                     continue
 
-                # 1. Structured JSON (Preferred)
+                # 1. Structured JSON (Authoritative from ESP32)
                 if line.startswith("{") and line.endswith("}"):
                     try:
                         pkt = json.loads(line)
@@ -164,24 +164,8 @@ def main():
                     except json.JSONDecodeError:
                         pass
 
-                # 2. Human-readable logs
-                if "BOARDING" in line or "PASSENGER IN" in line:
-                    post_telemetry(args.backend, "IN", 1, 0, max(0, last_occupancy + 1), station_id=args.station, coach_id=args.coach, capacity=args.capacity)
-                    last_occupancy += 1
-                elif "ALIGHTING" in line or "PASSENGER OUT" in line:
-                    occ = max(0, last_occupancy - 1)
-                    post_telemetry(args.backend, "OUT", 0, 1, occ, station_id=args.station, coach_id=args.coach, capacity=args.capacity)
-                    last_occupancy = occ
-                elif "Occupancy:" in line:
-                    m = re.search(r"Occupancy:\s*(\d+)", line)
-                    if m:
-                        occ = int(m.group(1))
-                        now = time.monotonic()
-                        if occ != last_occupancy and (now - last_post_time) >= POST_COOLDOWN:
-                            post_telemetry(args.backend, "SYNC", 0, 0, occ, station_id=args.station, coach_id=args.coach, capacity=args.capacity)
-                            last_occupancy = occ
-                            last_post_time = now
-                elif "[Sensor Status]" in line or "SmartRail OS" in line or "Threshold" in line:
+                # 2. Informational / Diagnostic logs
+                if "SmartRail OS" in line or "Threshold" in line or "Station:" in line:
                     print(f"  [ESP32] {line}")
 
         except serial.SerialException as exc:
