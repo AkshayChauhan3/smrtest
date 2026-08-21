@@ -72,3 +72,23 @@ def test_esp32_endpoints():
         assert per_station_resp.status_code == 200
         assert per_station_resp.json() == {}
 
+
+def test_dynamic_train_ingestion():
+    payload = {
+        "timestamp": "2026-06-10T14:35:00Z",
+        "train_id": "ESP32_DEMO",
+        "station_id": "BL08",
+        "event_type": "occupancy_update",
+        "coaches": [
+            {"coach_id": "C1", "coach_type": "GENERAL", "passenger_count": 85, "occupancy_percentage": 21.25},
+            {"coach_id": "C2", "coach_type": "LADIES", "passenger_count": 40, "occupancy_percentage": 10.0},
+            {"coach_id": "C3", "coach_type": "GENERAL", "passenger_count": 75, "occupancy_percentage": 18.75},
+        ],
+        "delay_minutes": 0
+    }
+    with TestClient(app) as client:
+        response = client.post("/api/v1/ingestion/events", json=payload)
+        assert response.status_code == 202
+        assert response.json()["status"] == "accepted"
+
+
