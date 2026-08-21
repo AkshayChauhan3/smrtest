@@ -166,4 +166,46 @@ def test_journey_search_day_and_night() -> None:
         assert night_results[0]["to_station_id"] == "BL18"
 
 
+def test_analytics_and_kpi_history() -> None:
+    with TestClient(app) as client:
+        # 1. KPI History
+        res_kpi = client.get("/api/v1/dashboard/kpi-history")
+        assert res_kpi.status_code == 200
+        kpi_data = res_kpi.json()
+        assert "current" in kpi_data
+        assert kpi_data["current"]["active_trains"] >= 0
+
+        # 2. Hourly Flow
+        res_hf = client.get("/api/v1/analytics/hourly-flow")
+        assert res_hf.status_code == 200
+        hf_data = res_hf.json()
+        assert len(hf_data) == 18  # Hours 6 to 23
+        assert hf_data[0]["hour"] == "06:00"
+        assert hf_data[-1]["hour"] == "23:00"
+        assert all("inflow" in item and "outflow" in item for item in hf_data)
+
+        # 3. Weekly Trend
+        res_wt = client.get("/api/v1/analytics/weekly-trend")
+        assert res_wt.status_code == 200
+        wt_data = res_wt.json()
+        assert len(wt_data) == 7
+        assert [d["day"] for d in wt_data] == ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        assert all(d["total"] > 0 for d in wt_data)
+
+        # 4. Heatmap Matrix
+        res_hm = client.get("/api/v1/analytics/heatmap")
+        assert res_hm.status_code == 200
+        hm_data = res_hm.json()
+        assert len(hm_data) == 7  # 7 days
+        assert all(len(row) == 24 for row in hm_data)  # 24 hours
+
+        # 5. Crowd Forecast
+        res_cf = client.get("/api/v1/analytics/crowd-forecast")
+        assert res_cf.status_code == 200
+        cf_data = res_cf.json()
+        assert len(cf_data) == 6
+        assert cf_data[0]["label"] == "Now"
+
+
+
 

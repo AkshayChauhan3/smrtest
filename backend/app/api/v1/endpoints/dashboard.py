@@ -25,8 +25,10 @@ async def get_kpi_history(db: AsyncSession = Depends(get_db)) -> KpiHistoryOut:
     from sqlalchemy import select, func
     from app.models.train import OccupancySnapshot
     from app.models.route import StationCrowdSnapshot
+    from app.core.sim_clock import sim_clock
+    from app.services.data_service import data_service
 
-    now = datetime.now()
+    now = sim_clock.now()
     cutoff_now   = now - timedelta(minutes=2)
     cutoff_h_lo  = now - timedelta(minutes=62)
     cutoff_h_hi  = now - timedelta(minutes=58)
@@ -67,10 +69,38 @@ async def get_kpi_history(db: AsyncSession = Depends(get_db)) -> KpiHistoryOut:
     hour_ago = await _snap(cutoff_h_lo, cutoff_h_hi)
 
     if current is None:
+        live_trains = data_service.get_all_trains_live(now)
+        active_t = [t for t in live_trains if t.get("status") not in ("NOT_IN_SERVICE", "WAITING_AT_TERMINAL")]
+        n_active = len(active_t)
+        total_pax = sum(t.get("train_current_passengers", 0) for t in active_t)
+        avg_occ = round((total_pax / max(1, n_active) / 1200) * 100, 1)
+        
+        station_crowds = data_service.list_station_crowds(now)
+        total_crowd = sum(c.current_station_crowd for c in station_crowds)
+        
         current = KpiSnapshot(
-            active_trains=0, passengers_in_transit=0,
-            avg_occupancy_pct=0.0, total_station_crowd=0,
+            active_trains=n_active,
+            passengers_in_transit=total_pax,
+            avg_occupancy_pct=avg_occ,
+            total_station_crowd=total_crowd,
             captured_at=now,
+        )
+
+    if hour_ago is None and current is not None:
+        h_ago_dt = now - timedelta(minutes=60)
+        h_trains = data_service.get_all_trains_live(h_ago_dt)
+        h_active_t = [t for t in h_trains if t.get("status") not in ("NOT_IN_SERVICE", "WAITING_AT_TERMINAL")]
+        h_n_active = len(h_active_t)
+        h_total_pax = sum(t.get("train_current_passengers", 0) for t in h_active_t)
+        h_avg_occ = round((h_total_pax / max(1, h_n_active) / 1200) * 100, 1)
+        h_crowds = data_service.list_station_crowds(h_ago_dt)
+        h_total_crowd = sum(c.current_station_crowd for c in h_crowds)
+        hour_ago = KpiSnapshot(
+            active_trains=h_n_active,
+            passengers_in_transit=h_total_pax,
+            avg_occupancy_pct=h_avg_occ,
+            total_station_crowd=h_total_crowd,
+            captured_at=h_ago_dt,
         )
 
     return KpiHistoryOut(current=current, hour_ago=hour_ago)
