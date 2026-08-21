@@ -140,3 +140,30 @@ def test_station_id_mapping() -> None:
         assert res_od.status_code == 200
 
 
+def test_journey_search_day_and_night() -> None:
+    with TestClient(app) as client:
+        # Daytime search (12:00)
+        res_day = client.get(
+            "/api/v1/trains/search",
+            params={"from_station": "BL01", "to_station": "BL18", "sim_time": "12:00"}
+        )
+        assert res_day.status_code == 200
+        day_results = res_day.json()
+        assert len(day_results) > 0
+        assert day_results[0]["from_station_id"] == "BL01"
+        assert day_results[0]["to_station_id"] == "BL18"
+        assert len(day_results[0]["stops_timeline"]) > 0
+
+        # Late night search after service hours (23:30) - should return next morning departures
+        res_night = client.get(
+            "/api/v1/trains/search",
+            params={"from_station": "BL01", "to_station": "BL18", "sim_time": "23:30"}
+        )
+        assert res_night.status_code == 200
+        night_results = res_night.json()
+        assert len(night_results) > 0
+        assert night_results[0]["from_station_id"] == "BL01"
+        assert night_results[0]["to_station_id"] == "BL18"
+
+
+

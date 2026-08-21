@@ -644,6 +644,99 @@ class DataService:
                     stops_timeline=stops_timeline,
                 ))
 
+        # If searching late at night and no more departures today, return tomorrow morning's schedule
+        if not results:
+            tomorrow = now + timedelta(days=1)
+            for train_cfg in self.engine._trains:
+                sched = train_cfg["schedule"]
+                from_idx = next(
+                    (i for i, seg in enumerate(sched)
+                     if seg["station"]["id"] == from_sid or seg["station"]["name"].lower() == from_station.lower()),
+                    None
+                )
+                to_idx = next(
+                    (i for i, seg in enumerate(sched)
+                     if seg["station"]["id"] == to_sid or seg["station"]["name"].lower() == to_station.lower()),
+                    None
+                )
+                if from_idx is None or to_idx is None or from_idx >= to_idx:
+                    continue
+
+                from_seg = sched[from_idx]
+                to_seg = sched[to_idx]
+                duration_min = max(1, round((to_seg["arrive_offset"] - from_seg["depart_offset"]) / 60))
+                stops_count = to_idx - from_idx
+
+                departures = train_cfg["all_departures"][train_cfg["slot_index"]::train_cfg["n_trains"]]
+                for dep_min in departures[:3]:
+                    dep_dt = datetime(tomorrow.year, tomorrow.month, tomorrow.day, dep_min // 60, dep_min % 60)
+                    dep_from_dt = dep_dt + timedelta(seconds=from_seg["depart_offset"])
+                    arr_to_dt = dep_dt + timedelta(seconds=to_seg["arrive_offset"])
+                    eta_sec = int((dep_from_dt - now).total_seconds())
+                    eta_min = max(0, round(eta_sec / 60))
+
+                    from app.services.metro_engine import occupancy_base_factor
+                    base_factor = occupancy_base_factor(dep_from_dt, train_cfg["train_id"])
+                    c1_pax = max(10, min(400, int(400 * base_factor * 0.9)))
+                    c2_pax = max(5, min(400, int(400 * base_factor * 0.6)))
+                    c3_pax = max(10, min(400, int(400 * base_factor * 0.85)))
+                    total_pax = c1_pax + c2_pax + c3_pax
+
+                    coaches = [
+                        TrainCoachOut(coach_number="C1", coach_type="standard", capacity=400, current_passenger_count=c1_pax, occupancy_percentage=round((c1_pax/400)*100), occupancy_status="MODERATE" if c1_pax > 150 else "EMPTY"),
+                        TrainCoachOut(coach_number="C2", coach_type="ladies", capacity=400, current_passenger_count=c2_pax, occupancy_percentage=round((c2_pax/400)*100), occupancy_status="MODERATE" if c2_pax > 150 else "EMPTY"),
+                        TrainCoachOut(coach_number="C3", coach_type="standard", capacity=400, current_passenger_count=c3_pax, occupancy_percentage=round((c3_pax/400)*100), occupancy_status="MODERATE" if c3_pax > 150 else "EMPTY"),
+                    ]
+
+                    stops_timeline = []
+                    for seg_i in range(from_idx, to_idx + 1):
+                        seg = sched[seg_i]
+                        s_id = seg["station"]["id"]
+                        s_arr = dep_dt + timedelta(seconds=seg["arrive_offset"])
+                        s_dep = dep_dt + timedelta(seconds=seg["depart_offset"])
+                        stops_timeline.append(JourneyStopOut(
+                            station_id=s_id,
+                            station_name=seg["station"]["name"],
+                            line_name=train_cfg["line_name"],
+                            arrival_time=s_arr.strftime("%H:%M"),
+                            departure_time=s_dep.strftime("%H:%M"),
+                            is_passed=False,
+                            is_current=False,
+                            is_user_origin=(s_id == from_sid),
+                            is_user_destination=(s_id == to_sid),
+                            predicted_station_crowd=max(20, int(total_pax * 0.25)),
+                            estimated_train_occupancy=total_pax,
+                        ))
+
+                    results.append(JourneySearchItemOut(
+                        train_id=train_cfg["train_id"],
+                        train_name=train_cfg["display_name"],
+                        line_name=train_cfg["line_name"],
+                        line_code=train_cfg["line_code"],
+                        direction=train_cfg["direction"],
+                        from_station_id=from_seg["station"]["id"],
+                        from_station_name=from_seg["station"]["name"],
+                        to_station_id=to_seg["station"]["id"],
+                        to_station_name=to_seg["station"]["name"],
+                        departure_time=dep_from_dt.strftime("%H:%M"),
+                        arrival_time=arr_to_dt.strftime("%H:%M"),
+                        eta_minutes=eta_min,
+                        journey_duration_minutes=duration_min,
+                        is_at_platform=False,
+                        is_live=False,
+                        current_occupancy=total_pax,
+                        predicted_station_crowd=max(20, int(total_pax * 0.25)),
+                        stops_count=stops_count,
+                        coaches=coaches,
+                        live_current_station_id=None,
+                        live_current_station_name=None,
+                        live_next_station_id=None,
+                        live_next_station_name=None,
+                        live_status="SCHEDULED",
+                        journey_progress_pct=0.0,
+                        stops_timeline=stops_timeline,
+                    ))
+
         # Sort by: (1) At platform train first, (2) smallest ETA
         results.sort(key=lambda x: (0 if x.is_at_platform else 1, x.eta_minutes))
         return results
