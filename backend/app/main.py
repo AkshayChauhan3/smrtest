@@ -21,15 +21,6 @@ async def lifespan(app: FastAPI):
         from app.models.station import Station
         from app.db.seeder import seed_database
         from sqlalchemy import select, func
-        from app.core.sim_clock import sim_clock
-        
-        # Apply dev time override if configured (bypasses the 06:20-22:09 service window)
-        if settings.dev_sim_time:
-            try:
-                sim_clock.set_time(settings.dev_sim_time)
-                print(f"[DEV] Simulation clock pinned to {settings.dev_sim_time} (DEV_SIM_TIME)")
-            except ValueError as exc:
-                print(f"[DEV] Warning: Invalid DEV_SIM_TIME '{settings.dev_sim_time}': {exc}")
         
         # 1. Ensure tables exist
         async with db_engine.begin() as conn:

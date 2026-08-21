@@ -14,5 +14,4 @@ class TrainOccupancyPredictionOut(BaseModel):
     train_id: str
     forecast_minutes: int
     predicted_total_passengers: int
-    confidence_score: float = 0.94
     predicted_coaches: List[PredictedCoach]

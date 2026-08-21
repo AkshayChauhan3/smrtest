@@ -141,7 +141,7 @@ class AlertRepository(BaseRepository):
 
     async def get_active_alerts(self, limit: int = 50) -> list[Alert]:
         from datetime import timedelta
-        cutoff = datetime.now() - timedelta(hours=24)  # Use local time consistently
+        cutoff = datetime.now() - timedelta(hours=24)
         try:
             result = await self.db.execute(
                 select(Alert)

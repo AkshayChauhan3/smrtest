@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { SectionHeader } from "./dashboard.index";
 import { KpiCard } from "@/components/srail/kpi-card";
 import { HOURLY_FLOW, WEEKLY_TREND } from "@/lib/mock/data";
+import { useHourlyFlow, useWeeklyTrend, useKpi } from "@/lib/api/hooks";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Activity, Clock, TrendingUp, Users } from "lucide-react";
 
@@ -16,21 +17,33 @@ export const Route = createFileRoute("/dashboard/analytics")({
 });
 
 function Analytics() {
+  const hourlyQ = useHourlyFlow();
+  const weeklyQ = useWeeklyTrend();
+  const kpiQ = useKpi();
+
+  const hourlyData = hourlyQ.data && hourlyQ.data.length > 0 ? hourlyQ.data : HOURLY_FLOW;
+  const weeklyData = weeklyQ.data && weeklyQ.data.length > 0 ? weeklyQ.data : WEEKLY_TREND;
+  const kpi = kpiQ.data;
+
+  const ridershipFormatted = kpi?.passengersInTransit
+    ? (kpi.passengersInTransit * 65).toLocaleString()
+    : "218,402";
+
   return (
     <div className="space-y-6 px-4 py-6 md:px-8 md:py-8">
       <SectionHeader title="Operational Analytics" right="Last 7 days" />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Total Ridership" value="218,402" delta="+4.2%" deltaTone="positive" icon={<Users className="size-4" />} />
-        <KpiCard label="On-Time Performance" value="96.8%" delta="+0.6 pp" deltaTone="positive" icon={<Clock className="size-4" />} />
-        <KpiCard label="Avg Dwell Time" value="42s" delta="-3s" deltaTone="positive" icon={<Activity className="size-4" />} />
-        <KpiCard label="Peak Load Factor" value="0.82" delta="Stable" deltaTone="neutral" icon={<TrendingUp className="size-4" />} />
+        <KpiCard label="Total Ridership" value={ridershipFormatted} delta="+4.2%" deltaTone="positive" icon={<Users className="size-4" />} />
+        <KpiCard label="On-Time Performance" value="98.4%" delta="+0.6 pp" deltaTone="positive" icon={<Clock className="size-4" />} />
+        <KpiCard label="Avg Dwell Time" value="38s" delta="-3s" deltaTone="positive" icon={<Activity className="size-4" />} />
+        <KpiCard label="Peak Load Factor" value={kpi?.avgOccupancy ? `${(kpi.avgOccupancy / 100).toFixed(2)}` : "0.78"} delta="Stable" deltaTone="neutral" icon={<TrendingUp className="size-4" />} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <ChartCard title="Hourly Flow (today)">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={HOURLY_FLOW} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
+            <AreaChart data={hourlyData} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
               <defs>
                 <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#2dd4bf" stopOpacity={0.55} />
@@ -48,7 +61,7 @@ function Analytics() {
 
         <ChartCard title="Weekly Ridership">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={WEEKLY_TREND} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
+            <BarChart data={weeklyData} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
               <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
               <XAxis dataKey="day" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />

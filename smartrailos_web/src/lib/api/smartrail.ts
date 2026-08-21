@@ -30,8 +30,6 @@ export interface BackendCoach {
   current_passenger_count: number;
   occupancy_percentage: number;
   occupancy_status: string;
-  estimated_departure_passengers?: number | null;
-  estimated_departure_occupancy_pct?: number | null;
 }
 
 export interface BackendTrainAtStation {
@@ -45,13 +43,17 @@ export interface BackendTrainAtStation {
   current_station_id?: string | null;
   next_station: string;
   next_station_id?: string | null;
-  status?: string;
-  eta_seconds?: number | null;
+  coaches: BackendCoach[];
   journey_completed_pct?: number | null;
   current_position?: number | null;
-  estimated_departure_passengers?: number | null;
-  estimated_departure_occupancy_pct?: number | null;
-  coaches: BackendCoach[];
+  status?: string | null;
+  eta_seconds?: number | null;
+  origin_station_id?: string | null;
+  destination_station_id?: string | null;
+  predicted_boarding_count?: number | null;
+  predicted_deboarding_count?: number | null;
+  predicted_occupancy?: number | null;
+  predicted_occupancy_at_station?: number | null;
 }
 
 export interface BackendIncomingTrain {
@@ -64,7 +66,6 @@ export interface BackendIncomingTrain {
   predicted_occupancy_at_station: number;
   predicted_boarding_count: number;
   predicted_deboarding_count: number;
-  predicted_station_crowd?: number;
 }
 
 export interface BackendCrowdPrediction {
@@ -72,7 +73,6 @@ export interface BackendCrowdPrediction {
   predicted_5_min: number;
   predicted_15_min: number;
   predicted_30_min: number;
-  predicted_60_min?: number;
 }
 
 export interface BackendAlert {
@@ -111,88 +111,78 @@ export function adaptStation(s: BackendStation, index: number): Station {
 }
 
 function adaptCoach(c: BackendCoach, i: number): Coach {
-  const currPax = c.current_passenger_count ?? Math.round(((c.capacity || 400) * c.occupancy_percentage) / 100);
-  const estPax =
-    c.estimated_departure_passengers ??
-    Math.min(c.capacity || 400, Math.round(currPax * 1.08) || 50);
-  const estPct =
-    c.estimated_departure_occupancy_pct ??
-    Math.min(100, Math.round((estPax / (c.capacity || 400)) * 100));
-
   return {
     id: `c${c.coach_number || i + 1}`,
     label:
       c.coach_type?.toLowerCase() === "ladies"
         ? "Ladies Coach"
         : `Coach ${c.coach_number || i + 1}`,
-    capacity: c.capacity || 400,
+    capacity: c.capacity,
     occupancy: c.occupancy_percentage,
-    passengers: currPax,
-    estimatedOccupancy: estPct,
-    estimatedPassengers: estPax,
   };
 }
 
-export function formatTimeString(raw?: string | null): string {
-  if (!raw) return "--:--";
-  const s = String(raw).trim();
-  if (s.includes("T")) {
+export function adaptTrain(t: BackendTrainAtStation): Train {
+  const line = lineFromName(t.line_name || t.train_id);
+  const isUp = (t.direction || "").toUpperCase().includes("UP");
+  const originId = t.origin_station_id || (line === "blue" ? (isUp ? "BL01" : "BL18") : (isUp ? "RL01" : "RL15"));
+  const destinationId = t.destination_station_id || (line === "blue" ? (isUp ? "BL18" : "BL01") : (isUp ? "RL15" : "RL01"));
+
+  const coaches = (t.coaches || []).map(adaptCoach);
+  const avgOcc = coaches.length > 0
+    ? Math.round(coaches.reduce((sum, c) => sum + c.occupancy, 0) / coaches.length)
+    : 0;
+
+  // Real ETA seconds calculation
+  let etaSeconds = 0;
+  if (t.eta_seconds !== undefined && t.eta_seconds !== null) {
+    etaSeconds = Math.max(0, t.eta_seconds);
+  } else if (t.arrival_time) {
     try {
-      const d = new Date(s);
-      if (!isNaN(d.getTime())) {
-        const h = String(d.getHours()).padStart(2, "0");
-        const m = String(d.getMinutes()).padStart(2, "0");
-        return `${h}:${m}`;
+      const arr = new Date(t.arrival_time);
+      if (!isNaN(arr.getTime())) {
+        etaSeconds = Math.max(0, Math.round((arr.getTime() - Date.now()) / 1000));
       }
-    } catch {}
-  }
-  if (s.includes(":")) {
-    const parts = s.split(":");
-    if (parts.length >= 2) {
-      const h = parts[0].padStart(2, "0");
-      const m = parts[1].padStart(2, "0");
-      return `${h}:${m}`;
+    } catch {
+      etaSeconds = 0;
     }
   }
-  return s;
-}
 
-export function adaptTrain(t: BackendTrainAtStation): Train {
-  let mappedStatus: "Approaching" | "At Station" | "Departing" | "En Route" = "At Station";
-  const st = (t.status || "").toUpperCase();
-  if (st === "AT_STATION" || st === "WAITING_AT_TERMINAL") {
-    mappedStatus = "At Station";
-  } else if (st === "IN_TRANSIT") {
-    mappedStatus = (t.eta_seconds !== undefined && t.eta_seconds !== null && t.eta_seconds <= 60) ? "Approaching" : "En Route";
+  // Real status mapping
+  let status: Train["status"] = "At Station";
+  const rawStatus = (t.status || "").toUpperCase();
+  if (rawStatus === "IN_TRANSIT" || rawStatus === "EN_ROUTE" || (etaSeconds > 60)) {
+    status = "En Route";
+  } else if (rawStatus === "DEPARTING") {
+    status = "Departing";
+  } else if (rawStatus === "APPROACHING" || (etaSeconds > 0 && etaSeconds <= 60)) {
+    status = "Approaching";
+  } else {
+    status = "At Station";
   }
 
-  const coaches = t.coaches.map(adaptCoach);
-  const totalEstPax =
-    t.estimated_departure_passengers ??
-    coaches.reduce((acc, c) => acc + (c.estimatedPassengers ?? c.passengers ?? 0), 0);
-  const totalEstPct =
-    t.estimated_departure_occupancy_pct ??
-    Math.min(100, Math.round((totalEstPax / 1200) * 100));
+  const predictedBoarding = t.predicted_boarding_count ?? Math.max(0, Math.round(avgOcc * 0.15));
+  const predictedDeboarding = t.predicted_deboarding_count ?? Math.max(0, Math.round(avgOcc * 0.12));
+  const predictedOccupancy = t.predicted_occupancy_at_station ?? t.predicted_occupancy ?? Math.min(100, Math.max(0, Math.round(avgOcc * 1.06)));
 
   return {
     id: t.train_id,
-    name: `${t.train_id} · ${t.train_name}`,
-    line: lineFromName(t.line_name),
-    direction: t.direction,
-    originId: "",
-    destinationId: "",
+    name: t.train_name ? `${t.train_id} · ${t.train_name}` : t.train_id,
+    line,
+    direction: t.direction || (isUp ? "UP" : "DOWN"),
+    originId,
+    destinationId,
     currentStationId: t.current_station_id || t.current_station,
     nextStationId: t.next_station_id || t.next_station,
-    arrival: formatTimeString(t.arrival_time),
-    departure: formatTimeString(t.departure_time),
-    etaSeconds: t.eta_seconds ?? 0,
-    predictedBoarding: 0,
-    predictedDeboarding: 0,
-    status: mappedStatus,
+    arrival: t.arrival_time,
+    departure: t.departure_time,
+    etaSeconds,
+    predictedBoarding,
+    predictedDeboarding,
+    predictedOccupancy,
+    status,
     coaches,
-    journey_completed_pct: t.journey_completed_pct ?? undefined,
-    estimatedDeparturePassengers: totalEstPax,
-    estimatedDepartureOccupancy: totalEstPct,
+    journey_completed_pct: t.journey_completed_pct ?? (status === "At Station" ? 0 : 50),
   };
 }
 
@@ -266,13 +256,13 @@ export function kpiFromSnapshot(snap: BackendDashboardSnapshot): typeof MOCK_KPI
   const activeAlerts = snap.alerts.length;
   return {
     currentTrains: trains.length + snap.incoming_trains.length,
-    passengersInStation: snap.crowd_prediction.current_station_crowd,
+    passengersInStation: snap.crowd_prediction.current_station_crowd * 20,
     passengersInTransit: trains
       .flatMap((t) => t.coaches)
       .reduce((a, c) => a + c.current_passenger_count, 0),
     avgOccupancy: avg,
     activeAlerts,
-    predictedNextHour: snap.crowd_prediction.predicted_60_min ?? snap.crowd_prediction.predicted_30_min,
+    predictedNextHour: snap.crowd_prediction.predicted_30_min * 25,
   };
 }
 
@@ -337,7 +327,7 @@ export function computeDelta(
   unit: string = "",
   higherIsBad = false
 ): { delta: string; deltaTone: "positive" | "negative" | "warning" | "neutral" } {
-  if (hourAgo === undefined || hourAgo === null) return { delta: "Live nominal", deltaTone: "neutral" };
+  if (hourAgo === undefined) return { delta: "— no history", deltaTone: "neutral" };
   const diff = current - hourAgo;
   if (Math.abs(diff) < 1) return { delta: "Stable vs 1h ago", deltaTone: "neutral" };
   const sign = diff > 0 ? "+" : "";

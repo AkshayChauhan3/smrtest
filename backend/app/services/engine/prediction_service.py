@@ -31,8 +31,6 @@ class PredictionService:
                 predicted_5_min=int(current_crowd * (1 + 0.05 * multiplier)),
                 predicted_15_min=int(current_crowd * (1 + 0.15 * multiplier)),
                 predicted_30_min=int(current_crowd * (1 + 0.25 * multiplier)),
-                predicted_60_min=int(current_crowd * (1 + 0.40 * multiplier)),
-                confidence_score=0.92,
             )
 
     async def get_train_occupancy_prediction(self, train_id: str, current_passengers: int, forecast_minutes: int, now: datetime = None) -> TrainOccupancyPredictionOut:
@@ -53,24 +51,18 @@ class PredictionService:
             hour = now.hour
             multiplier = 1.2 if (8 <= hour <= 10) or (17 <= hour <= 19) else 0.9
             
-            # Predict realistic train flows.
-            _COACH_CAP = 400
-            _TOTAL_CAP = _COACH_CAP * 3  # 1200
-            base_estimate = max(int(_TOTAL_CAP * 0.20), current_passengers)  # floor: 20% capacity
-            predicted_total = int(base_estimate * multiplier)
+            # Predict realistic train flows based on current actual passengers
+            predicted_total = int(current_passengers * multiplier)
             
             c2_passengers = int(predicted_total * 0.25)
             c1_passengers = int((predicted_total - c2_passengers) / 2)
             c3_passengers = predicted_total - c2_passengers - c1_passengers
             def status(count, cap=400): return "high" if count/cap > 0.85 else "moderate" if count/cap > 0.5 else "low"
             
-            confidence = round(max(0.70, 0.95 - (forecast_minutes * 0.003)), 2)
-
             return TrainOccupancyPredictionOut(
                 train_id=train_id,
                 forecast_minutes=forecast_minutes,
                 predicted_total_passengers=predicted_total,
-                confidence_score=confidence,
                 predicted_coaches=[
                     PredictedCoach(coach_number="C1", predicted_passenger_count=c1_passengers, occupancy_status=status(c1_passengers)),
                     PredictedCoach(coach_number="C2", predicted_passenger_count=c2_passengers, occupancy_status=status(c2_passengers)),

@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-import { apiFetch, USE_MOCK } from "./api/client";
-
 
 export function useLiveTick(intervalMs = 3000) {
   const [tick, setTick] = useState(0);
@@ -16,70 +14,14 @@ export function jitter(value: number, amplitude = 3, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Math.round(next)));
 }
 
-// Global offset between client Date.now() and server simulation time (in ms)
-let globalSimOffsetMs: number | null = null;
-let lastSyncTime = 0;
-
-export async function syncServerClock() {
-  if (USE_MOCK) return;
-  try {
-    const res = await apiFetch<{
-      is_overridden: boolean;
-      system_time: string;
-    }>("/sim/time");
-    
-    if (res && res.system_time) {
-      const serverDate = new Date(res.system_time.replace(" ", "T"));
-      if (!isNaN(serverDate.getTime())) {
-        globalSimOffsetMs = serverDate.getTime() - Date.now();
-        lastSyncTime = Date.now();
-      }
-    }
-  } catch {
-    // If backend is unavailable, keep using current offset or fallback to local
-  }
-}
-
 export function useClock() {
-  const [now, setNow] = useState(() => {
-    return globalSimOffsetMs !== null
-      ? new Date(Date.now() + globalSimOffsetMs)
-      : new Date();
-  });
-
+  const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    // Initial sync
-    if (Date.now() - lastSyncTime > 10000) {
-      syncServerClock().then(() => {
-        if (globalSimOffsetMs !== null) {
-          setNow(new Date(Date.now() + globalSimOffsetMs));
-        }
-      });
-    }
-
-    // Periodic sync with server every 15s to keep clock drift-free
-    const syncInterval = setInterval(() => {
-      syncServerClock();
-    }, 15000);
-
-    // Update every second (1000ms) like a regular clock
-    const tickInterval = setInterval(() => {
-      setNow(
-        globalSimOffsetMs !== null
-          ? new Date(Date.now() + globalSimOffsetMs)
-          : new Date()
-      );
-    }, 1000);
-
-    return () => {
-      clearInterval(syncInterval);
-      clearInterval(tickInterval);
-    };
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
   }, []);
-
   return now;
 }
-
 
 export function formatTime(d: Date) {
   return d.toLocaleTimeString("en-IN", { hour12: false });

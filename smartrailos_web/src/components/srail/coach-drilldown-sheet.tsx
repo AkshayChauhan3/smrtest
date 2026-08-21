@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/sheet";
 import { OccupancyBar } from "./occupancy-bar";
 import { LineBadge } from "./badges";
-import { RouteTimeline } from "./route-timeline";
 import {
   findStation,
   OCC_TEXT,
@@ -63,18 +62,6 @@ export function CoachDrillDownSheet({
   const current = train ? findStation(train.currentStationId) : null;
   const next = train ? findStation(train.nextStationId) : null;
 
-  const boardingCount = train
-    ? train.predictedBoarding > 0
-      ? train.predictedBoarding
-      : Math.round((stats?.totalOnboard ?? 200) * 0.28)
-    : 0;
-
-  const deboardingCount = train
-    ? train.predictedDeboarding > 0
-      ? train.predictedDeboarding
-      : Math.round((stats?.totalOnboard ?? 200) * 0.22)
-    : 0;
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -111,9 +98,6 @@ export function CoachDrillDownSheet({
             </SheetHeader>
 
             <div className="space-y-6 px-6 py-6">
-              {/* Route Timeline Component */}
-              <RouteTimeline train={train} />
-
               <section className="grid grid-cols-2 gap-3">
                 <SummaryTile
                   icon={<Users className="size-3.5" />}
@@ -155,18 +139,11 @@ export function CoachDrillDownSheet({
                 <ul className="mt-4 space-y-3">
                   {train.coaches.map((c) => {
                     const status = statusFromOccupancy(c.occupancy);
-                    const livePax = c.passengers ?? Math.round((c.capacity * c.occupancy) / 100);
-                    const estPax =
-                      c.estimatedPassengers ??
-                      Math.min(c.capacity || 400, Math.round(livePax * 1.08));
-                    const estPct =
-                      c.estimatedOccupancy ??
-                      Math.min(100, Math.round((estPax / (c.capacity || 400)) * 100));
-
+                    const onboard = Math.round((c.capacity * c.occupancy) / 100);
                     return (
                       <li
                         key={c.id}
-                        className="space-y-3 rounded-lg border border-white/5 bg-obsidian-900 p-4"
+                        className="rounded-lg border border-white/5 bg-obsidian-900 p-4"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
@@ -182,8 +159,8 @@ export function CoachDrillDownSheet({
                               <div className="text-sm font-semibold text-white">
                                 {c.label}
                               </div>
-                              <div className="font-mono text-[10px] uppercase tracking-wider text-slate-400">
-                                Max {c.capacity.toLocaleString()} seats
+                              <div className="font-mono text-[10px] uppercase tracking-wider text-slate-500">
+                                {onboard.toLocaleString()} / {c.capacity.toLocaleString()} pax
                               </div>
                             </div>
                           </div>
@@ -200,50 +177,8 @@ export function CoachDrillDownSheet({
                             {STATUS_LABEL[status]}
                           </span>
                         </div>
-
-                        {/* Dual Bar Comparison */}
-                        <div className="space-y-2 pt-2 border-t border-white/5">
-                          {/* Live Occupancy Bar */}
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                              <span className="flex items-center gap-1">
-                                <span className="size-1.5 rounded-full bg-slate-300" />
-                                Real-Time Live
-                              </span>
-                              <span className="font-bold text-white">
-                                {livePax.toLocaleString()} / {c.capacity} pax ({c.occupancy}%)
-                              </span>
-                            </div>
-                            <OccupancyBar value={c.occupancy} showPaxCount={false} />
-                          </div>
-
-                          {/* ML Estimated Departure Bar */}
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between text-[10px] font-mono text-accent-cyan">
-                              <span className="flex items-center gap-1">
-                                <Sparkles className="size-3 text-accent-cyan" />
-                                Est. Post-Stop Departure (Old High Court)
-                              </span>
-                              <span className="font-bold text-accent-cyan">
-                                {estPax.toLocaleString()} / {c.capacity} pax ({estPct}%)
-                              </span>
-                            </div>
-                            <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/5 ring-1 ring-inset ring-white/5">
-                              <div
-                                className={cn(
-                                  "h-full rounded-full transition-all duration-1000 ease-out",
-                                  estPct < 50
-                                    ? "bg-gradient-to-r from-emerald-500 to-teal-400"
-                                    : estPct < 75
-                                      ? "bg-gradient-to-r from-amber-500 to-yellow-400"
-                                      : estPct < 90
-                                        ? "bg-gradient-to-r from-orange-500 to-amber-500"
-                                        : "bg-gradient-to-r from-rose-500 to-red-500",
-                                )}
-                                style={{ width: `${estPct}%` }}
-                              />
-                            </div>
-                          </div>
+                        <div className="mt-3">
+                          <OccupancyBar value={c.occupancy} />
                         </div>
                       </li>
                     );
@@ -251,29 +186,31 @@ export function CoachDrillDownSheet({
                 </ul>
               </section>
 
-              <section className="rounded-lg border border-white/5 bg-obsidian-900 p-4">
-                <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-300">
-                  Predicted Flow At Next Station
-                </h3>
-                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <div className="font-mono text-[10px] uppercase tracking-wider text-slate-500">
-                      Boarding (Pred)
+              {(train.predictedBoarding > 0 || train.predictedDeboarding > 0) && (
+                <section className="rounded-lg border border-white/5 bg-obsidian-900 p-4">
+                  <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-300">
+                    Predicted At Next Station
+                  </h3>
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="font-mono text-[10px] uppercase tracking-wider text-slate-500">
+                        Boarding
+                      </div>
+                      <div className="font-bold text-success">
+                        +{train.predictedBoarding}
+                      </div>
                     </div>
-                    <div className="font-bold text-success font-mono text-base">
-                      +{boardingCount} pax
+                    <div>
+                      <div className="font-mono text-[10px] uppercase tracking-wider text-slate-500">
+                        Deboarding
+                      </div>
+                      <div className="font-bold text-accent-cyan">
+                        −{train.predictedDeboarding}
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <div className="font-mono text-[10px] uppercase tracking-wider text-slate-500">
-                      Deboarding (Pred)
-                    </div>
-                    <div className="font-bold text-accent-cyan font-mono text-base">
-                      −{deboardingCount} pax
-                    </div>
-                  </div>
-                </div>
-              </section>
+                </section>
+              )}
             </div>
           </>
         )}

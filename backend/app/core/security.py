@@ -2,23 +2,27 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import bcrypt
+# Passlib compatibility with bcrypt >= 4.1.0 on Python 3.12
+if not hasattr(bcrypt, "__about__"):
+    class _BcryptAbout:
+        __version__ = getattr(bcrypt, "__version__", "4.0.1")
+    bcrypt.__about__ = _BcryptAbout()
+
 from jose import jwt
+from passlib.context import CryptContext
 
 from app.core.config import settings
 
+# Bcrypt-based password hashing context.
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
-    salt = bcrypt.gensalt()
-    return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
+    return pwd_context.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    try:
-        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
-    except Exception:
-        return False
-
+    return pwd_context.verify(plain_password, hashed_password)
 
 
 def _create_token(subject: str, expires_delta: timedelta, token_type: str) -> str:

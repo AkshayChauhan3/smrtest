@@ -1,44 +1,43 @@
 import { useEffect, useState } from "react";
-import { TRAINS, BLUE_LINE, RED_LINE, type Train } from "@/lib/mock/data";
+import { BLUE_LINE, RED_LINE, type Train } from "@/lib/mock/data";
 import { useTrains } from "@/lib/api/hooks";
-import { USE_MOCK } from "@/lib/api/client";
 import { LineBadge } from "./badges";
 import { cn } from "@/lib/utils";
-import { TrainFront, Radio } from "lucide-react";
 
-function calculateDynamicProgress(train: Train, tickSeconds: number) {
-  const stations = train.line === "blue" ? BLUE_LINE : RED_LINE;
-  const totalStops = Math.max(1, stations.length - 1);
-  const currentIdx = stations.findIndex((s) => s.id === train.currentStationId);
-
-  let basePct = 0;
-  if (typeof train.journey_completed_pct === "number" && train.journey_completed_pct > 0) {
-    basePct = train.journey_completed_pct;
-  } else if (currentIdx >= 0) {
-    basePct = (currentIdx / totalStops) * 100;
-  } else {
-    // Unique seed for train id if currentStationId is unmapped
-    const seed = train.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    basePct = (seed % 70) + 15;
-  }
-
-  // Smooth continuous live motion (1 station distance every 15 seconds)
-  const stationSpanPct = 100 / totalStops;
-  const trainOffsetSeconds = (train.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) * 3) % 15;
-  const progressRatio = ((tickSeconds + trainOffsetSeconds) % 15) / 15;
+function progressFor(train: Train, tickSeconds: number) {
+  const isBlue = train.line === "blue" || train.id.startsWith("BL") || train.id.startsWith("bl");
+  const stations = isBlue ? BLUE_LINE : RED_LINE;
+  const totalStops = Math.max(stations.length - 1, 1);
   
-  const livePct = (basePct + progressRatio * stationSpanPct) % 100;
-  return Math.max(2, Math.min(98, livePct));
+  const currentSt = (train.currentStationId || "").toLowerCase();
+  const currentIdx = stations.findIndex((s) => 
+    s.id.toLowerCase() === currentSt || 
+    s.name.toLowerCase() === currentSt ||
+    (currentSt && s.name.toLowerCase().includes(currentSt)) ||
+    (currentSt && currentSt.includes(s.name.toLowerCase()))
+  );
+  
+  const baseIdx = currentIdx >= 0 ? currentIdx : (parseInt(train.id.replace(/\D/g, "") || "0", 10) % stations.length);
+  const isUp = train.direction?.toUpperCase().includes("UP") || 
+               train.direction?.toUpperCase().includes("NORTH") || 
+               train.direction?.toUpperCase().includes("VASTRAL") || 
+               train.direction?.toUpperCase().includes("MOTERA") ||
+               train.originId === stations[0].id;
+  const dir = isUp ? 1 : -1;
+  const baseFrac = baseIdx / totalStops;
+  
+  const seed = train.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const dynamic = ((tickSeconds + seed * 7) % 60) / 60; // 0..1 between stations
+  const segment = (1 / totalStops) * dynamic * dir;
+  const frac = Math.max(0, Math.min(1, baseFrac + segment));
+  return frac * 100;
 }
 
 export function LiveTrainTicker({ className }: { className?: string }) {
   const [seconds, setSeconds] = useState(0);
   const trainsQ = useTrains();
-  const trainsRaw = trainsQ.data ?? [];
-  const hasRealTrains = trainsRaw.some((t) => t.id !== "ESP32_DEMO");
-  const displayTrains = hasRealTrains
-    ? trainsRaw.filter((t) => t.id !== "ESP32_DEMO")
-    : (USE_MOCK ? TRAINS : trainsRaw);
+  const trains = trainsQ.data ?? [];
+  const hasTrains = trains.length > 0;
 
   useEffect(() => {
     const id = setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -46,81 +45,66 @@ export function LiveTrainTicker({ className }: { className?: string }) {
   }, []);
 
   return (
-    <div className={cn("rounded-xl border border-white/5 bg-obsidian-900 p-5 shadow-lg", className)}>
+    <div className={cn("rounded-xl border border-white/5 bg-obsidian-900 p-5", className)}>
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-slate-300">
-          <Radio className="size-3.5 text-accent-cyan animate-pulse" />
+          <span className="size-1.5 animate-pulse-soft rounded-full bg-accent-cyan" />
           Live Network Position
         </h3>
-        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-slate-400">
-          <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" />
-          <span>{displayTrains.length} Trains En Route · Live Motion</span>
-        </div>
+        <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500">
+          {trains.length} active
+        </span>
       </div>
 
-      <div className="mt-5 space-y-5">
-        {displayTrains.length === 0 ? (
+      <div className="mt-5 space-y-4">
+        {!hasTrains ? (
           <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-obsidian-900/50 text-center">
             <p className="text-sm font-medium text-slate-300">System Offline</p>
             <p className="text-xs text-slate-500">Live position tracking is currently paused.</p>
           </div>
         ) : (
-          displayTrains.map((t) => {
-            const pct = calculateDynamicProgress(t, seconds);
-            const isBlue = t.line === "blue";
-            const lineBg = isBlue ? "bg-blue-500" : "bg-rose-500";
-            const lineGlow = isBlue ? "shadow-blue-500/50" : "shadow-rose-500/50";
-
+          trains.map((t) => {
+            const pct = progressFor(t, seconds);
+            const lineColor = t.line === "blue" ? "bg-accent-blue-2" : "bg-danger";
             return (
-              <div key={t.id} className="space-y-2">
-                <div className="flex items-center justify-between gap-3 text-[11px]">
+              <div key={t.id} className="space-y-1.5">
+                <div className="flex items-center justify-between gap-3 text-[10px]">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-white bg-obsidian-800 px-2 py-0.5 rounded border border-white/10">
-                      {t.id}
-                    </span>
+                    <span className="font-mono font-bold text-accent-cyan">{t.id}</span>
                     <LineBadge line={t.line} />
                   </div>
-                  <div className="flex items-center gap-3 font-mono text-[10px] text-slate-400">
-                    <span className="text-accent-cyan font-bold">{Math.round(pct)}% Progress</span>
-                    <span>{t.direction}</span>
-                  </div>
+                  <span className="font-mono uppercase tracking-wider text-slate-500">
+                    {t.direction}
+                  </span>
                 </div>
-
-                {/* Track Bar with Live Moving Train Node */}
-                <div className="relative h-7 rounded-lg bg-obsidian-950/80 px-2 border border-white/5 overflow-hidden">
-                  {/* Track Line */}
-                  <div className="absolute inset-x-3 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/10" />
-                  
-                  {/* Active Track Filled Glow */}
+                <div className="relative h-6">
+                  <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/10" />
                   <div
-                    className={cn(
-                      "absolute top-1/2 h-1 -translate-y-1/2 rounded-full transition-all duration-1000 ease-linear",
-                      isBlue
-                        ? "bg-gradient-to-r from-blue-600 to-cyan-400 shadow-sm shadow-cyan-500/30"
-                        : "bg-gradient-to-r from-rose-600 to-amber-400 shadow-sm shadow-rose-500/30"
-                    )}
-                    style={{ width: `${pct}%` }}
+                    className="absolute top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-transparent via-accent-cyan/60 to-accent-cyan"
+                    style={{ width: `${pct}%`, transition: "width 1s linear" }}
                   />
-
-                  {/* Station Ticks */}
+                  {/* Station ticks */}
                   {Array.from({ length: 8 }).map((_, i) => (
                     <span
                       key={i}
-                      className="absolute top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/20 ring-1 ring-white/10"
-                      style={{ left: `${4 + (i / 7) * 92}%` }}
+                      className="absolute top-1/2 size-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/20"
+                      style={{ left: `${(i / 7) * 100}%` }}
                     />
                   ))}
-
-                  {/* MOVING TRAIN DOT & BADGE */}
-                  <div
-                    className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-1000 ease-linear z-10"
-                    style={{ left: `${4 + (pct * 0.92)}%` }}
+                  {/* Moving train dot */}
+                  <span
+                    className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+                    style={{ left: `${pct}%`, transition: "left 1s linear" }}
                   >
-                    <div className={cn("relative flex items-center justify-center size-5 rounded-full shadow-md text-white font-bold text-[9px]", lineBg, lineGlow)}>
-                      <TrainFront className="size-3 text-white" />
-                      <span className={cn("absolute inset-0 rounded-full animate-ping opacity-75", lineBg)} />
-                    </div>
-                  </div>
+                    <span className={cn("relative block size-3 rounded-sm shadow-lg", lineColor)}>
+                      <span
+                        className={cn(
+                          "absolute inset-0 animate-ping rounded-sm opacity-60",
+                          lineColor,
+                        )}
+                      />
+                    </span>
+                  </span>
                 </div>
               </div>
             );
@@ -130,4 +114,3 @@ export function LiveTrainTicker({ className }: { className?: string }) {
     </div>
   );
 }
-

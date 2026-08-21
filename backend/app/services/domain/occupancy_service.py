@@ -25,9 +25,9 @@ class OccupancyService:
     def __init__(
         self,
         db: AsyncSession,
-        occupancy_repo: OccupancyRepository,
-        station_repo: StationRepository,
-        train_repo: TrainRepository,
+        occupancy_repo: OccupancyRepository = Depends(),
+        station_repo: StationRepository = Depends(),
+        train_repo: TrainRepository = Depends(),
     ):
         self.db = db
         self.occupancy_repo = occupancy_repo
@@ -161,7 +161,8 @@ class OccupancyService:
             coach_data=coach_data,
         )
         self.db.add(snapshot)
-        await self.db.flush()  # Flush to get snapshot.timestamp without committing
+        await self.db.commit()
+        await self.db.refresh(snapshot)
 
         # Return API schema
         train = await self.train_repo.get_by_train_id(train_id)

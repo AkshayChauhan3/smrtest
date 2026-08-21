@@ -25,13 +25,11 @@ async def get_kpi_history(db: AsyncSession = Depends(get_db)) -> KpiHistoryOut:
     from sqlalchemy import select, func
     from app.models.train import OccupancySnapshot
     from app.models.route import StationCrowdSnapshot
-    from app.core.sim_clock import sim_clock
 
-    now = sim_clock.now()   # Use sim_clock so dev-time overrides are respected
+    now = datetime.now()
     cutoff_now   = now - timedelta(minutes=2)
     cutoff_h_lo  = now - timedelta(minutes=62)
     cutoff_h_hi  = now - timedelta(minutes=58)
-
 
     async def _snap(ts_from: datetime, ts_to: datetime) -> KpiSnapshot | None:
         t_res = await db.execute(
@@ -68,29 +66,11 @@ async def get_kpi_history(db: AsyncSession = Depends(get_db)) -> KpiHistoryOut:
     current  = await _snap(cutoff_now, now)
     hour_ago = await _snap(cutoff_h_lo, cutoff_h_hi)
 
-    from app.services.data_service import DataService
-    ds = DataService()
-
-    if current is None or current.active_trains == 0:
-        curr_crowd = ds._crowd_at_station("Old High Court", now)
+    if current is None:
         current = KpiSnapshot(
-            active_trains=6,
-            passengers_in_transit=int(curr_crowd * 3.1),
-            avg_occupancy_pct=round(min(100.0, (curr_crowd * 3.1) / (6 * 1200) * 100), 1),
-            total_station_crowd=curr_crowd,
+            active_trains=0, passengers_in_transit=0,
+            avg_occupancy_pct=0.0, total_station_crowd=0,
             captured_at=now,
-        )
-
-    if hour_ago is None or hour_ago.total_station_crowd == 0:
-        past_time = now - timedelta(hours=1)
-        base_crowd = int(current.total_station_crowd * 0.92) if current and current.total_station_crowd > 0 else 850
-        pax = int(current.passengers_in_transit * 0.94) if current and current.passengers_in_transit > 0 else 2800
-        hour_ago = KpiSnapshot(
-            active_trains=current.active_trains if current else 6,
-            passengers_in_transit=pax,
-            avg_occupancy_pct=round(min(100.0, (pax / max(1, current.active_trains if current else 6) / 1200) * 100), 1),
-            total_station_crowd=base_crowd,
-            captured_at=past_time,
         )
 
     return KpiHistoryOut(current=current, hour_ago=hour_ago)

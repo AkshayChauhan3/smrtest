@@ -18,6 +18,3 @@ api_router.include_router(announcements.router, prefix="/announcements", tags=["
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(sim_time.router, prefix="/sim/time", tags=["simulation"])
-api_router.include_router(sim_time.router, prefix="/sim-time", tags=["simulation"])
-
-

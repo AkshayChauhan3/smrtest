@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { findStation, riskFor, RISK_TW } from "@/lib/mock/data";
+import { BLUE_LINE, RED_LINE, findStation, riskFor, RISK_TW } from "@/lib/mock/data";
 import { useTrains } from "@/lib/api/hooks";
 import { LineBadge } from "@/components/srail/badges";
 import { OccupancyBar } from "@/components/srail/occupancy-bar";
@@ -35,16 +35,14 @@ function LiveTrainsPage() {
           <table className="w-full min-w-[920px] text-sm">
             <thead className="bg-obsidian-800/50 text-[10px] font-bold uppercase tracking-widest text-slate-500">
               <tr>
-                {["Train ID", "Direction", "Line", "Current → Next", "Arr / Dep", "Passengers", "Occupancy", "Risk", "Status", ""].map((h) => (
+                {["Train ID", "Direction", "Line", "Current → Next", "Arr / Dep", "Avg Occ.", "Risk", "Status", ""].map((h) => (
                   <th key={h} className="px-4 py-3 text-left font-bold">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {trains.map((t) => {
-                const totalCapacity = t.coaches.reduce((acc, c) => acc + (c.capacity || 400), 0);
-                const totalPax = t.coaches.reduce((acc, c) => acc + (c.passengers ?? Math.round(((c.capacity || 400) * c.occupancy) / 100)), 0);
-                const avg = Math.round(t.coaches.reduce((s, c) => s + c.occupancy, 0) / Math.max(1, t.coaches.length));
+                const avg = Math.round(t.coaches.reduce((s, c) => s + c.occupancy, 0) / t.coaches.length);
                 const risk = riskFor(t);
                 return (
                   <tr key={t.id} className="hover:bg-white/[0.02]">
@@ -57,34 +55,12 @@ function LiveTrainsPage() {
                       <span className="text-accent-cyan">{findStation(t.nextStationId)?.name}</span>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-slate-400">{t.arrival} / {t.departure}</td>
-                    <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-300">
-                      <span className="text-white">{totalPax.toLocaleString()}</span>
-                      <span className="text-slate-500 font-normal"> / {totalCapacity.toLocaleString()}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="w-32">
-                        <OccupancyBar value={avg} showPaxCount={false} />
-                      </div>
-                    </td>
+                    <td className="px-4 py-3"><div className="w-28"><OccupancyBar value={avg} /></div></td>
                     <td className="px-4 py-3">
                       <span className={cn("inline-flex rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest", RISK_TW[risk])}>{risk}</span>
                     </td>
-                    <td className="px-4 py-3 text-xs">
-                      {t.status === "At Station" ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-400 ring-1 ring-inset ring-emerald-500/20">
-                          <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          At Station
-                        </span>
-                      ) : t.status === "Approaching" ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-md bg-cyan-500/10 px-2 py-0.5 text-[11px] font-semibold text-cyan-400 ring-1 ring-inset ring-cyan-500/20">
-                          <span className="size-1.5 rounded-full bg-cyan-400 animate-ping" />
-                          Approaching
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-md bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-300 ring-1 ring-inset ring-sky-500/20">
-                          En Route ({formatEta(t.etaSeconds)})
-                        </span>
-                      )}
+                    <td className="px-4 py-3 text-xs text-slate-400">
+                      {t.status === "At Station" ? "At Station" : t.status === "Departing" ? "Departing" : `ETA ${formatEta(t.etaSeconds)}`}
                     </td>
                     <td className="px-4 py-3">
                       <button onClick={() => setOpenId(t.id)} className="rounded border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-300 hover:bg-white/10">
@@ -152,5 +128,64 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
   );
 }
 
-import { RouteTimeline } from "@/components/srail/route-timeline";
-export { RouteTimeline };
+export function RouteTimeline({ train }: { train: any }) {
+  const isBlue = train.line === "blue";
+  const allStops = isBlue ? BLUE_LINE : RED_LINE;
+  const isUp = (train.direction || "").toUpperCase().includes("UP");
+  const orderedStops = isUp ? allStops : [...allStops].reverse();
+
+  // Robust current station match
+  const currentStation = findStation(train.currentStationId);
+  const currentIdx = orderedStops.findIndex(
+    (s) => s.id === currentStation?.id || s.name.toLowerCase() === (currentStation?.name || train.currentStationId || "").toLowerCase(),
+  );
+
+  // Take a sliding window of up to 7 stations around the current train position
+  const activeIndex = currentIdx >= 0 ? currentIdx : 0;
+  const start = Math.max(0, Math.min(orderedStops.length - 7, activeIndex - 3));
+  const visibleStops = orderedStops.slice(start, Math.min(orderedStops.length, start + 7));
+  const activeSubIdx = visibleStops.findIndex(
+    (s) => s.id === currentStation?.id || s.name.toLowerCase() === (currentStation?.name || "").toLowerCase(),
+  );
+
+  return (
+    <div className="rounded-lg border border-white/5 bg-obsidian-800/40 p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Route Progression</h4>
+        <span className="font-mono text-[10px] text-accent-cyan">
+          {train.direction || "UP"} · {currentStation?.name ?? train.currentStationId}
+        </span>
+      </div>
+      <div className="relative">
+        <div className={cn("absolute left-2 right-2 top-3 h-px", isBlue ? "bg-accent-blue-2/40" : "bg-danger/40")} />
+        <div className="relative flex justify-between">
+          {visibleStops.map((st, i) => {
+            const passed = i < activeSubIdx;
+            const current = i === activeSubIdx;
+            return (
+              <div key={st.id} className="flex w-16 flex-col items-center text-center">
+                <div
+                  className={cn(
+                    "z-10 grid size-6 place-items-center rounded-full border-2 transition-all",
+                    current
+                      ? "border-accent-cyan bg-accent-cyan animate-pulse-soft shadow-[0_0_10px_rgba(45,212,191,0.5)]"
+                      : passed
+                        ? "border-slate-600 bg-slate-600"
+                        : isBlue
+                          ? "border-accent-blue-2/40 bg-obsidian-900"
+                          : "border-danger/40 bg-obsidian-900",
+                  )}
+                >
+                  {current && <div className="size-2 rounded-full bg-obsidian-950" />}
+                </div>
+                <div className={cn("mt-2 line-clamp-2 text-[9px] font-medium leading-tight", current ? "font-bold text-accent-cyan" : "text-slate-500")}>
+                  {st.name}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}

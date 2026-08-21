@@ -5,7 +5,7 @@ import { OccupancyBar } from "@/components/srail/occupancy-bar";
 import { KpiCard } from "@/components/srail/kpi-card";
 import { AnimatedNumber } from "@/components/srail/animated-number";
 import { useStations, useTrains, useStationCurrent, useStationFeature } from "@/lib/api/hooks";
-import { formatTimeString } from "@/lib/api/smartrail";
+import { findStation } from "@/lib/mock/data";
 import { SectionHeader } from "@/routes/dashboard.index";
 import { cn } from "@/lib/utils";
 
@@ -42,33 +42,32 @@ function StationDetail() {
   const stationCurrentQ = useStationCurrent(stationId);
   const stationFeatureQ = useStationFeature(stationId);
 
-  if (stationsQ.isLoading || trainsQ.isLoading || stationCurrentQ.isLoading || stationFeatureQ.isLoading) {
+  if (stationsQ.isLoading && !stationsQ.data) {
     return <StationDetailSkeleton />;
   }
 
-  const station = stationsQ.data?.find((s) => s.id === stationId);
-  if (stationsQ.data && !station) throw notFound();
+  const station = stationsQ.data?.find((s) => s.id.toLowerCase() === stationId.toLowerCase()) || findStation(stationId);
+  if (stationsQ.isSuccess && !station) throw notFound();
+
+  const targetStation = findStation(stationId) || station;
+  const isMatchStation = (trainStationIdOrName?: string | null) => {
+    if (!trainStationIdOrName) return false;
+    if (trainStationIdOrName.toLowerCase() === stationId.toLowerCase()) return true;
+    if (targetStation) {
+      if (trainStationIdOrName.toLowerCase() === targetStation.id.toLowerCase()) return true;
+      if (trainStationIdOrName.toLowerCase() === targetStation.name.toLowerCase()) return true;
+    }
+    const resolved = findStation(trainStationIdOrName);
+    return Boolean(resolved && targetStation && resolved.id === targetStation.id);
+  };
 
   const allTrains = trainsQ.data ?? [];
-  const stationTrains = station
-    ? allTrains.filter(
-        (t) =>
-          t.currentStationId.toLowerCase() === stationId.toLowerCase() ||
-          t.nextStationId.toLowerCase() === stationId.toLowerCase(),
-      )
-    : [];
+  const stationTrains = allTrains.filter(
+    (t) => isMatchStation(t.currentStationId) || isMatchStation(t.nextStationId),
+  );
 
-  const atStation = stationTrains.filter(
-    (t) =>
-      t.currentStationId.toLowerCase() === stationId.toLowerCase() &&
-      t.status === "At Station",
-  );
-  const approaching = stationTrains.filter(
-    (t) =>
-      t.nextStationId.toLowerCase() === stationId.toLowerCase() ||
-      (t.currentStationId.toLowerCase() === stationId.toLowerCase() &&
-        t.status !== "At Station"),
-  );
+  const atStation = stationTrains.filter((t) => isMatchStation(t.currentStationId));
+  const approaching = stationTrains.filter((t) => isMatchStation(t.nextStationId));
 
   const allCoaches = stationTrains.flatMap((t) => t.coaches);
   const avgOccupancy =
@@ -178,10 +177,10 @@ function StationDetail() {
                     {currentData.current_passenger_count?.toLocaleString() ?? 0}
                   </td>
                   <td className="px-6 py-4 font-mono text-slate-400">
-                    {formatTimeString(currentData.arrival_time)}
+                    {currentData.arrival_time || "--:--"}
                   </td>
                   <td className="px-6 py-4 font-mono text-slate-400">
-                    {formatTimeString(currentData.departure_time)}
+                    {currentData.departure_time || "--:--"}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-400 ring-1 ring-inset ring-emerald-500/20">
@@ -264,7 +263,7 @@ function StationDetail() {
                         {f.train_id}
                       </td>
                       <td className="px-6 py-4 font-mono text-white font-semibold">
-                        {formatTimeString(f.estimated_arrival_time)}
+                        {f.estimated_arrival_time || "--:--"}
                       </td>
                       <td className="px-6 py-4 text-white">
                         {f.estimated_passenger_incoming?.toLocaleString() ?? 0}

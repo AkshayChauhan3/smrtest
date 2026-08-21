@@ -1,7 +1,5 @@
-import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { SectionHeader } from "./dashboard.index";
-import { Check } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard/settings")({
   head: () => ({
@@ -14,27 +12,9 @@ export const Route = createFileRoute("/dashboard/settings")({
 });
 
 function SettingsPage() {
-  const [emailDigest, setEmailDigest] = useState(true);
-  const [mobilePush, setMobilePush] = useState(true);
-  const [voiceEscalation, setVoiceEscalation] = useState(false);
-  const [savedNotice, setSavedNotice] = useState(false);
-
-  const handleToggle = (setter: React.Dispatch<React.SetStateAction<boolean>>) => {
-    setter((prev) => !prev);
-    setSavedNotice(true);
-    setTimeout(() => setSavedNotice(false), 2000);
-  };
-
   return (
     <div className="space-y-6 px-4 py-6 md:px-8 md:py-8">
-      <div className="flex items-center justify-between">
-        <SectionHeader title="Settings" right="Operator workspace" />
-        {savedNotice && (
-          <span className="animate-fade-in inline-flex items-center gap-1.5 rounded-full bg-accent-cyan/10 px-3 py-1 text-[11px] font-semibold text-accent-cyan">
-            <Check className="size-3.5" /> Preferences Saved
-          </span>
-        )}
-      </div>
+      <SectionHeader title="Settings" right="Operator workspace" />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card title="Account">
@@ -53,9 +33,9 @@ function SettingsPage() {
           <Field label="PA system" value="Active" />
         </Card>
         <Card title="Notifications">
-          <Toggle label="Email digest" on={emailDigest} onToggle={() => handleToggle(setEmailDigest)} />
-          <Toggle label="Push to mobile" on={mobilePush} onToggle={() => handleToggle(setMobilePush)} />
-          <Toggle label="Voice escalation" on={voiceEscalation} onToggle={() => handleToggle(setVoiceEscalation)} />
+          <Toggle label="Email digest" on />
+          <Toggle label="Push to mobile" on />
+          <Toggle label="Voice escalation" />
         </Card>
       </div>
     </div>
@@ -70,7 +50,6 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
     </div>
   );
 }
-
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between border-b border-white/5 pb-2 text-xs last:border-0">
@@ -79,27 +58,13 @@ function Field({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
-function Toggle({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
+function Toggle({ label, on }: { label: string; on?: boolean }) {
   return (
     <div className="flex items-center justify-between border-b border-white/5 pb-2 text-xs last:border-0">
       <span className="text-slate-400">{label}</span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        onClick={onToggle}
-        className={`grid h-5 w-9 cursor-pointer items-center rounded-full p-0.5 transition-colors focus:outline-none focus:ring-1 focus:ring-accent-cyan ${
-          on ? "bg-accent-cyan" : "bg-white/10"
-        }`}
-      >
-        <span
-          className={`size-4 rounded-full bg-obsidian-950 transition-transform ${
-            on ? "translate-x-4" : "translate-x-0"
-          }`}
-        />
-      </button>
+      <span className={`grid h-5 w-9 items-center rounded-full p-0.5 ${on ? "bg-accent-cyan" : "bg-white/10"}`}>
+        <span className={`size-4 rounded-full bg-obsidian-950 transition-transform ${on ? "translate-x-4" : ""}`} />
+      </span>
     </div>
   );
 }
-
