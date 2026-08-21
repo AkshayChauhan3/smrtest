@@ -108,15 +108,71 @@ class ApiService {
 
   Future<TrainModel> getTrainDetail(String trainId) async {
     final headers = await _getHeaders();
-    final res = await _httpGet(
-      '/api/v1/trains/at-station',
-      headers: headers,
-    );
-    if (res.statusCode == 200) {
-      final list = jsonDecode(res.body) as List;
-      final t = list.firstWhere((e) => e['train_id'] == trainId, orElse: () => null);
-      if (t != null) {
-        final coaches = (t['coaches'] as List? ?? []).map((c) {
+    try {
+      final res = await _httpGet(
+        '/api/v1/trains/at-station',
+        headers: headers,
+      );
+      if (res.statusCode == 200) {
+        final list = jsonDecode(res.body) as List;
+        final t = list.firstWhere((e) => e['train_id'] == trainId, orElse: () => null);
+        if (t != null) {
+          final coaches = (t['coaches'] as List? ?? []).map((c) {
+            final coachIdStr = c['coach_number']?.toString() ?? '1';
+            final cleanId = coachIdStr.replaceAll(RegExp(r'[^0-9]'), '');
+            return CoachModel(
+              coachNumber: int.tryParse(cleanId.isNotEmpty ? cleanId : '1') ?? 1,
+              type: (c['coach_type'] ?? 'standard').toString().toLowerCase() == 'ladies' ? 'Ladies' : 'General',
+              capacity: c['capacity'] ?? 400,
+              currentPassengers: c['current_passenger_count'] ?? 0,
+            );
+          }).toList();
+
+          final totalPax = coaches.fold(0, (s, c) => s + c.currentPassengers);
+          final line = t['line_name'].toString().toLowerCase().contains('blue') ? MetroLine.blue : MetroLine.red;
+          final isPlatform = (t['status'] ?? '').toString().toUpperCase() == 'AT_STATION';
+
+          return TrainModel(
+            trainId: t['train_id'] ?? trainId,
+            displayName: t['train_name'] ?? trainId,
+            line: line,
+            direction: t['direction'] ?? 'UP',
+            etaMinutes: ((t['eta_seconds'] ?? 0) / 60).round(),
+            departureMinutes: 2,
+            coaches: coaches,
+            status: totalPax >= 1020
+                ? TrainStatus.full
+                : totalPax >= 600
+                    ? TrainStatus.moderate
+                    : TrainStatus.normal,
+            currentPositionIndex: 0,
+            fromStationId: t['current_station_id'] ?? t['current_station'] ?? '',
+            toStationId: t['next_station_id'] ?? t['next_station'] ?? '',
+            announcements: [],
+            arrivalTime: t['arrival_time'],
+            departureTime: t['departure_time'],
+            isAtPlatform: isPlatform,
+            liveCurrentStationId: t['current_station_id'],
+            liveCurrentStationName: t['current_station'],
+            liveNextStationId: t['next_station_id'],
+            liveNextStationName: t['next_station'],
+            liveStatus: t['status'] ?? (isPlatform ? 'AT_STATION' : 'IN_TRANSIT'),
+            journeyProgressPct: ((t['journey_completed_pct'] ?? 0.0) as num).toDouble(),
+            stopsTimeline: [],
+          );
+        }
+      }
+    } catch (_) {}
+
+    // Fallback: check occupancy endpoint /api/v1/occupancy/trains/$trainId
+    try {
+      final resOcc = await _httpGet(
+        '/api/v1/occupancy/trains/$trainId',
+        headers: headers,
+      );
+      if (resOcc.statusCode == 200) {
+        final data = jsonDecode(resOcc.body);
+        final coaches = (data['coaches'] as List? ?? []).map((c) {
           final coachIdStr = c['coach_number']?.toString() ?? '1';
           final cleanId = coachIdStr.replaceAll(RegExp(r'[^0-9]'), '');
           return CoachModel(
@@ -126,17 +182,14 @@ class ApiService {
             currentPassengers: c['current_passenger_count'] ?? 0,
           );
         }).toList();
-
-        final totalPax = coaches.fold(0, (s, c) => s + c.currentPassengers);
-        final line = t['line_name'].toString().toLowerCase().contains('blue') ? MetroLine.blue : MetroLine.red;
-        final isPlatform = (t['status'] ?? '').toString().toUpperCase() == 'AT_STATION';
-
+        final totalPax = data['total_occupancy'] ?? coaches.fold(0, (s, c) => s + c.currentPassengers);
+        final lineCode = (data['line_code'] ?? '').toString().toUpperCase();
         return TrainModel(
-          trainId: t['train_id'] ?? trainId,
-          displayName: t['train_name'] ?? trainId,
-          line: line,
-          direction: t['direction'] ?? 'UP',
-          etaMinutes: ((t['eta_seconds'] ?? 0) / 60).round(),
+          trainId: data['train_id'] ?? trainId,
+          displayName: data['train_name'] ?? trainId,
+          line: lineCode == 'RL' ? MetroLine.red : MetroLine.blue,
+          direction: data['direction'] ?? 'UP',
+          etaMinutes: 0,
           departureMinutes: 2,
           coaches: coaches,
           status: totalPax >= 1020
@@ -145,22 +198,18 @@ class ApiService {
                   ? TrainStatus.moderate
                   : TrainStatus.normal,
           currentPositionIndex: 0,
-          fromStationId: t['current_station_id'] ?? t['current_station'] ?? '',
-          toStationId: t['next_station_id'] ?? t['next_station'] ?? '',
+          fromStationId: data['current_station_id'] ?? '',
+          toStationId: data['next_station_id'] ?? '',
           announcements: [],
-          arrivalTime: t['arrival_time'],
-          departureTime: t['departure_time'],
-          isAtPlatform: isPlatform,
-          liveCurrentStationId: t['current_station_id'],
-          liveCurrentStationName: t['current_station'],
-          liveNextStationId: t['next_station_id'],
-          liveNextStationName: t['next_station'],
-          liveStatus: t['status'] ?? (isPlatform ? 'AT_STATION' : 'IN_TRANSIT'),
-          journeyProgressPct: ((t['journey_completed_pct'] ?? 0.0) as num).toDouble(),
-          stopsTimeline: [],
+          liveCurrentStationId: data['current_station_id'],
+          liveCurrentStationName: data['current_station_name'],
+          liveNextStationId: data['next_station_id'],
+          liveNextStationName: data['next_station_name'],
+          liveStatus: data['status'] ?? 'IN_TRANSIT',
         );
       }
-    }
+    } catch (_) {}
+
     throw Exception('Train $trainId not found');
   }
 

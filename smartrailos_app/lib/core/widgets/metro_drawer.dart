@@ -107,9 +107,9 @@ class MetroDrawer extends StatelessWidget {
                     },
                   ),
                   _buildDrawerNavItem(
-                    icon: Icons.confirmation_number_outlined,
-                    label: 'Smart QR Pass & Commutes',
-                    subtitle: 'Digital ticket & saved routes',
+                    icon: Icons.tune_rounded,
+                    label: 'Commuter Preferences',
+                    subtitle: 'Saved routes & telemetry diagnostics',
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/profile');

@@ -20,8 +20,14 @@ class StationSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Station? effectiveValue = (selectedStation != null &&
+            stations.any((s) => s.id == selectedStation!.id))
+        ? stations.firstWhere((s) => s.id == selectedStation!.id)
+        : null;
+
     return DropdownButtonFormField<Station>(
-      initialValue: selectedStation,
+      key: ValueKey('${label}_${effectiveValue?.id}_${stations.length}'),
+      initialValue: effectiveValue,
       icon: const Icon(Icons.unfold_more_rounded, color: AppTheme.textMuted, size: 20),
       dropdownColor: AppTheme.surfaceElevated,
       borderRadius: BorderRadius.circular(16),

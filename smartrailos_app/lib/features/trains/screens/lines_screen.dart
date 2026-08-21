@@ -283,6 +283,10 @@ class _LinesScreenState extends ConsumerState<LinesScreen> with SingleTickerProv
         // Quick set as from station and navigate to home
         ref.read(fromStationProvider.notifier).state = station;
         ref.read(selectedLineProvider.notifier).state = station.lineId;
+        final currentTo = ref.read(toStationProvider);
+        if (currentTo != null && (currentTo.id == station.id || currentTo.lineId != station.lineId)) {
+          ref.read(toStationProvider.notifier).state = null;
+        }
         context.go('/home');
       },
       child: Row(

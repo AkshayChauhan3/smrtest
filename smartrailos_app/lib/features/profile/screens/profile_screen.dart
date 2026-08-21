@@ -32,7 +32,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 flexibleSpace: FlexibleSpaceBar(
                   title: Text(
-                    'PASS & PREFERENCES',
+                    'COMMUTER PREFERENCES',
                     style: TextStyle(
                       color: AppTheme.textPrimary,
                       fontWeight: FontWeight.bold,
@@ -59,14 +59,6 @@ class ProfileScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ── Digital Metro Smart Card ─────────────────────────────
-                      _buildDigitalPassCard(context)
-                          .animate()
-                          .fadeIn(duration: 400.ms)
-                          .slideY(begin: 0.05, end: 0),
-
-                      const SizedBox(height: 24),
-
                       // ── Commuter Impact Stats ───────────────────────────────
                       _buildCommuterStats()
                           .animate()
@@ -133,141 +125,6 @@ class ProfileScreen extends ConsumerWidget {
                 if (index == 2) context.push('/live');
               },
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDigitalPassCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1E2838), Color(0xFF121721)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0x33FFFFFF)),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.blueLine.withValues(alpha: 0.15),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: AppTheme.blueLine,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.directions_subway_rounded, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'AHMEDABAD METRO',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.0,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      Text(
-                        'DIGITAL COMMUTER PASS',
-                        style: TextStyle(fontSize: 8, color: AppTheme.textMuted, letterSpacing: 0.5),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.signalGreen.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.signalGreen.withValues(alpha: 0.3)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.nfc_rounded, size: 12, color: AppTheme.signalGreen),
-                    SizedBox(width: 4),
-                    Text(
-                      'TAP & GO',
-                      style: TextStyle(color: AppTheme.signalGreen, fontSize: 9, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'STORED VALUE BALANCE',
-                    style: TextStyle(color: AppTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '₹340.00',
-                    style: AppTheme.tabularNumberStyle.copyWith(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.qr_code_2_rounded, size: 36, color: Colors.black),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-          const Divider(height: 1, color: Color(0x14FFFFFF)),
-          const SizedBox(height: 12),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'CARD NO: 9820-4312-8871',
-                style: AppTheme.tabularNumberStyle.copyWith(color: AppTheme.textMuted, fontSize: 10),
-              ),
-              const Text(
-                'AUTO-RELOAD: ON',
-                style: TextStyle(color: AppTheme.signalGreen, fontSize: 9, fontWeight: FontWeight.bold),
-              ),
-            ],
           ),
         ],
       ),

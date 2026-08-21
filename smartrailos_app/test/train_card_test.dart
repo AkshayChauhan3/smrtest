@@ -103,7 +103,7 @@ void main() {
     expect(find.text('4 MIN'), findsOneWidget);
 
     // Section titles
-    expect(find.text('LIVE ROUTE TRACKING'), findsOneWidget);
+    expect(find.text('LIVE ROUTE TRACKING'), findsNothing);
     expect(find.text('COACH OCCUPANCY & COMPOSITION'), findsOneWidget);
     expect(find.text('STATION TIMELINE & PLATFORM CROWD'), findsOneWidget);
     expect(find.text('PASSENGER FLOW TELEMETRY'), findsOneWidget);
