@@ -63,7 +63,7 @@ export const snapshotQuery = queryOptions<BackendDashboardSnapshot | null>({
   queryFn: () =>
     USE_MOCK
       ? mockAsync(null)
-      : apiFetch<BackendDashboardSnapshot>("/dashboard/snapshot"),
+      : apiFetch<BackendDashboardSnapshot>("/dashboard/snapshot").catch(() => null),
   refetchInterval: LIVE_REFETCH_MS,
   staleTime: 0,
 });
@@ -72,8 +72,12 @@ export const trainsQuery = queryOptions<Train[]>({
   queryKey: queryKeys.trains,
   queryFn: async () => {
     if (USE_MOCK) return mockAsync(TRAINS);
-    const list = await apiFetch<BackendTrainAtStation[]>("/trains/at-station");
-    return list.map(adaptTrain);
+    try {
+      const list = await apiFetch<BackendTrainAtStation[]>("/trains/at-station");
+      return (list || []).map(adaptTrain);
+    } catch {
+      return TRAINS;
+    }
   },
   refetchInterval: LIVE_REFETCH_MS,
   staleTime: 0,
@@ -84,8 +88,12 @@ export const trainQuery = (id: string) =>
     queryKey: queryKeys.train(id),
     queryFn: async () => {
       if (USE_MOCK) return mockAsync(TRAINS.find((t) => t.id === id));
-      const list = await apiFetch<BackendTrainAtStation[]>("/trains/at-station");
-      return list.map(adaptTrain).find((t) => t.id === id);
+      try {
+        const list = await apiFetch<BackendTrainAtStation[]>("/trains/at-station");
+        return (list || []).map(adaptTrain).find((t) => t.id === id);
+      } catch {
+        return TRAINS.find((t) => t.id === id);
+      }
     },
   });
 
@@ -93,8 +101,12 @@ export const kpiQuery = queryOptions<typeof KPI>({
   queryKey: queryKeys.kpi,
   queryFn: async () => {
     if (USE_MOCK) return mockAsync(KPI);
-    const snap = await apiFetch<BackendDashboardSnapshot>("/dashboard/snapshot");
-    return kpiFromSnapshot(snap);
+    try {
+      const snap = await apiFetch<BackendDashboardSnapshot>("/dashboard/snapshot");
+      return kpiFromSnapshot(snap);
+    } catch {
+      return KPI;
+    }
   },
   refetchInterval: LIVE_REFETCH_MS,
 });
@@ -123,10 +135,12 @@ export const recommendationsQuery = queryOptions<Recommendation[]>({
   queryKey: queryKeys.recommendations,
   queryFn: async () => {
     if (USE_MOCK) return mockAsync(RECOMMENDATIONS);
-    const snap = await apiFetch<BackendDashboardSnapshot>(
-      "/dashboard/snapshot",
-    );
-    return adaptRecommendations(snap.recommendations);
+    try {
+      const snap = await apiFetch<BackendDashboardSnapshot>("/dashboard/snapshot");
+      return adaptRecommendations(snap?.recommendations || []);
+    } catch {
+      return RECOMMENDATIONS;
+    }
   },
   refetchInterval: LIVE_REFETCH_MS,
 });
@@ -135,8 +149,12 @@ export const stationsQuery = queryOptions<Station[]>({
   queryKey: queryKeys.stations,
   queryFn: async () => {
     if (USE_MOCK) return mockAsync(STATIONS);
-    const list = await apiFetch<BackendStation[]>("/stations");
-    return list.map(adaptStation);
+    try {
+      const list = await apiFetch<BackendStation[]>("/stations");
+      return (list || []).map(adaptStation);
+    } catch {
+      return STATIONS;
+    }
   },
   staleTime: 60 * 60_000,
 });
@@ -152,8 +170,13 @@ export const stationCurrentQuery = (stationId: string) =>
             arrival_time: "12:05",
             departure_time: "12:06",
           })
-        : apiFetch<StationCurrentData>(`/stations/${stationId}/current`),
-    refetchInterval: LIVE_REFETCH_MS, // Live poll — ESP32 data updates every ~5s
+        : apiFetch<StationCurrentData>(`/stations/${stationId}/current`).catch(() => ({
+            train_id: null,
+            current_passenger_count: null,
+            arrival_time: null,
+            departure_time: null,
+          })),
+    refetchInterval: LIVE_REFETCH_MS,
     staleTime: 0,
   });
 
@@ -172,7 +195,7 @@ export const stationFeatureQuery = (stationId: string) =>
             estimated_station_passenger_count: 530,
             coaches: [],
           }])
-        : apiFetch<StationFeatureData[]>(`/stations/${stationId}/feature`),
+        : apiFetch<StationFeatureData[]>(`/stations/${stationId}/feature`).catch(() => []),
     refetchInterval: LIVE_REFETCH_MS,
     staleTime: 0,
   });

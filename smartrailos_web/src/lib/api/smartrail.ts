@@ -280,30 +280,31 @@ export function adaptRecommendations(items: string[]): Recommendation[] {
   }));
 }
 
-export function kpiFromSnapshot(snap: BackendDashboardSnapshot): typeof MOCK_KPI {
-  const trains = snap.current_trains;
+export function kpiFromSnapshot(snap?: BackendDashboardSnapshot | null): typeof MOCK_KPI {
+  if (!snap) return MOCK_KPI;
+  const trains = snap.current_trains ?? [];
+  const incoming = snap.incoming_trains ?? [];
+  const crowd = snap.crowd_prediction?.current_station_crowd ?? 0;
+  const pred30 = snap.crowd_prediction?.predicted_30_min ?? 0;
+  const alertsCount = snap.alerts?.length ?? 0;
+
+  const allCoaches = trains.flatMap((t) => t.coaches ?? []);
   const avg =
-    trains.length > 0
+    allCoaches.length > 0
       ? Math.round(
-          trains
-            .flatMap((t) => t.coaches.map((c) => c.occupancy_percentage))
-            .reduce((a, b) => a + b, 0) /
-            Math.max(
-              1,
-              trains.flatMap((t) => t.coaches).length,
-            ),
+          allCoaches
+            .map((c) => c.occupancy_percentage ?? 0)
+            .reduce((a, b) => a + b, 0) / allCoaches.length,
         )
-      : snap.crowd_prediction.current_station_crowd;
-  const activeAlerts = snap.alerts.length;
+      : crowd;
+
   return {
-    currentTrains: trains.length + snap.incoming_trains.length,
-    passengersInStation: snap.crowd_prediction.current_station_crowd * 20,
-    passengersInTransit: trains
-      .flatMap((t) => t.coaches)
-      .reduce((a, c) => a + c.current_passenger_count, 0),
+    currentTrains: trains.length + incoming.length,
+    passengersInStation: crowd * 20,
+    passengersInTransit: allCoaches.reduce((a, c) => a + (c.current_passenger_count ?? 0), 0),
     avgOccupancy: avg,
-    activeAlerts,
-    predictedNextHour: snap.crowd_prediction.predicted_30_min * 25,
+    activeAlerts: alertsCount,
+    predictedNextHour: pred30 * 25,
   };
 }
 
