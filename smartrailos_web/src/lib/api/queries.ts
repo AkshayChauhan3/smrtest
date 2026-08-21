@@ -51,6 +51,7 @@ export const queryKeys = {
   hourlyFlow: ["analytics", "hourly"] as const,
   weeklyTrend: ["analytics", "weekly"] as const,
   platformHeatmap: ["platform", "heatmap"] as const,
+  simTime: ["sim", "time"] as const,
 };
 
 const LIVE_REFETCH_MS = 5_000; // Match the simulation runner's 5-second tick
