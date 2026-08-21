@@ -57,6 +57,8 @@ class TrainCoachOut(BaseModel):
     current_passenger_count: int
     occupancy_percentage: int
     occupancy_status: str
+    estimated_departure_passengers: int | None = None
+    estimated_departure_occupancy_pct: float | None = None
 
 
 class TrainAtStationOut(BaseModel):
@@ -80,6 +82,8 @@ class TrainAtStationOut(BaseModel):
     predicted_boarding_count: int | None = None
     predicted_deboarding_count: int | None = None
     predicted_occupancy: int | None = None
+    estimated_departure_passengers: int | None = None
+    estimated_departure_occupancy: int | None = None
 
 
 class IncomingTrainOut(BaseModel):

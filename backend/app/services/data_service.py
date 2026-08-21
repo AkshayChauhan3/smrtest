@@ -323,6 +323,8 @@ class DataService:
                     predicted_boarding_count=max(0, int(pax * 0.08)),
                     predicted_deboarding_count=max(0, int(pax * 0.06)),
                     predicted_occupancy=int((min(capacity, int(pax * 1.06)) / max(capacity, 1)) * 100),
+                    estimated_departure_passengers=int(min(capacity, int(pax * 1.06))),
+                    estimated_departure_occupancy=int((min(capacity, int(pax * 1.06)) / max(capacity, 1)) * 100),
                 )
             )
         return trains
@@ -450,6 +452,9 @@ class DataService:
                 base_seed = hash(f"{cid}_{i}") % 30
                 pax = 55 + base_seed
                 occ_pct = round((pax / 400.0) * 100.0, 1)
+
+            est_pax = max(0, min(400, int(pax * 1.06)))
+            est_pct = round((est_pax / 400.0) * 100.0, 1)
                 
             out.append(
                 TrainCoachOut(
@@ -459,6 +464,8 @@ class DataService:
                     current_passenger_count=int(pax),
                     occupancy_percentage=int(round(occ_pct)),
                     occupancy_status=self._crowding_to_status(coach.get("crowd_level") or ("MODERATE" if occ_pct > 20 else "EMPTY")),
+                    estimated_departure_passengers=est_pax,
+                    estimated_departure_occupancy_pct=est_pct,
                 )
             )
         return out
