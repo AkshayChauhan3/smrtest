@@ -49,14 +49,6 @@ function calculateRealisticProgress(train: Train, clientElapsedSec: number): num
   const stations = isBlue ? BLUE_LINE : RED_LINE;
   const totalStops = Math.max(stations.length - 1, 1);
 
-  // 1. If backend gave a valid journey_completed_pct, use it as baseline
-  if (typeof train.journey_completed_pct === "number" && !isNaN(train.journey_completed_pct)) {
-    // Add smooth micro-advance (capped at 2% between 5-second polling updates)
-    const microAdvance = Math.min(2.0, clientElapsedSec * 0.05);
-    return Math.max(1, Math.min(99, train.journey_completed_pct + microAdvance));
-  }
-
-  // 2. Otherwise calculate based on station index
   const curStation = resolveStation(train.currentStationId, stations);
   const curIdx = curStation ? stations.indexOf(curStation) : 0;
   
@@ -65,16 +57,25 @@ function calculateRealisticProgress(train: Train, clientElapsedSec: number): num
                train.direction?.toUpperCase().includes("VASTRAL") || 
                train.direction?.toUpperCase().includes("MOTERA");
 
-  // Normalized base progress along the track (0% to 100%)
-  const basePct = isUp 
-    ? (curIdx / totalStops) * 100 
-    : (1 - (curIdx / totalStops)) * 100;
+  const nextStation = resolveStation(train.nextStationId, stations);
+  const nextIdx = nextStation 
+    ? stations.indexOf(nextStation) 
+    : (isUp ? Math.min(stations.length - 1, curIdx + 1) : Math.max(0, curIdx - 1));
 
-  // If in transit, interpolate towards next station smoothly
-  const inTransit = train.status === "En Route" || train.status === "Approaching";
-  const extraPct = inTransit ? Math.min(4.5, clientElapsedSec * 0.1) : 0;
+  const startPct = (curIdx / totalStops) * 100;
+  const targetPct = (nextIdx / totalStops) * 100;
 
-  return Math.max(1, Math.min(99, basePct + extraPct));
+  if (train.status === "At Station") {
+    return startPct;
+  }
+
+  // Calculate hop progress between current station and next station
+  const remainingEta = Math.max(1, (train.etaSeconds || 40) - clientElapsedSec);
+  const estimatedHopTotal = Math.max(45, (train.etaSeconds || 40) + Math.min(25, clientElapsedSec));
+  const hopProgress = Math.max(0.08, Math.min(0.94, 1 - (remainingEta / estimatedHopTotal)));
+
+  const computedPct = startPct + hopProgress * (targetPct - startPct);
+  return Math.max(1, Math.min(99, computedPct));
 }
 
 export function LiveTrainTicker({ className }: { className?: string }) {
