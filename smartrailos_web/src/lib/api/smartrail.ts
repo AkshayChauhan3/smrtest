@@ -95,6 +95,44 @@ export interface BackendDashboardSnapshot {
   alerts: BackendAlert[];
 }
 
+export interface BackendEsp32Live {
+  status: "active" | "no_data" | "idle";
+  device_id: string;
+  coach_id: string;
+  occupancy: number;
+  occupancy_pct: number;
+  total_in: number;
+  total_out: number;
+  in_rate_per_min: number;
+  out_rate_per_min: number;
+  coach_capacity: number;
+  station_id?: string | null;
+  target_station_id?: string | null;
+  last_direction?: string | null;
+  sensor_s1_distance: number;
+  sensor_s2_distance: number;
+  rssi?: number | null;
+  last_updated: string;
+  is_active: boolean;
+}
+
+export interface BackendEsp32Event {
+  id: number;
+  direction: "IN" | "OUT" | "SYNC" | "RESET";
+  in_delta: number;
+  out_delta: number;
+  occupancy: number;
+  occupancy_pct: number;
+  total_in: number;
+  total_out: number;
+  station_id?: string | null;
+  coach_id?: string | null;
+  device_id?: string | null;
+  distance_s1?: number;
+  distance_s2?: number;
+  timestamp: string;
+}
+
 // ---------- Adapters ----------
 
 function lineFromName(name: string): LineId {

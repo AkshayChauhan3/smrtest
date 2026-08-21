@@ -20,9 +20,12 @@ from datetime import datetime
 
 API_BASE = "http://localhost:8000"
 
-def post_esp32_sensor(occupancy: int, station_id: str = "BL08"):
-    url = f"{API_BASE}/api/v1/ingestion/esp32"
+def post_esp32_sensor(occupancy: int, station_id: str = "BL08", direction: str = "SYNC", in_delta: int = 0, out_delta: int = 0):
+    url = f"{API_BASE}/api/v1/esp32/telemetry"
     payload = {
+        "direction": direction,
+        "in_delta": in_delta,
+        "out_delta": out_delta,
         "occupancy": max(0, occupancy),
         "station_id": station_id,
         "coach_capacity": 400

@@ -17,6 +17,7 @@ import { Route as DashboardSettingsRouteImport } from './routes/dashboard.settin
 import { Route as DashboardPredictionsRouteImport } from './routes/dashboard.predictions'
 import { Route as DashboardLiveTrainsRouteImport } from './routes/dashboard.live-trains'
 import { Route as DashboardIncomingRouteImport } from './routes/dashboard.incoming'
+import { Route as DashboardEspSensorRouteImport } from './routes/dashboard.esp-sensor'
 import { Route as DashboardDigitalTwinRouteImport } from './routes/dashboard.digital-twin'
 import { Route as DashboardCrowdRouteImport } from './routes/dashboard.crowd'
 import { Route as DashboardAnnouncementsRouteImport } from './routes/dashboard.announcements'
@@ -64,6 +65,11 @@ const DashboardLiveTrainsRoute = DashboardLiveTrainsRouteImport.update({
 const DashboardIncomingRoute = DashboardIncomingRouteImport.update({
   id: '/incoming',
   path: '/incoming',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardEspSensorRoute = DashboardEspSensorRouteImport.update({
+  id: '/esp-sensor',
+  path: '/esp-sensor',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardDigitalTwinRoute = DashboardDigitalTwinRouteImport.update({
@@ -118,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/announcements': typeof DashboardAnnouncementsRoute
   '/dashboard/crowd': typeof DashboardCrowdRoute
   '/dashboard/digital-twin': typeof DashboardDigitalTwinRoute
+  '/dashboard/esp-sensor': typeof DashboardEspSensorRoute
   '/dashboard/incoming': typeof DashboardIncomingRoute
   '/dashboard/live-trains': typeof DashboardLiveTrainsRoute
   '/dashboard/predictions': typeof DashboardPredictionsRoute
@@ -135,6 +142,7 @@ export interface FileRoutesByTo {
   '/dashboard/announcements': typeof DashboardAnnouncementsRoute
   '/dashboard/crowd': typeof DashboardCrowdRoute
   '/dashboard/digital-twin': typeof DashboardDigitalTwinRoute
+  '/dashboard/esp-sensor': typeof DashboardEspSensorRoute
   '/dashboard/incoming': typeof DashboardIncomingRoute
   '/dashboard/live-trains': typeof DashboardLiveTrainsRoute
   '/dashboard/predictions': typeof DashboardPredictionsRoute
@@ -154,6 +162,7 @@ export interface FileRoutesById {
   '/dashboard/announcements': typeof DashboardAnnouncementsRoute
   '/dashboard/crowd': typeof DashboardCrowdRoute
   '/dashboard/digital-twin': typeof DashboardDigitalTwinRoute
+  '/dashboard/esp-sensor': typeof DashboardEspSensorRoute
   '/dashboard/incoming': typeof DashboardIncomingRoute
   '/dashboard/live-trains': typeof DashboardLiveTrainsRoute
   '/dashboard/predictions': typeof DashboardPredictionsRoute
@@ -174,6 +183,7 @@ export interface FileRouteTypes {
     | '/dashboard/announcements'
     | '/dashboard/crowd'
     | '/dashboard/digital-twin'
+    | '/dashboard/esp-sensor'
     | '/dashboard/incoming'
     | '/dashboard/live-trains'
     | '/dashboard/predictions'
@@ -191,6 +201,7 @@ export interface FileRouteTypes {
     | '/dashboard/announcements'
     | '/dashboard/crowd'
     | '/dashboard/digital-twin'
+    | '/dashboard/esp-sensor'
     | '/dashboard/incoming'
     | '/dashboard/live-trains'
     | '/dashboard/predictions'
@@ -209,6 +220,7 @@ export interface FileRouteTypes {
     | '/dashboard/announcements'
     | '/dashboard/crowd'
     | '/dashboard/digital-twin'
+    | '/dashboard/esp-sensor'
     | '/dashboard/incoming'
     | '/dashboard/live-trains'
     | '/dashboard/predictions'
@@ -284,6 +296,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardIncomingRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/esp-sensor': {
+      id: '/dashboard/esp-sensor'
+      path: '/esp-sensor'
+      fullPath: '/dashboard/esp-sensor'
+      preLoaderRoute: typeof DashboardEspSensorRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/dashboard/digital-twin': {
       id: '/dashboard/digital-twin'
       path: '/digital-twin'
@@ -349,6 +368,7 @@ interface DashboardRouteChildren {
   DashboardAnnouncementsRoute: typeof DashboardAnnouncementsRoute
   DashboardCrowdRoute: typeof DashboardCrowdRoute
   DashboardDigitalTwinRoute: typeof DashboardDigitalTwinRoute
+  DashboardEspSensorRoute: typeof DashboardEspSensorRoute
   DashboardIncomingRoute: typeof DashboardIncomingRoute
   DashboardLiveTrainsRoute: typeof DashboardLiveTrainsRoute
   DashboardPredictionsRoute: typeof DashboardPredictionsRoute
@@ -364,6 +384,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardAnnouncementsRoute: DashboardAnnouncementsRoute,
   DashboardCrowdRoute: DashboardCrowdRoute,
   DashboardDigitalTwinRoute: DashboardDigitalTwinRoute,
+  DashboardEspSensorRoute: DashboardEspSensorRoute,
   DashboardIncomingRoute: DashboardIncomingRoute,
   DashboardLiveTrainsRoute: DashboardLiveTrainsRoute,
   DashboardPredictionsRoute: DashboardPredictionsRoute,

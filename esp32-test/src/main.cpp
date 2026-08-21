@@ -1,52 +1,33 @@
 /**
  * @file main.cpp
- * @brief SmartRail OS — ESP32 Directional Passenger Counter
+ * @brief SmartRail OS — ESP32 Directional Passenger Counter (IN / OUT Tracking)
  *
  * Hardware
  * --------
  * Two HC-SR04 ultrasonic sensors are mounted at opposite sides of a metro coach door.
  *
- *   Sensor 1 (Platform/Entry) -> Sensor 2 (Inside Coach/Exit): BOARDING  (Occupancy++)
- *   Sensor 2 (Inside Coach/Exit) -> Sensor 1 (Platform/Entry): ALIGHTING (Occupancy--)
+ *   Sensor 1 (Platform/Entry) -> Sensor 2 (Inside Coach/Exit): BOARDING  (total_in++,  occupancy++)
+ *   Sensor 2 (Inside Coach/Exit) -> Sensor 1 (Platform/Entry): ALIGHTING (total_out++, occupancy--)
  *
- * Pins
- * ----
- *   GPIO  4  -> HC-SR04 #1 TRIG
- *   GPIO 14  <- HC-SR04 #1 ECHO (3.3V safe via voltage divider)
- *   GPIO 27  -> HC-SR04 #2 TRIG
- *   GPIO 33  <- HC-SR04 #2 ECHO (3.3V safe via voltage divider)
+ * Output
+ * ------
+ * Emits both human-readable status markers and structured JSON lines:
+ *   {"event":"IN","in_delta":1,"out_delta":0,"occupancy":35,"total_in":45,"total_out":10,"d1":14.2,"d2":45.0}
  */
 
 #include <Arduino.h>
+#include "esp_config.h"
 
-#define TRIG1 4
-#define ECHO1 14
+#if ENABLE_WIFI
+  #include <WiFi.h>
+  #include <HTTPClient.h>
+#endif
 
-#define TRIG2 27
-#define ECHO2 33
+// ─── State & Counters ─────────────────────────────────────────────────────────
+volatile int occupancy = 0;
+volatile int total_in  = 0;
+volatile int total_out = 0;
 
-// ─── Tuning parameters ────────────────────────────────────────────────────────
-// Detection distance threshold (in cm)
-const float THRESHOLD = 25.0;
-
-// Maximum time allowed for a single crossing sequence before resetting
-const unsigned long TIMEOUT = 2000;
-
-// Cooldown between completed crossing events
-const unsigned long COOLDOWN = 500;
-
-// ─── State ────────────────────────────────────────────────────────────────────
-int occupancy = 0;
-
-/**
- * 4-Phase Directional Crossing States:
- *
- * IN (Boarding):
- *   (0,0) IDLE -> (1,0) IN_S1_FIRST -> (1,1) IN_BOTH -> (0,1) IN_S2_LEAVING -> (0,0) [COUNT +1]
- *
- * OUT (Alighting):
- *   (0,0) IDLE -> (0,1) OUT_S2_FIRST -> (1,1) OUT_BOTH -> (1,0) OUT_S1_LEAVING -> (0,0) [COUNT -1]
- */
 enum State {
   IDLE,
   IN_S1_FIRST,
@@ -61,79 +42,108 @@ enum State {
 State state = IDLE;
 unsigned long stateStartTime = 0;
 unsigned long lastCountTime  = 0;
-unsigned long lastDebugPrint = 0;
+unsigned long lastTelemetrySync = 0;
 
-// ─── Functions ────────────────────────────────────────────────────────────────
+// ─── Sensor Functions ─────────────────────────────────────────────────────────
 
 float getDistance(int trigPin, int echoPin) {
   digitalWrite(trigPin, LOW);
-  delayMicroseconds(4);
+  delayMicroseconds(2);
 
   digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
 
-  long duration = pulseIn(echoPin, HIGH, 25000);
+  // Measure echo pulse width (max 30ms timeout ~ 5 meters)
+  long duration = pulseIn(echoPin, HIGH, 30000);
 
-  // Reject glitches / timeouts
-  if (duration < 180 || duration >= 25000)
+  if (duration <= 0 || duration >= 30000) {
     return 999.0;
+  }
 
-  return (duration * 0.0343) / 2.0;
+  float distanceCm = (duration * 0.0343) / 2.0;
+  if (distanceCm < 2.0 || distanceCm > 400.0) {
+    return 999.0;
+  }
+
+  return distanceCm;
 }
 
-// ─── Arduino lifecycle ────────────────────────────────────────────────────────
+void dispatchEvent(const char* dir, int in_d, int out_d, float d1, float d2) {
+  // 1. Structured JSON for Serial Bridge (One single atomic line)
+  char jsonLine[160];
+  snprintf(
+    jsonLine,
+    sizeof(jsonLine),
+    "{\"event\":\"%s\",\"in_delta\":%d,\"out_delta\":%d,\"occupancy\":%d,\"total_in\":%d,\"total_out\":%d,\"d1\":%.1f,\"d2\":%.1f}",
+    dir, in_d, out_d, occupancy, total_in, total_out, d1, d2
+  );
+  Serial.println(jsonLine);
+
+  // 2. Human-readable crossing alert
+  if (strcmp(dir, "IN") == 0) {
+    Serial.printf(">>> [BOARDING +1] Total IN: %d | Occupancy: %d <<<\n", total_in, occupancy);
+  } else if (strcmp(dir, "OUT") == 0) {
+    Serial.printf(">>> [ALIGHTING -1] Total OUT: %d | Occupancy: %d <<<\n", total_out, occupancy);
+  }
+}
+
+// ─── Arduino Lifecycle ────────────────────────────────────────────────────────
 
 void setup() {
   Serial.begin(115200);
+  delay(200);
 
-  pinMode(TRIG1, OUTPUT);
-  pinMode(ECHO1, INPUT_PULLDOWN);
+  pinMode(TRIG1_PIN, OUTPUT);
+  pinMode(ECHO1_PIN, INPUT);
 
-  pinMode(TRIG2, OUTPUT);
-  pinMode(ECHO2, INPUT_PULLDOWN);
+  pinMode(TRIG2_PIN, OUTPUT);
+  pinMode(ECHO2_PIN, INPUT);
 
-  digitalWrite(TRIG1, LOW);
-  digitalWrite(TRIG2, LOW);
+  digitalWrite(TRIG1_PIN, LOW);
+  digitalWrite(TRIG2_PIN, LOW);
 
   Serial.println();
-  Serial.println("==========================================");
-  Serial.println(" SmartRail OS — Directional Counter Ready ");
-  Serial.println(" Threshold: < 25 cm | S1: Entry | S2: Exit");
-  Serial.println("==========================================");
+  Serial.println("==================================================");
+  Serial.println(" SmartRail OS — Directional Passenger Counter     ");
+  Serial.printf (" Threshold: < %.1f cm | S1: GPIO %d | S2: GPIO %d\n", THRESHOLD_CM, TRIG1_PIN, TRIG2_PIN);
+  Serial.printf (" Station: %s | Coach: %s | Cap: %d\n", DEFAULT_STATION_ID, DEFAULT_COACH_ID, COACH_CAPACITY);
+  Serial.println("==================================================");
   Serial.println();
 }
 
 void loop() {
-  // 1. Read Sensor 1
-  float d1 = getDistance(TRIG1, ECHO1);
-  delay(30); // 30ms spacing eliminates ultrasonic echo cross-talk
+  // 1. Read Sensor 1 (Platform Entry)
+  float d1 = getDistance(TRIG1_PIN, ECHO1_PIN);
+  delay(SENSOR_SPACING_MS); // Prevent acoustic cross-talk
 
-  // 2. Read Sensor 2
-  float d2 = getDistance(TRIG2, ECHO2);
+  // 2. Read Sensor 2 (Coach Interior)
+  float d2 = getDistance(TRIG2_PIN, ECHO2_PIN);
 
-  bool s1 = (d1 >= 3.0 && d1 <= THRESHOLD);
-  bool s2 = (d2 >= 3.0 && d2 <= THRESHOLD);
+  bool s1 = (d1 >= 2.0 && d1 <= THRESHOLD_CM);
+  bool s2 = (d2 >= 2.0 && d2 <= THRESHOLD_CM);
 
-  // Periodic diagnostic telemetry (printed every 1.5 seconds when idle)
-  if (millis() - lastDebugPrint > 1500) {
-    lastDebugPrint = millis();
+  // 3. Periodic Live Telemetry Sync (emitted every 1.5 seconds when idle)
+  if (millis() - lastTelemetrySync > 1500) {
+    lastTelemetrySync = millis();
     if (state == IDLE) {
-      Serial.print("[Sensor Status] S1: ");
-      if (d1 > 400) Serial.print("CLEAR"); else { Serial.print(d1, 1); Serial.print("cm"); }
-      Serial.print(" | S2: ");
-      if (d2 > 400) Serial.print("CLEAR"); else { Serial.print(d2, 1); Serial.print("cm"); }
-      Serial.print(" | Occupancy: ");
-      Serial.println(occupancy);
+      char statusBuf[160];
+      snprintf(
+        statusBuf,
+        sizeof(statusBuf),
+        "{\"event\":\"SYNC\",\"in_delta\":0,\"out_delta\":0,\"occupancy\":%d,\"total_in\":%d,\"total_out\":%d,\"d1\":%.1f,\"d2\":%.1f}",
+        occupancy, total_in, total_out, d1, d2
+      );
+      Serial.println(statusBuf);
     }
   }
 
-  // 3. Directional State Machine
+  // 4. Directional State Machine
   switch (state) {
 
     // ── IDLE ─────────────────────────────────────────────────────────────────
     case IDLE:
-      if (millis() - lastCountTime < COOLDOWN)
+      if (millis() - lastCountTime < COOLDOWN_MS)
         break;
 
       if (s1 && !s2) {
@@ -154,10 +164,10 @@ void loop() {
       else if (!s1 && s2) {
         state = IN_S2_LEAVING;
       }
-      else if (!s1 && !s2 && (millis() - stateStartTime > 400)) {
-        state = IDLE; // Aborted before reaching S2
+      else if (!s1 && !s2 && (millis() - stateStartTime > 350)) {
+        state = IDLE; // Aborted
       }
-      else if (millis() - stateStartTime > TIMEOUT) {
+      else if (millis() - stateStartTime > TIMEOUT_MS) {
         state = IDLE;
       }
       break;
@@ -168,33 +178,26 @@ void loop() {
       }
       else if (!s1 && !s2) {
         // Fast complete pass
+        total_in++;
         occupancy++;
         lastCountTime = millis();
-        Serial.println();
-        Serial.println(">>> PASSENGER IN (BOARDING) <<<");
-        Serial.print("Occupancy: ");
-        Serial.println(occupancy);
-        Serial.println();
+        dispatchEvent("IN", 1, 0, d1, d2);
         state = IDLE;
       }
-      else if (millis() - stateStartTime > TIMEOUT) {
+      else if (millis() - stateStartTime > TIMEOUT_MS) {
         state = IDLE;
       }
       break;
 
     case IN_S2_LEAVING:
       if (!s1 && !s2) {
-        // Hand left Sensor 2 -> Boarding complete!
+        total_in++;
         occupancy++;
         lastCountTime = millis();
-        Serial.println();
-        Serial.println(">>> PASSENGER IN (BOARDING) <<<");
-        Serial.print("Occupancy: ");
-        Serial.println(occupancy);
-        Serial.println();
+        dispatchEvent("IN", 1, 0, d1, d2);
         state = IDLE;
       }
-      else if (millis() - stateStartTime > TIMEOUT) {
+      else if (millis() - stateStartTime > TIMEOUT_MS) {
         state = IDLE;
       }
       break;
@@ -207,10 +210,10 @@ void loop() {
       else if (s1 && !s2) {
         state = OUT_S1_LEAVING;
       }
-      else if (!s1 && !s2 && (millis() - stateStartTime > 400)) {
-        state = IDLE; // Aborted before reaching S1
+      else if (!s1 && !s2 && (millis() - stateStartTime > 350)) {
+        state = IDLE; // Aborted
       }
-      else if (millis() - stateStartTime > TIMEOUT) {
+      else if (millis() - stateStartTime > TIMEOUT_MS) {
         state = IDLE;
       }
       break;
@@ -221,37 +224,30 @@ void loop() {
       }
       else if (!s1 && !s2) {
         // Fast complete pass
+        total_out++;
         if (occupancy > 0) occupancy--;
         lastCountTime = millis();
-        Serial.println();
-        Serial.println(">>> PASSENGER OUT (ALIGHTING) <<<");
-        Serial.print("Occupancy: ");
-        Serial.println(occupancy);
-        Serial.println();
+        dispatchEvent("OUT", 0, 1, d1, d2);
         state = IDLE;
       }
-      else if (millis() - stateStartTime > TIMEOUT) {
+      else if (millis() - stateStartTime > TIMEOUT_MS) {
         state = IDLE;
       }
       break;
 
     case OUT_S1_LEAVING:
       if (!s1 && !s2) {
-        // Hand left Sensor 1 -> Alighting complete!
+        total_out++;
         if (occupancy > 0) occupancy--;
         lastCountTime = millis();
-        Serial.println();
-        Serial.println(">>> PASSENGER OUT (ALIGHTING) <<<");
-        Serial.print("Occupancy: ");
-        Serial.println(occupancy);
-        Serial.println();
+        dispatchEvent("OUT", 0, 1, d1, d2);
         state = IDLE;
       }
-      else if (millis() - stateStartTime > TIMEOUT) {
+      else if (millis() - stateStartTime > TIMEOUT_MS) {
         state = IDLE;
       }
       break;
   }
 
-  delay(25);
+  delay(20);
 }
