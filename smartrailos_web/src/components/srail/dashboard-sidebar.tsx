@@ -4,6 +4,7 @@ import {
   TrainFront,
   ArrowDownToLine,
   Users,
+  Cpu,
   Sparkles,
   BarChart3,
   Bell,
@@ -18,6 +19,7 @@ import smartRailLogo from "@/assets/smartrail-logo.png";
 const NAV: { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean }[] = [
   { to: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
   { to: "/dashboard/live-trains", label: "Live Trains", icon: TrainFront },
+  { to: "/dashboard/esp-sensor", label: "Live Sensor (ESP32)", icon: Cpu },
   { to: "/dashboard/incoming", label: "Incoming Trains", icon: ArrowDownToLine },
   { to: "/dashboard/stations", label: "Stations", icon: Building2 },
   { to: "/dashboard/crowd", label: "Station Crowd", icon: Users },

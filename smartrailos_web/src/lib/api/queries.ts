@@ -13,6 +13,8 @@ import {
   type StationCurrentData,
   type StationFeatureData,
   type BackendKpiHistory,
+  type BackendEsp32Live,
+  type BackendEsp32Event,
 } from "./smartrail";
 import {
   TRAINS,
@@ -52,6 +54,8 @@ export const queryKeys = {
   weeklyTrend: ["analytics", "weekly"] as const,
   platformHeatmap: ["platform", "heatmap"] as const,
   simTime: ["sim", "time"] as const,
+  esp32Live: ["esp32", "live"] as const,
+  esp32Events: ["esp32", "events"] as const,
 };
 
 const LIVE_REFETCH_MS = 5_000; // Match the simulation runner's 5-second tick
@@ -277,3 +281,62 @@ export const simTimeQuery = queryOptions<SimTimeData | null>({
   refetchInterval: 15_000,
   staleTime: 10_000,
 });
+
+export const esp32LiveQuery = queryOptions<BackendEsp32Live>({
+  queryKey: queryKeys.esp32Live,
+  queryFn: async () => {
+    return await apiFetch<BackendEsp32Live>("/esp32/live");
+  },
+  refetchInterval: 2_000, // 2s polling fallback if WS disconnects
+});
+
+export const esp32EventsQuery = queryOptions<BackendEsp32Event[]>({
+  queryKey: queryKeys.esp32Events,
+  queryFn: async () => {
+    return await apiFetch<BackendEsp32Event[]>("/esp32/events").catch(() => []);
+  },
+  refetchInterval: 3_000,
+});
+
+export async function sendEsp32Telemetry(payload: {
+  direction?: string;
+  in_delta?: number;
+  out_delta?: number;
+  occupancy?: number;
+  station_id?: string | null;
+  coach_id?: string;
+  coach_capacity?: number;
+  distance_s1?: number;
+  distance_s2?: number;
+}): Promise<BackendEsp32Live> {
+  const res = await fetch("/api/v1/esp32/telemetry", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`Telemetry POST failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function resetEsp32Counters(): Promise<BackendEsp32Live> {
+  const res = await fetch("/api/v1/esp32/reset", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) throw new Error(`Reset failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function updateEsp32Config(payload: {
+  target_station_id?: string | null;
+  coach_capacity?: number;
+  coach_id?: string;
+}): Promise<BackendEsp32Live> {
+  const res = await fetch("/api/v1/esp32/config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`Config update failed: ${res.statusText}`);
+  return res.json();
+}

@@ -50,20 +50,27 @@ export function useGlobalWebSocket(qc: QueryClient) {
             const client = qcRef.current;
             const eventType = data.event_type || data.type;
 
-            // Invalidate all live queries on any incoming train/simulation event
-            client.invalidateQueries({ queryKey: queryKeys.trains });
-            client.invalidateQueries({ queryKey: queryKeys.snapshot });
-            client.invalidateQueries({ queryKey: queryKeys.kpi });
-
-            if (data.data?.station_id) {
-              client.invalidateQueries({ queryKey: queryKeys.stationCurrent(data.data.station_id) });
-              client.invalidateQueries({ queryKey: queryKeys.stationFeature(data.data.station_id) });
-            }
-
-            if (eventType === "alert_issued" || eventType === "alert_resolved") {
+            if (eventType === "occupancy_update" || eventType === "simulation_tick") {
+              client.invalidateQueries({ queryKey: queryKeys.trains });
+              client.invalidateQueries({ queryKey: queryKeys.snapshot });
+              client.invalidateQueries({ queryKey: queryKeys.kpi });
+              if (queryKeys.esp32Live) client.invalidateQueries({ queryKey: queryKeys.esp32Live });
+              if (data.data?.station_id) {
+                client.invalidateQueries({ queryKey: queryKeys.stationCurrent(data.data.station_id) });
+                client.invalidateQueries({ queryKey: queryKeys.stationFeature(data.data.station_id) });
+              }
+            } else if (eventType === "esp32_passenger_event") {
+              if (queryKeys.esp32Live) client.invalidateQueries({ queryKey: queryKeys.esp32Live });
+              if (queryKeys.esp32Events) client.invalidateQueries({ queryKey: queryKeys.esp32Events });
+              client.invalidateQueries({ queryKey: queryKeys.trains });
+              client.invalidateQueries({ queryKey: queryKeys.snapshot });
+            } else if (eventType === "alert_issued" || eventType === "alert_resolved") {
               client.invalidateQueries({ queryKey: queryKeys.alerts });
             } else if (eventType === "announcement_broadcast") {
               client.invalidateQueries({ queryKey: ["announcements"] });
+            } else {
+              client.invalidateQueries({ queryKey: queryKeys.trains });
+              client.invalidateQueries({ queryKey: queryKeys.snapshot });
             }
           } catch {
             // ignore malformed payloads
