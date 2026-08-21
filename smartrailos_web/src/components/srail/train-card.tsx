@@ -109,10 +109,11 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
         onClick={() => setOpen(true)}
         aria-label={`View coach details for train ${train.id}`}
         className={cn(
-          "group block w-full rounded-xl border border-white/5 bg-obsidian-900 p-5 text-left transition-colors hover:border-accent-cyan/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-cyan/60",
+          "group relative block w-full overflow-hidden rounded-2xl border border-white/10 bg-obsidian-900/60 p-6 text-left shadow-xl backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-accent-cyan/40 hover:shadow-2xl hover:shadow-accent-cyan/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-cyan/60",
           className,
         )}
       >
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/[0.04] via-transparent to-transparent opacity-60" />
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="rounded bg-obsidian-800 px-2 py-1 font-mono text-xs font-bold text-accent-cyan">

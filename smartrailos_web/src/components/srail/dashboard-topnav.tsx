@@ -8,18 +8,18 @@ export function DashboardTopNav() {
   const emergencyActive = useEmergencyStatus();
 
   return (
-    <header className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-white/5 bg-obsidian-900/80 px-4 py-3 backdrop-blur sm:flex sm:flex-wrap sm:justify-between sm:gap-4 md:h-16 md:px-8 md:py-0">
+    <header className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-white/10 bg-obsidian-950/70 px-4 py-3 backdrop-blur-2xl shadow-xl sm:flex sm:flex-wrap sm:justify-between sm:gap-4 md:h-16 md:px-8 md:py-0">
       {/* Left */}
       <div className="flex min-w-0 items-center gap-3 md:gap-6">
         <div className="min-w-0">
           <h1 className="truncate text-xs font-extrabold uppercase tracking-wide text-white sm:text-sm md:text-base">
             {CURRENT_STATION}
           </h1>
-          <p className="hidden text-[10px] font-medium uppercase tracking-widest text-slate-500 lg:block">
+          <p className="hidden text-[10px] font-semibold uppercase tracking-widest text-slate-400 lg:block">
             Blue Line · Red Line · Platform 1–2
           </p>
         </div>
-        <div className="hidden shrink-0 rounded border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-[11px] tabular-nums text-slate-400 lg:block">
+        <div className="hidden shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1 font-mono text-[11px] font-bold tabular-nums text-slate-300 backdrop-blur-md lg:block">
           {formatTime(now)} IST · {formatDate(now)}
         </div>
       </div>
