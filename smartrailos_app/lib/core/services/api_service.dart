@@ -9,6 +9,7 @@ import '../constants/metro_data.dart';
 import '../../features/trains/models/train_model.dart';
 import '../../features/trains/models/coach_model.dart';
 import '../../features/trains/models/announcement_model.dart';
+import '../../features/trains/models/esp_sensor_model.dart';
 
 final apiServiceProvider = Provider((ref) => ApiService());
 
@@ -269,6 +270,20 @@ class ApiService {
         'label': 'Sabarmati → Old High Court',
       },
     ];
+  }
+
+  // ESP32 LIVE SENSOR TELEMETRY
+  Future<EspSensorModel?> getEsp32Live() async {
+    try {
+      final headers = await _getHeaders();
+      final res = await _httpGet('/api/v1/esp32/live', headers: headers);
+      if (res.statusCode == 200) {
+        return EspSensorModel.fromJson(jsonDecode(res.body));
+      }
+    } catch (e) {
+      debugPrint('Error fetching ESP32 live telemetry: $e');
+    }
+    return null;
   }
 
   Future<void> saveRoute(Map<String, String> route) async {

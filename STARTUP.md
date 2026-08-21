@@ -75,7 +75,7 @@ flutter pub get
 ~/Android/Sdk/platform-tools/adb reverse tcp:8000 tcp:8000
 
 # 3. Launch on Chrome, Emulator, or connected Android phone
-flutter run -d chrome --web-port=8082
+I
 # Or run on physical phone:
 # flutter run -d ZD222B4K8X
 ```

@@ -38,10 +38,16 @@ export function useGlobalWebSocket(qc: QueryClient) {
               client.invalidateQueries({ queryKey: queryKeys.trains });
               client.invalidateQueries({ queryKey: queryKeys.snapshot });
               client.invalidateQueries({ queryKey: queryKeys.kpi });
+              client.invalidateQueries({ queryKey: queryKeys.esp32Live });
               if (data.data?.station_id) {
                 client.invalidateQueries({ queryKey: queryKeys.stationCurrent(data.data.station_id) });
                 client.invalidateQueries({ queryKey: queryKeys.stationFeature(data.data.station_id) });
               }
+            } else if (eventType === "esp32_passenger_event") {
+              client.invalidateQueries({ queryKey: queryKeys.esp32Live });
+              client.invalidateQueries({ queryKey: queryKeys.esp32Events });
+              client.invalidateQueries({ queryKey: queryKeys.trains });
+              client.invalidateQueries({ queryKey: queryKeys.snapshot });
             } else if (eventType === "alert_issued" || eventType === "alert_resolved") {
               client.invalidateQueries({ queryKey: queryKeys.alerts });
               client.invalidateQueries({ queryKey: queryKeys.snapshot });

@@ -8,6 +8,7 @@ import '../../../core/widgets/station_selector.dart';
 import '../../../core/widgets/floating_nav.dart';
 import '../../../core/widgets/metro_drawer.dart';
 import '../providers/train_search_provider.dart';
+import '../widgets/live_sensor_banner.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -101,7 +102,9 @@ class HomeScreen extends ConsumerWidget {
                           .fadeIn(duration: 400.ms)
                           .slideY(begin: 0.05, end: 0),
 
-                      const SizedBox(height: 20),
+                      const LiveSensorBanner(),
+
+                      const SizedBox(height: 16),
 
                       Text(
                         'PLAN YOUR\nMETRO JOURNEY',
