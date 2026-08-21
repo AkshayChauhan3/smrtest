@@ -59,7 +59,7 @@ class AlertService:
         """Check if there are any CRITICAL or EMERGENCY severity alerts active in the last 60 seconds."""
         from datetime import datetime, timedelta
         
-        now = datetime.utcnow()
+        now = datetime.now()
         threshold = now - timedelta(seconds=60)
         
         alerts = await self.list_alerts()
@@ -74,17 +74,20 @@ class AlertService:
         return False
 
     async def acknowledge_alert(self, alert_id: str) -> bool:
-        """Mark an alert as acknowledged by an operator."""
-        # The Alert model does not have acknowledged_at, but we log the action
-        # and could expand the DB schema later if required.
-        # For now, we'll verify the alert exists.
+        """Mark an alert as acknowledged by an operator and persist."""
+        from datetime import datetime
         alert = await self.alert_repo.get_by_id(alert_id)
         if not alert:
             if alert_id.startswith("train-"):
                 self.sim_service.acknowledged_sim_alerts.add(alert_id)
                 return True
             return False
-        # Logging would go here
+        
+        meta = dict(alert.payload or {})
+        meta["acknowledged"] = True
+        meta["acknowledged_at"] = datetime.now().isoformat()
+        alert.payload = meta
+        await self.db.commit()
         return True
 
     async def resolve_alert(self, alert_id: str) -> bool:
@@ -97,7 +100,7 @@ class AlertService:
                 return True
             return False
         
-        alert.resolved_at = datetime.utcnow()
+        alert.resolved_at = datetime.now()
         await self.db.commit()
         return True
 

@@ -23,10 +23,18 @@ Called from simulation_runner.py at the end of each simulation step.
 import logging
 import sys
 import os
+import pickle
+import warnings
 from datetime import datetime, date, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 import requests
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +56,7 @@ GUJARAT_HOLIDAYS_2026: dict[str, str] = {
     "2026-08-16": "Janmashtami",
     "2026-09-05": "Ganesh Chaturthi",
     "2026-09-26": "Milad-un-Nabi",
-    "2026-10-02": "Gandhi Jayanti",
-    "2026-10-02": "Navratri Begins",
+    "2026-10-02": "Gandhi Jayanti / Navratri Begins",
     "2026-10-22": "Dussehra",
     "2026-10-29": "Diwali (Lakshmi Pujan)",
     "2026-10-30": "Diwali",
@@ -139,7 +146,6 @@ def _load_model():
     csv_path = est_dir / "metro.csv"
 
     # Try loading cached pickle files first (takes <0.1 seconds)
-    import pickle
     if model_pkl_path.exists() and encoders_pkl_path.exists():
         try:
             logger.info("[EstimationService] Loading pre-trained RandomForest model from cache...")
@@ -158,12 +164,6 @@ def _load_model():
         return None, None
 
     logger.info("[EstimationService] Training RandomForest from metro.csv (first-time only)...")
-
-    import pandas as pd
-    from sklearn.model_selection import train_test_split
-    from sklearn.preprocessing import LabelEncoder
-    from sklearn.ensemble import RandomForestRegressor
-    from sklearn.metrics import mean_absolute_error
 
     df = pd.read_csv(csv_path, low_memory=False)
     df = df.sample(n=min(100_000, len(df)), random_state=42)
@@ -192,7 +192,7 @@ def _load_model():
     y = df["Passengers"]
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    rf = RandomForestRegressor(n_estimators=100, max_depth=15, min_samples_split=5,
+    rf = RandomForestRegressor(n_estimators=300, max_depth=20, min_samples_split=5,
                                random_state=42, n_jobs=-1)
     rf.fit(X_train, y_train)
 
@@ -238,8 +238,6 @@ def estimate_for_train_states(
     Returns a list of dicts ready to be inserted into the estimations table.
     Returns [] if the ML model is not available.
     """
-    import pandas as pd
-
     model, encoders = _load_model()
     if model is None:
         return []

@@ -31,6 +31,16 @@ function DigitalTwin() {
   const totalPax = kpi?.passengersInTransit ?? 0;
   const dotCount = Math.min(80, Math.max(4, Math.round(totalPax / 40)));
 
+  const blueAvg = blueTrains.length > 0 
+    ? Math.round(blueTrains.reduce((s, t) => s + t.coaches.reduce((a, c) => a + c.occupancy, 0) / Math.max(1, t.coaches.length), 0) / blueTrains.length) 
+    : 0;
+  const redAvg = redTrains.length > 0 
+    ? Math.round(redTrains.reduce((s, t) => s + t.coaches.reduce((a, c) => a + c.occupancy, 0) / Math.max(1, t.coaches.length), 0) / redTrains.length) 
+    : 0;
+  const p1Temp = (21.5 + (blueAvg / 100) * 3.5).toFixed(1);
+  const p2Temp = (21.8 + (redAvg / 100) * 3.2).toFixed(1);
+  const turnstileFlow = Math.max(12, Math.round(totalPax * 0.05));
+
   return (
     <div className="space-y-6 px-4 py-6 md:px-8 md:py-8">
       <SectionHeader title="Digital Twin · Concourse Level" right="LIVE FEED · 30 fps" />
@@ -53,16 +63,33 @@ function DigitalTwin() {
             <rect x="80" y="220" width="640" height="40" rx="6" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" />
             <text x="92" y="212" fill="#64748b" fontSize="10" fontFamily="JetBrains Mono">CONCOURSE</text>
 
-            {/* Crowd dots */}
+            {/* Animated Concourse Crowd dots */}
             {Array.from({ length: dotCount }).map((_, i) => {
-              const x = 100 + (i * 13) % 620;
-              const y = 230 + ((i * 7) % 20);
-              return <circle key={i} cx={x} cy={y} r={1.6} fill="#2dd4bf" opacity={0.55} />;
+              const x = 100 + (i * 17) % 600;
+              const y = 228 + ((i * 7) % 24);
+              const dur = 1.6 + (i % 4) * 0.4;
+              return (
+                <circle key={i} cx={x} cy={y} r={1.8} fill="#2dd4bf" opacity={0.6}>
+                  <animate
+                    attributeName="cx"
+                    values={`${x - 3};${x + 3};${x - 3}`}
+                    dur={`${dur}s`}
+                    repeatCount="indefinite"
+                  />
+                  <animate
+                    attributeName="opacity"
+                    values="0.35;0.8;0.35"
+                    dur={`${dur * 1.3}s`}
+                    repeatCount="indefinite"
+                  />
+                </circle>
+              );
             })}
 
             {/* Blue Line trains on Platform 1 (y=130) */}
             {blueTrains.map((t) => {
-              const x = Math.min(460, Math.max(80, 80 + ((t.journey_completed_pct ?? 50) / 100) * 480));
+              const progress = (t.journey_completed_pct ?? 50) / 100;
+              const x = Math.min(540, Math.max(80, 80 + progress * 460));
               const isSelected = t.id === (selectedTrain?.id);
               const avg = Math.round(t.coaches.reduce((s, c) => s + c.occupancy, 0) / Math.max(1, t.coaches.length));
               const color = avg > 85 ? "#ef4444" : avg > 65 ? "#f59e0b" : "#3b82f6";
@@ -80,7 +107,8 @@ function DigitalTwin() {
 
             {/* Red Line trains on Platform 2 (y=310) */}
             {redTrains.map((t) => {
-              const x = Math.min(460, Math.max(80, 80 + ((t.journey_completed_pct ?? 50) / 100) * 480));
+              const progress = (t.journey_completed_pct ?? 50) / 100;
+              const x = Math.min(540, Math.max(80, 80 + progress * 460));
               const isSelected = t.id === (selectedTrain?.id);
               const avg = Math.round(t.coaches.reduce((s, c) => s + c.occupancy, 0) / Math.max(1, t.coaches.length));
               const color = avg > 85 ? "#ef4444" : avg > 65 ? "#f59e0b" : "#f43f5e";
@@ -146,11 +174,11 @@ function DigitalTwin() {
               <Box className="size-3 text-accent-cyan" /> Station Systems
             </div>
             <ul className="mt-3 space-y-2 text-xs">
-              <Row label="HVAC · Platform 1" value="22.4°C" tone="text-white" />
-              <Row label="HVAC · Platform 2" value="23.1°C" tone="text-warning" />
-              <Row label="Escalator E1–E4" value="Nominal" tone="text-success" />
-              <Row label="Gate 4 Turnstile" value="Offline" tone="text-danger" />
-              <Row label="CCTV nodes" value="48 / 48" tone="text-success" />
+              <Row label="HVAC · Platform 1" value={`${p1Temp}°C`} tone={blueAvg > 75 ? "text-warning" : "text-white"} />
+              <Row label="HVAC · Platform 2" value={`${p2Temp}°C`} tone={redAvg > 75 ? "text-warning" : "text-white"} />
+              <Row label="Escalator E1–E4" value="Nominal (4/4)" tone="text-success" />
+              <Row label="Turnstile Flow" value={`${turnstileFlow} pax/min`} tone="text-accent-cyan" />
+              <Row label="CCTV nodes" value="48 / 48 Active" tone="text-success" />
             </ul>
           </div>
         </aside>

@@ -1,22 +1,14 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { OccupancyBar } from "./occupancy-bar";
 import { LineBadge, RiskBadge } from "./badges";
 import { findStation, type Train } from "@/lib/mock/data";
-import { formatEta, jitter, useLiveTick } from "@/lib/use-live-tick";
+import { formatEta } from "@/lib/use-live-tick";
 import { ArrowRight, ChevronRight } from "lucide-react";
 import { CoachDrillDownSheet } from "./coach-drilldown-sheet";
 
 export function TrainCard({ train, className }: { train: Train; className?: string }) {
-  const tick = useLiveTick(3000);
-  const [coaches, setCoaches] = useState(train.coaches);
-  const [eta, setEta] = useState(train.etaSeconds);
   const [open, setOpen] = useState(false);
-  useEffect(() => {
-    setCoaches((prev) => prev.map((c) => ({ ...c, occupancy: jitter(c.occupancy, 4, 5, 99) })));
-    setEta((e) => Math.max(0, e - 3));
-  }, [tick]);
-  const liveTrain = { ...train, coaches, etaSeconds: eta };
   const current = findStation(train.currentStationId);
   const next = findStation(train.nextStationId);
   return (
@@ -38,13 +30,13 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
             <LineBadge line={train.line} />
           </div>
           <div className="flex items-center gap-2">
-            <RiskBadge train={liveTrain} />
+            <RiskBadge train={train} />
             <span className="font-mono text-[11px] uppercase tracking-widest text-slate-500">
               {train.status === "At Station"
                 ? "At Station"
                 : train.status === "Departing"
                   ? "Departing"
-                  : `ETA ${formatEta(eta)}`}
+                  : `ETA ${formatEta(train.etaSeconds)}`}
             </span>
           </div>
         </div>
@@ -63,7 +55,7 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {coaches.map((c) => (
+          {train.coaches.map((c) => (
             <OccupancyBar key={c.id} value={c.occupancy} label={c.label} />
           ))}
         </div>
@@ -73,7 +65,7 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
           <ChevronRight className="size-3 transition-transform group-hover:translate-x-0.5" />
         </div>
       </button>
-      <CoachDrillDownSheet train={liveTrain} open={open} onOpenChange={setOpen} />
+      <CoachDrillDownSheet train={train} open={open} onOpenChange={setOpen} />
     </>
   );
 }

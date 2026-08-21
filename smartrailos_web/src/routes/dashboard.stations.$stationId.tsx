@@ -5,6 +5,7 @@ import { OccupancyBar } from "@/components/srail/occupancy-bar";
 import { KpiCard } from "@/components/srail/kpi-card";
 import { AnimatedNumber } from "@/components/srail/animated-number";
 import { useStations, useTrains, useStationCurrent, useStationFeature } from "@/lib/api/hooks";
+import { findStation } from "@/lib/mock/data";
 import { SectionHeader } from "@/routes/dashboard.index";
 import { cn } from "@/lib/utils";
 
@@ -41,28 +42,32 @@ function StationDetail() {
   const stationCurrentQ = useStationCurrent(stationId);
   const stationFeatureQ = useStationFeature(stationId);
 
-  if (stationsQ.isLoading || trainsQ.isLoading || stationCurrentQ.isLoading || stationFeatureQ.isLoading) {
+  if (stationsQ.isLoading && !stationsQ.data) {
     return <StationDetailSkeleton />;
   }
 
-  const station = stationsQ.data?.find((s) => s.id === stationId);
-  if (stationsQ.data && !station) throw notFound();
+  const station = stationsQ.data?.find((s) => s.id.toLowerCase() === stationId.toLowerCase()) || findStation(stationId);
+  if (stationsQ.isSuccess && !station) throw notFound();
+
+  const targetStation = findStation(stationId) || station;
+  const isMatchStation = (trainStationIdOrName?: string | null) => {
+    if (!trainStationIdOrName) return false;
+    if (trainStationIdOrName.toLowerCase() === stationId.toLowerCase()) return true;
+    if (targetStation) {
+      if (trainStationIdOrName.toLowerCase() === targetStation.id.toLowerCase()) return true;
+      if (trainStationIdOrName.toLowerCase() === targetStation.name.toLowerCase()) return true;
+    }
+    const resolved = findStation(trainStationIdOrName);
+    return Boolean(resolved && targetStation && resolved.id === targetStation.id);
+  };
 
   const allTrains = trainsQ.data ?? [];
-  const stationTrains = station
-    ? allTrains.filter(
-        (t) =>
-          t.currentStationId.toLowerCase() === stationId.toLowerCase() ||
-          t.nextStationId.toLowerCase() === stationId.toLowerCase(),
-      )
-    : [];
+  const stationTrains = allTrains.filter(
+    (t) => isMatchStation(t.currentStationId) || isMatchStation(t.nextStationId),
+  );
 
-  const atStation = stationTrains.filter(
-    (t) => t.currentStationId.toLowerCase() === stationId.toLowerCase(),
-  );
-  const approaching = stationTrains.filter(
-    (t) => t.nextStationId.toLowerCase() === stationId.toLowerCase(),
-  );
+  const atStation = stationTrains.filter((t) => isMatchStation(t.currentStationId));
+  const approaching = stationTrains.filter((t) => isMatchStation(t.nextStationId));
 
   const allCoaches = stationTrains.flatMap((t) => t.coaches);
   const avgOccupancy =

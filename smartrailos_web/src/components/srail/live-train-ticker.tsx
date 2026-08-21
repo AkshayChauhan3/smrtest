@@ -1,18 +1,32 @@
 import { useEffect, useState } from "react";
-import { TRAINS, BLUE_LINE, RED_LINE, type Train } from "@/lib/mock/data";
+import { BLUE_LINE, RED_LINE, type Train } from "@/lib/mock/data";
 import { useTrains } from "@/lib/api/hooks";
 import { LineBadge } from "./badges";
 import { cn } from "@/lib/utils";
 
 function progressFor(train: Train, tickSeconds: number) {
-  const stations = train.line === "blue" ? BLUE_LINE : RED_LINE;
-  const totalStops = stations.length - 1;
-  const currentIdx = stations.findIndex((s) => s.id === train.currentStationId);
-  if (currentIdx < 0) return 0;
-  const dir = train.originId === stations[0].id ? 1 : -1;
-  const baseFrac = currentIdx / totalStops;
+  const isBlue = train.line === "blue" || train.id.startsWith("BL") || train.id.startsWith("bl");
+  const stations = isBlue ? BLUE_LINE : RED_LINE;
+  const totalStops = Math.max(stations.length - 1, 1);
   
-  const seed = train.id.length;
+  const currentSt = (train.currentStationId || "").toLowerCase();
+  const currentIdx = stations.findIndex((s) => 
+    s.id.toLowerCase() === currentSt || 
+    s.name.toLowerCase() === currentSt ||
+    (currentSt && s.name.toLowerCase().includes(currentSt)) ||
+    (currentSt && currentSt.includes(s.name.toLowerCase()))
+  );
+  
+  const baseIdx = currentIdx >= 0 ? currentIdx : (parseInt(train.id.replace(/\D/g, "") || "0", 10) % stations.length);
+  const isUp = train.direction?.toUpperCase().includes("UP") || 
+               train.direction?.toUpperCase().includes("NORTH") || 
+               train.direction?.toUpperCase().includes("VASTRAL") || 
+               train.direction?.toUpperCase().includes("MOTERA") ||
+               train.originId === stations[0].id;
+  const dir = isUp ? 1 : -1;
+  const baseFrac = baseIdx / totalStops;
+  
+  const seed = train.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
   const dynamic = ((tickSeconds + seed * 7) % 60) / 60; // 0..1 between stations
   const segment = (1 / totalStops) * dynamic * dir;
   const frac = Math.max(0, Math.min(1, baseFrac + segment));
@@ -22,8 +36,8 @@ function progressFor(train: Train, tickSeconds: number) {
 export function LiveTrainTicker({ className }: { className?: string }) {
   const [seconds, setSeconds] = useState(0);
   const trainsQ = useTrains();
-  const trainsRaw = trainsQ.data ?? [];
-  const hasRealTrains = trainsRaw.some(t => t.id !== "ESP32_DEMO");
+  const trains = trainsQ.data ?? [];
+  const hasTrains = trains.length > 0;
 
   useEffect(() => {
     const id = setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -38,18 +52,18 @@ export function LiveTrainTicker({ className }: { className?: string }) {
           Live Network Position
         </h3>
         <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500">
-          {TRAINS.length} active
+          {trains.length} active
         </span>
       </div>
 
       <div className="mt-5 space-y-4">
-        {!hasRealTrains ? (
+        {!hasTrains ? (
           <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-obsidian-900/50 text-center">
             <p className="text-sm font-medium text-slate-300">System Offline</p>
             <p className="text-xs text-slate-500">Live position tracking is currently paused.</p>
           </div>
         ) : (
-          TRAINS.map((t) => {
+          trains.map((t) => {
             const pct = progressFor(t, seconds);
             const lineColor = t.line === "blue" ? "bg-accent-blue-2" : "bg-danger";
             return (

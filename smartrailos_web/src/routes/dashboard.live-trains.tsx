@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { findStation, riskFor, RISK_TW } from "@/lib/mock/data";
+import { BLUE_LINE, RED_LINE, findStation, riskFor, RISK_TW } from "@/lib/mock/data";
 import { useTrains } from "@/lib/api/hooks";
 import { LineBadge } from "@/components/srail/badges";
 import { OccupancyBar } from "@/components/srail/occupancy-bar";
@@ -130,28 +130,45 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
 
 export function RouteTimeline({ train }: { train: any }) {
   const isBlue = train.line === "blue";
-  const route = isBlue
-    ? // synthetic route: 7 stops centered on Old High Court (bl-8)
-      ["bl-5", "bl-6", "bl-7", "bl-8", "bl-9", "bl-10", "bl-11"]
-    : ["rl-4", "rl-5", "rl-6", "rl-7", "rl-8", "rl-9", "rl-10"];
-  const currentIdx = route.indexOf(train.currentStationId);
+  const allStops = isBlue ? BLUE_LINE : RED_LINE;
+  const isUp = (train.direction || "").toUpperCase().includes("UP");
+  const orderedStops = isUp ? allStops : [...allStops].reverse();
+
+  // Robust current station match
+  const currentStation = findStation(train.currentStationId);
+  const currentIdx = orderedStops.findIndex(
+    (s) => s.id === currentStation?.id || s.name.toLowerCase() === (currentStation?.name || train.currentStationId || "").toLowerCase(),
+  );
+
+  // Take a sliding window of up to 7 stations around the current train position
+  const activeIndex = currentIdx >= 0 ? currentIdx : 0;
+  const start = Math.max(0, Math.min(orderedStops.length - 7, activeIndex - 3));
+  const visibleStops = orderedStops.slice(start, Math.min(orderedStops.length, start + 7));
+  const activeSubIdx = visibleStops.findIndex(
+    (s) => s.id === currentStation?.id || s.name.toLowerCase() === (currentStation?.name || "").toLowerCase(),
+  );
 
   return (
     <div className="rounded-lg border border-white/5 bg-obsidian-800/40 p-4">
-      <h4 className="mb-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">Route</h4>
+      <div className="mb-4 flex items-center justify-between">
+        <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Route Progression</h4>
+        <span className="font-mono text-[10px] text-accent-cyan">
+          {train.direction || "UP"} · {currentStation?.name ?? train.currentStationId}
+        </span>
+      </div>
       <div className="relative">
         <div className={cn("absolute left-2 right-2 top-3 h-px", isBlue ? "bg-accent-blue-2/40" : "bg-danger/40")} />
         <div className="relative flex justify-between">
-          {route.map((id, i) => {
-            const passed = i < currentIdx;
-            const current = i === currentIdx;
+          {visibleStops.map((st, i) => {
+            const passed = i < activeSubIdx;
+            const current = i === activeSubIdx;
             return (
-              <div key={id} className="flex w-16 flex-col items-center text-center">
+              <div key={st.id} className="flex w-16 flex-col items-center text-center">
                 <div
                   className={cn(
-                    "z-10 grid size-6 place-items-center rounded-full border-2",
+                    "z-10 grid size-6 place-items-center rounded-full border-2 transition-all",
                     current
-                      ? "border-accent-cyan bg-accent-cyan animate-pulse-soft"
+                      ? "border-accent-cyan bg-accent-cyan animate-pulse-soft shadow-[0_0_10px_rgba(45,212,191,0.5)]"
                       : passed
                         ? "border-slate-600 bg-slate-600"
                         : isBlue
@@ -161,8 +178,8 @@ export function RouteTimeline({ train }: { train: any }) {
                 >
                   {current && <div className="size-2 rounded-full bg-obsidian-950" />}
                 </div>
-                <div className={cn("mt-2 line-clamp-2 text-[9px] font-medium leading-tight", current ? "text-accent-cyan" : "text-slate-500")}>
-                  {findStation(id)?.name}
+                <div className={cn("mt-2 line-clamp-2 text-[9px] font-medium leading-tight", current ? "font-bold text-accent-cyan" : "text-slate-500")}>
+                  {st.name}
                 </div>
               </div>
             );

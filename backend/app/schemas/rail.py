@@ -73,6 +73,13 @@ class TrainAtStationOut(BaseModel):
     coaches: list[TrainCoachOut]
     journey_completed_pct: float | None = None
     current_position: float | None = None
+    status: str | None = None
+    eta_seconds: int | None = None
+    origin_station_id: str | None = None
+    destination_station_id: str | None = None
+    predicted_boarding_count: int | None = None
+    predicted_deboarding_count: int | None = None
+    predicted_occupancy: int | None = None
 
 
 class IncomingTrainOut(BaseModel):

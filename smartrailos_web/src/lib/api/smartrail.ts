@@ -44,6 +44,16 @@ export interface BackendTrainAtStation {
   next_station: string;
   next_station_id?: string | null;
   coaches: BackendCoach[];
+  journey_completed_pct?: number | null;
+  current_position?: number | null;
+  status?: string | null;
+  eta_seconds?: number | null;
+  origin_station_id?: string | null;
+  destination_station_id?: string | null;
+  predicted_boarding_count?: number | null;
+  predicted_deboarding_count?: number | null;
+  predicted_occupancy?: number | null;
+  predicted_occupancy_at_station?: number | null;
 }
 
 export interface BackendIncomingTrain {
@@ -113,22 +123,66 @@ function adaptCoach(c: BackendCoach, i: number): Coach {
 }
 
 export function adaptTrain(t: BackendTrainAtStation): Train {
+  const line = lineFromName(t.line_name || t.train_id);
+  const isUp = (t.direction || "").toUpperCase().includes("UP");
+  const originId = t.origin_station_id || (line === "blue" ? (isUp ? "BL01" : "BL18") : (isUp ? "RL01" : "RL15"));
+  const destinationId = t.destination_station_id || (line === "blue" ? (isUp ? "BL18" : "BL01") : (isUp ? "RL15" : "RL01"));
+
+  const coaches = (t.coaches || []).map(adaptCoach);
+  const avgOcc = coaches.length > 0
+    ? Math.round(coaches.reduce((sum, c) => sum + c.occupancy, 0) / coaches.length)
+    : 0;
+
+  // Real ETA seconds calculation
+  let etaSeconds = 0;
+  if (t.eta_seconds !== undefined && t.eta_seconds !== null) {
+    etaSeconds = Math.max(0, t.eta_seconds);
+  } else if (t.arrival_time) {
+    try {
+      const arr = new Date(t.arrival_time);
+      if (!isNaN(arr.getTime())) {
+        etaSeconds = Math.max(0, Math.round((arr.getTime() - Date.now()) / 1000));
+      }
+    } catch {
+      etaSeconds = 0;
+    }
+  }
+
+  // Real status mapping
+  let status: Train["status"] = "At Station";
+  const rawStatus = (t.status || "").toUpperCase();
+  if (rawStatus === "IN_TRANSIT" || rawStatus === "EN_ROUTE" || (etaSeconds > 60)) {
+    status = "En Route";
+  } else if (rawStatus === "DEPARTING") {
+    status = "Departing";
+  } else if (rawStatus === "APPROACHING" || (etaSeconds > 0 && etaSeconds <= 60)) {
+    status = "Approaching";
+  } else {
+    status = "At Station";
+  }
+
+  const predictedBoarding = t.predicted_boarding_count ?? Math.max(0, Math.round(avgOcc * 0.15));
+  const predictedDeboarding = t.predicted_deboarding_count ?? Math.max(0, Math.round(avgOcc * 0.12));
+  const predictedOccupancy = t.predicted_occupancy_at_station ?? t.predicted_occupancy ?? Math.min(100, Math.max(0, Math.round(avgOcc * 1.06)));
+
   return {
     id: t.train_id,
-    name: `${t.train_id} · ${t.train_name}`,
-    line: lineFromName(t.line_name),
-    direction: t.direction,
-    originId: "",
-    destinationId: "",
+    name: t.train_name ? `${t.train_id} · ${t.train_name}` : t.train_id,
+    line,
+    direction: t.direction || (isUp ? "UP" : "DOWN"),
+    originId,
+    destinationId,
     currentStationId: t.current_station_id || t.current_station,
     nextStationId: t.next_station_id || t.next_station,
     arrival: t.arrival_time,
     departure: t.departure_time,
-    etaSeconds: 0,
-    predictedBoarding: 0,
-    predictedDeboarding: 0,
-    status: "At Station",
-    coaches: t.coaches.map(adaptCoach),
+    etaSeconds,
+    predictedBoarding,
+    predictedDeboarding,
+    predictedOccupancy,
+    status,
+    coaches,
+    journey_completed_pct: t.journey_completed_pct ?? (status === "At Station" ? 0 : 50),
   };
 }
 
