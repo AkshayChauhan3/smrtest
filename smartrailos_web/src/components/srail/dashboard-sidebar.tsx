@@ -32,8 +32,8 @@ const NAV: { to: string; label: string; icon: typeof LayoutDashboard; exact?: bo
 export function DashboardSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   return (
-    <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col border-r border-white/5 bg-obsidian-900 lg:flex">
-      <div className="flex items-center gap-3 border-b border-white/5 px-6 py-5">
+    <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col border-r border-white/[0.06] bg-[#141821]/75 backdrop-blur-[12px] shadow-2xl lg:flex">
+      <div className="flex items-center gap-3 border-b border-white/[0.06] px-6 py-5">
         <div className="grid size-9 place-items-center rounded-md bg-white p-1">
           <img src={smartRailLogo} alt="SmartRail logo" className="size-full object-contain" />
         </div>

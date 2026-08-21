@@ -2,16 +2,17 @@ import { Bell, Search, AlertOctagon } from "lucide-react";
 import { useClock, formatTime, formatDate } from "@/lib/use-live-tick";
 import { CURRENT_STATION } from "@/lib/mock/data";
 import { useEmergencyStatus } from "@/lib/use-emergency-status";
+import { cn } from "@/lib/utils";
 
 export function DashboardTopNav() {
   const now = useClock();
   const emergencyActive = useEmergencyStatus();
 
   return (
-    <header className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-white/10 bg-obsidian-950/70 px-4 py-3 backdrop-blur-2xl shadow-xl sm:flex sm:flex-wrap sm:justify-between sm:gap-4 md:h-16 md:px-8 md:py-0">
-      {/* Left */}
-      <div className="flex min-w-0 items-center gap-3 md:gap-6">
-        <div className="min-w-0">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-white/[0.08] bg-[#0c0d12]/90 px-4 backdrop-blur-xl shadow-md md:px-8">
+      {/* Left Group: Station Title & Global Search Bar */}
+      <div className="flex min-w-0 items-center gap-4 md:gap-6">
+        <div className="min-w-0 shrink-0">
           <h1 className="truncate text-xs font-extrabold uppercase tracking-wide text-white sm:text-sm md:text-base">
             {CURRENT_STATION}
           </h1>
@@ -19,48 +20,52 @@ export function DashboardTopNav() {
             Blue Line · Red Line · Platform 1–2
           </p>
         </div>
-        <div className="hidden shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1 font-mono text-[11px] font-bold tabular-nums text-slate-300 backdrop-blur-md lg:block">
-          {formatTime(now)} IST · {formatDate(now)}
-        </div>
-      </div>
 
-      {/* Right */}
-      <div className="flex shrink-0 items-center gap-2 md:gap-3">
-        {/* Search — hidden on small screens */}
+        {/* Global Search Bar on the Left */}
         <button
           onClick={() => (window as unknown as { __openPalette?: () => void }).__openPalette?.()}
-          className="hidden h-9 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 text-xs text-slate-400 hover:bg-white/10 lg:flex"
+          className="flex h-9 items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 text-xs text-slate-400 transition-colors hover:bg-white/[0.08] hover:text-white"
         >
-          <Search className="size-3.5 shrink-0" />
-          <span className="hidden xl:inline">Search trains, stations…</span>
-          <kbd className="ml-1 hidden rounded border border-white/10 bg-obsidian-950 px-1.5 py-0.5 font-mono text-[10px] text-slate-500 xl:block">
+          <Search className="size-3.5 shrink-0 text-slate-400" />
+          <span className="hidden sm:inline">Search trains, stations, schedules…</span>
+          <kbd className="ml-2 hidden rounded border border-white/10 bg-obsidian-950 px-1.5 py-0.5 font-mono text-[10px] text-slate-500 md:block">
             ⌘K
           </kbd>
         </button>
+      </div>
 
-        {/* Bell — always visible, icon-only */}
-        <button className="grid size-8 shrink-0 place-items-center rounded-md border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 md:size-9">
+      {/* Right Group: Clock, Notifications, Emergency Button & Profile Avatar */}
+      <div className="flex shrink-0 items-center gap-3">
+        {/* Live Clock Badge */}
+        <div className="hidden rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 font-mono text-[11px] font-bold tabular-nums text-slate-300 xl:block">
+          {formatTime(now)} IST · {formatDate(now)}
+        </div>
+
+        {/* Bell Button */}
+        <button
+          aria-label="Notifications"
+          className="grid size-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-300 transition-colors hover:bg-white/[0.08] hover:text-white"
+        >
           <Bell className="size-4" />
         </button>
 
-        {/* Emergency — always visible, icon + text on sm+ */}
+        {/* Red Emergency Action Button */}
         <button
           aria-live="assertive"
           aria-label={emergencyActive ? "Emergency active" : "Emergency"}
-          className={
-            "flex h-8 items-center gap-1.5 rounded-md border px-2 text-[11px] font-bold uppercase tracking-widest sm:h-9 sm:gap-2 sm:px-3 sm:text-xs " +
-            (emergencyActive
-              ? "animate-emergency-blink border-alert-red text-white"
-              : "border-alert-red/40 bg-alert-red/15 text-alert-red hover:bg-alert-red hover:text-white")
-          }
+          className={cn(
+            "flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold uppercase tracking-widest transition-all shadow-sm",
+            emergencyActive
+              ? "animate-emergency-blink border-rose-500 text-white"
+              : "border-rose-500/30 bg-rose-500/15 text-rose-400 hover:bg-rose-600 hover:text-white"
+          )}
         >
-          <AlertOctagon className="size-3.5 shrink-0" />
+          <AlertOctagon className="size-4 shrink-0" />
           <span className="hidden sm:inline">{emergencyActive ? "Emergency!" : "Emergency"}</span>
         </button>
 
-
-        {/* Avatar — always visible */}
-        <div className="ml-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-obsidian-800 text-xs font-bold text-slate-300 ring-1 ring-white/10 md:size-9">
+        {/* Profile Avatar */}
+        <div className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-800 text-xs font-bold text-white ring-2 ring-white/10 shadow-sm">
           OP
         </div>
       </div>
