@@ -20,31 +20,32 @@
 #define TELEMETRY_ENDPOINT  "/api/v1/esp32/telemetry"
 
 // ─── Hardware Pin Mapping (ESP32) ──────────────────────────────────────────────
-// Sensor 1: Platform / Entry Side
+// Sensor 0 (S0 / S1 Entry): Platform / Outside Side
 #define TRIG1_PIN           4
 #define ECHO1_PIN           14
 
-// Sensor 2: Coach Interior / Exit Side
+// Sensor 1 (S1 / S2 Exit): Coach Interior / Inside Side
 #define TRIG2_PIN           27
 #define ECHO2_PIN           33
+
+// Direction Inversion (Set to 1 if sensors are mounted in opposite physical orientation)
+#define INVERT_DIRECTION    0
 
 // Status LED (Builtin LED is GPIO 2 on standard ESP32 DevKit)
 #define LED_PIN             2
 
-// ─── Directional Detection & Filtering Parameters ─────────────────────────────
-// Hysteresis detection distance (hands/passengers closer than this trigger entry)
-#define THRESHOLD_ENTER_CM  42.0
-
-// Hysteresis release distance (must clear beyond this to register clear)
-#define THRESHOLD_LEAVE_CM  48.0
+// ─── Detection Distance Thresholds (Doorway Calibrated) ────────────────────────
+// When a person is in doorway, distance drops to 30-70cm. Background wall is >140cm.
+#define THRESHOLD_ENTER_CM  75.0   // Blocked when distance < 75 cm
+#define THRESHOLD_LEAVE_CM  85.0   // Cleared when distance > 85 cm
 
 // Maximum time in milliseconds allowed for a full traversal before resetting to IDLE
-#define TIMEOUT_MS          2200
+#define TIMEOUT_MS          2500
 
 // Cooldown in milliseconds after a successful count before next crossing can start
-#define COOLDOWN_MS         450
+#define COOLDOWN_MS         400
 
-// Spacing delay in milliseconds between pinging S1 and S2 to avoid echo cross-talk
+// Spacing delay in milliseconds between pinging S0 and S1 to avoid acoustic cross-talk
 #define SENSOR_SPACING_MS   20
 
 // ─── Transit & Coach Metadata ─────────────────────────────────────────────────

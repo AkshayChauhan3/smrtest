@@ -1,11 +1,14 @@
 /**
  * @file main.cpp
- * @brief SmartRail OS — ESP32 Directional Passenger Counter (Smooth & Accurate IN/OUT FSM)
+ * @brief SmartRail OS — ESP32 Dual-Beam Directional Passenger Counter (0->1 IN, 1->0 OUT)
  *
- * Traversal Sequences:
- * --------------------
- *   Boarding (IN):   IDLE -> IN_ENTRY (S1) -> IN_MIDWAY (S1+S2) -> IN_EXITING (S2) -> Completed (+1 IN)
- *   Alighting (OUT): IDLE -> OUT_ENTRY (S2) -> OUT_MIDWAY (S2+S1) -> OUT_EXITING (S1) -> Completed (+1 OUT)
+ * Mathematical Traversal Model:
+ * -----------------------------
+ *  Boarding (IN: 0 -> 1):
+ *    (0,0) IDLE -> (1,0) S0_Active -> (1,1) Both_Active -> (0,1) S1_Active -> (0,0) [COUNT +1 IN]
+ *
+ *  Alighting (OUT: 1 -> 0):
+ *    (0,0) IDLE -> (0,1) S1_Active -> (1,1) Both_Active -> (1,0) S0_Active -> (0,0) [COUNT -1 OUT]
  */
 
 #include <Arduino.h>
@@ -22,31 +25,34 @@ volatile int total_in  = 0;
 volatile int total_out = 0;
 
 enum FsmState {
-  IDLE,
-  IN_ENTRY,     // Sensor 1 broken first
-  IN_MIDWAY,    // Both sensors broken (body passing through doorway)
-  IN_EXITING,   // Sensor 1 cleared, still on Sensor 2
+  STATE_IDLE,
 
-  OUT_ENTRY,    // Sensor 2 broken first
-  OUT_MIDWAY,   // Both sensors broken
-  OUT_EXITING   // Sensor 2 cleared, still on Sensor 1
+  // Boarding Sequence (0 -> 1)
+  STATE_IN_S0,        // S0 blocked first (1, 0)
+  STATE_IN_BOTH,      // S0 and S1 both blocked (1, 1)
+  STATE_IN_S1_ONLY,   // S0 cleared, S1 still blocked (0, 1)
+
+  // Alighting Sequence (1 -> 0)
+  STATE_OUT_S1,       // S1 blocked first (0, 1)
+  STATE_OUT_BOTH,     // S1 and S0 both blocked (1, 1)
+  STATE_OUT_S0_ONLY   // S1 cleared, S0 still blocked (1, 0)
 };
 
-FsmState state = IDLE;
+FsmState state = STATE_IDLE;
 unsigned long stateStartTime    = 0;
 unsigned long lastCountTime     = 0;
 unsigned long lastTelemetrySync = 0;
 
-// Filter history
+// Filter history (3-sample median ring buffer)
+float s0_history[3] = {999.0f, 999.0f, 999.0f};
 float s1_history[3] = {999.0f, 999.0f, 999.0f};
-float s2_history[3] = {999.0f, 999.0f, 999.0f};
 int sample_idx = 0;
 
-// Hysteresis states
-bool s1_latched = false;
-bool s2_latched = false;
+// Hysteresis latches
+bool s0_blocked = false;
+bool s1_blocked = false;
 
-// ─── Filter & Distance Measurement ───────────────────────────────────────────
+// ─── Median Filter & Distance Ping ────────────────────────────────────────────
 
 float median3(float a, float b, float c) {
   if ((a <= b && b <= c) || (c <= b && b <= a)) return b;
@@ -54,7 +60,7 @@ float median3(float a, float b, float c) {
   return c;
 }
 
-float readRawDistance(int trigPin, int echoPin) {
+float pingUltrasonic(int trigPin, int echoPin) {
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
 
@@ -77,22 +83,21 @@ float readRawDistance(int trigPin, int echoPin) {
   return distanceCm;
 }
 
-void dispatchEvent(const char* dir, int in_d, int out_d, float d1, float d2) {
-  // Emit single authoritative structured JSON line
+void dispatchCrossing(const char* dir, int in_d, int out_d, float d0, float d1) {
   char jsonLine[160];
   snprintf(
     jsonLine,
     sizeof(jsonLine),
     "{\"event\":\"%s\",\"in_delta\":%d,\"out_delta\":%d,\"occupancy\":%d,\"total_in\":%d,\"total_out\":%d,\"d1\":%.1f,\"d2\":%.1f}",
-    dir, in_d, out_d, occupancy, total_in, total_out, d1, d2
+    dir, in_d, out_d, occupancy, total_in, total_out, d0, d1
   );
   Serial.println(jsonLine);
 
-  // Quick LED pulse indicator on crossing
+  // Status LED pulse
   digitalWrite(LED_PIN, HIGH);
 }
 
-// ─── Setup & Loop ────────────────────────────────────────────────────────────
+// ─── Arduino Lifecycle ────────────────────────────────────────────────────────
 
 void setup() {
   Serial.begin(115200);
@@ -112,155 +117,179 @@ void setup() {
 
   Serial.println();
   Serial.println("==================================================");
-  Serial.println(" SmartRail OS — Precision Passenger Counter       ");
-  Serial.printf (" In-Threshold: < %.1f cm | Out-Threshold: < %.1f cm\n", THRESHOLD_ENTER_CM, THRESHOLD_LEAVE_CM);
-  Serial.printf (" Station: %s | Coach: %s | Capacity: %d pax\n", DEFAULT_STATION_ID, DEFAULT_COACH_ID, COACH_CAPACITY);
+  Serial.println(" SmartRail OS — Dual-Beam Passenger Gate FSM      ");
+  Serial.printf (" S0 (Entry): GPIO %d/%d | S1 (Exit): GPIO %d/%d\n", TRIG1_PIN, ECHO1_PIN, TRIG2_PIN, ECHO2_PIN);
+  Serial.printf (" Thresholds: Block < %.1f cm | Clear > %.1f cm\n", THRESHOLD_ENTER_CM, THRESHOLD_LEAVE_CM);
+  Serial.printf (" Station: %s | Coach: %s | Invert: %d\n", DEFAULT_STATION_ID, DEFAULT_COACH_ID, INVERT_DIRECTION);
   Serial.println("==================================================");
   Serial.println();
 }
 
 void loop() {
-  // 1. Sample raw ultrasonic pings with cross-talk avoidance delay
-  float raw1 = readRawDistance(TRIG1_PIN, ECHO1_PIN);
+  // 1. Read ultrasonic pings with cross-talk avoidance delay
+  float raw0 = pingUltrasonic(TRIG1_PIN, ECHO1_PIN);
   delay(SENSOR_SPACING_MS);
-  float raw2 = readRawDistance(TRIG2_PIN, ECHO2_PIN);
+  float raw1 = pingUltrasonic(TRIG2_PIN, ECHO2_PIN);
 
-  // 2. Update 3-sample median filter ring buffers
+  // 2. 3-Sample Median Ring Filter
+  s0_history[sample_idx] = raw0;
   s1_history[sample_idx] = raw1;
-  s2_history[sample_idx] = raw2;
   sample_idx = (sample_idx + 1) % 3;
 
+  float d0 = median3(s0_history[0], s0_history[1], s0_history[2]);
   float d1 = median3(s1_history[0], s1_history[1], s1_history[2]);
-  float d2 = median3(s2_history[0], s2_history[1], s2_history[2]);
 
-  // 3. Hysteresis detection (Enter at <42cm, Release at >48cm)
-  s1_latched = s1_latched ? (d1 < THRESHOLD_LEAVE_CM) : (d1 < THRESHOLD_ENTER_CM);
-  s2_latched = s2_latched ? (d2 < THRESHOLD_LEAVE_CM) : (d2 < THRESHOLD_ENTER_CM);
+  // 3. Hysteresis Obstacle Detection
+  bool b0_raw = s0_blocked ? (d0 < THRESHOLD_LEAVE_CM) : (d0 < THRESHOLD_ENTER_CM);
+  bool b1_raw = s1_blocked ? (d1 < THRESHOLD_LEAVE_CM) : (d1 < THRESHOLD_ENTER_CM);
 
-  // 4. Directional State Machine
+  s0_blocked = b0_raw;
+  s1_blocked = b1_raw;
+
+  // Handle optional physical inversion
+  bool b0 = INVERT_DIRECTION ? s1_blocked : s0_blocked;
+  bool b1 = INVERT_DIRECTION ? s0_blocked : s1_blocked;
+
   unsigned long now = millis();
 
+  // 4. Directional State Machine (0->1 Boarding IN, 1->0 Alighting OUT)
   switch (state) {
 
-    // ── IDLE ─────────────────────────────────────────────────────────────────
-    case IDLE:
+    // ── IDLE (0, 0) ──────────────────────────────────────────────────────────
+    case STATE_IDLE:
       digitalWrite(LED_PIN, LOW);
 
       if (now - lastCountTime < COOLDOWN_MS) {
-        break; // Guard against bounce immediately after traversal
+        break; // Post-count debounce
       }
 
-      if (s1_latched && !s2_latched) {
-        state = IN_ENTRY;
+      if (b0 && !b1) {
+        // Sensor 0 tripped first -> Potential IN (0 -> 1)
+        state = STATE_IN_S0;
         stateStartTime = now;
       }
-      else if (s2_latched && !s1_latched) {
-        state = OUT_ENTRY;
+      else if (b1 && !b0) {
+        // Sensor 1 tripped first -> Potential OUT (1 -> 0)
+        state = STATE_OUT_S1;
         stateStartTime = now;
       }
       break;
 
-    // ── BOARDING SEQUENCE (S1 -> S2) ─────────────────────────────────────────
-    case IN_ENTRY:
-      if (s1_latched && s2_latched) {
-        state = IN_MIDWAY;
+    // ── BOARDING SEQUENCE (IN: 0 -> 1) ───────────────────────────────────────
+    case STATE_IN_S0:
+      if (b0 && b1) {
+        state = STATE_IN_BOTH;
       }
-      else if (!s1_latched && !s2_latched) {
-        // Aborted step before reaching S2
-        state = IDLE;
+      else if (!b0 && !b1) {
+        // Person walked up to S0 and backed away -> Reset (NO COUNT)
+        state = STATE_IDLE;
       }
       else if (now - stateStartTime > TIMEOUT_MS) {
-        state = IDLE;
+        state = STATE_IDLE;
       }
       break;
 
-    case IN_MIDWAY:
-      if (!s1_latched && s2_latched) {
-        state = IN_EXITING;
+    case STATE_IN_BOTH:
+      if (!b0 && b1) {
+        state = STATE_IN_S1_ONLY;
       }
-      else if (!s1_latched && !s2_latched) {
-        // Person completed pass quickly
+      else if (b0 && !b1) {
+        // Person stepped back towards S0
+        state = STATE_IN_S0;
+      }
+      else if (!b0 && !b1) {
+        // Fast crossing through both beams -> REGISTER IN
         total_in++;
         occupancy++;
         lastCountTime = now;
-        dispatchEvent("IN", 1, 0, d1, d2);
-        state = IDLE;
+        dispatchCrossing("IN", 1, 0, d0, d1);
+        state = STATE_IDLE;
       }
       else if (now - stateStartTime > TIMEOUT_MS) {
-        state = IDLE;
+        state = STATE_IDLE;
       }
       break;
 
-    case IN_EXITING:
-      if (!s1_latched && !s2_latched) {
-        // Clean complete exit from doorway -> Register +1 IN
+    case STATE_IN_S1_ONLY:
+      if (!b0 && !b1) {
+        // Fully cleared doorway on S1 side -> REGISTER IN (+1)
         total_in++;
         occupancy++;
         lastCountTime = now;
-        dispatchEvent("IN", 1, 0, d1, d2);
-        state = IDLE;
+        dispatchCrossing("IN", 1, 0, d0, d1);
+        state = STATE_IDLE;
+      }
+      else if (b0 && b1) {
+        state = STATE_IN_BOTH;
       }
       else if (now - stateStartTime > TIMEOUT_MS) {
-        state = IDLE;
+        state = STATE_IDLE;
       }
       break;
 
-    // ── ALIGHTING SEQUENCE (S2 -> S1) ────────────────────────────────────────
-    case OUT_ENTRY:
-      if (s1_latched && s2_latched) {
-        state = OUT_MIDWAY;
+    // ── ALIGHTING SEQUENCE (OUT: 1 -> 0) ──────────────────────────────────────
+    case STATE_OUT_S1:
+      if (b0 && b1) {
+        state = STATE_OUT_BOTH;
       }
-      else if (!s1_latched && !s2_latched) {
-        // Aborted step before reaching S1
-        state = IDLE;
+      else if (!b0 && !b1) {
+        // Person walked up to S1 and backed away -> Reset (NO COUNT)
+        state = STATE_IDLE;
       }
       else if (now - stateStartTime > TIMEOUT_MS) {
-        state = IDLE;
+        state = STATE_IDLE;
       }
       break;
 
-    case OUT_MIDWAY:
-      if (s1_latched && !s2_latched) {
-        state = OUT_EXITING;
+    case STATE_OUT_BOTH:
+      if (b0 && !b1) {
+        state = STATE_OUT_S0_ONLY;
       }
-      else if (!s1_latched && !s2_latched) {
-        // Person completed exit pass quickly
+      else if (!b0 && b1) {
+        // Person stepped back towards S1
+        state = STATE_OUT_S1;
+      }
+      else if (!b0 && !b1) {
+        // Fast crossing through both beams -> REGISTER OUT
         total_out++;
         if (occupancy > 0) occupancy--;
         lastCountTime = now;
-        dispatchEvent("OUT", 0, 1, d1, d2);
-        state = IDLE;
+        dispatchCrossing("OUT", 0, 1, d0, d1);
+        state = STATE_IDLE;
       }
       else if (now - stateStartTime > TIMEOUT_MS) {
-        state = IDLE;
+        state = STATE_IDLE;
       }
       break;
 
-    case OUT_EXITING:
-      if (!s1_latched && !s2_latched) {
-        // Clean complete exit outside coach -> Register +1 OUT
+    case STATE_OUT_S0_ONLY:
+      if (!b0 && !b1) {
+        // Fully cleared doorway on S0 side -> REGISTER OUT (-1)
         total_out++;
         if (occupancy > 0) occupancy--;
         lastCountTime = now;
-        dispatchEvent("OUT", 0, 1, d1, d2);
-        state = IDLE;
+        dispatchCrossing("OUT", 0, 1, d0, d1);
+        state = STATE_IDLE;
+      }
+      else if (b0 && b1) {
+        state = STATE_OUT_BOTH;
       }
       else if (now - stateStartTime > TIMEOUT_MS) {
-        state = IDLE;
+        state = STATE_IDLE;
       }
       break;
   }
 
-  // 5. Periodic Sync Telemetry (every 1.5 seconds when idle)
+  // 5. Periodic Heartbeat Sync (every 1.5s when idle)
   if (now - lastTelemetrySync > 1500) {
     lastTelemetrySync = now;
-    if (state == IDLE) {
+    if (state == STATE_IDLE) {
       char syncBuf[160];
       snprintf(
         syncBuf,
         sizeof(syncBuf),
         "{\"event\":\"SYNC\",\"in_delta\":0,\"out_delta\":0,\"occupancy\":%d,\"total_in\":%d,\"total_out\":%d,\"d1\":%.1f,\"d2\":%.1f}",
-        occupancy, total_in, total_out, d1, d2
+        occupancy, total_in, total_out, d0, d1
       );
       Serial.println(syncBuf);
     }
