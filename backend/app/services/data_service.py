@@ -478,6 +478,17 @@ class DataService:
         return datetime(now.year, now.month, now.day, hour, minute).isoformat()
 
     @staticmethod
+    def _time_to_hhmm(now: datetime, hhmm: str | None) -> str:
+        if not hhmm:
+            return now.strftime("%H:%M")
+        return str(hhmm).strip()
+
+    @staticmethod
+    def _offset_to_hhmm(now: datetime, seconds: int | float) -> str:
+        from datetime import timedelta
+        return (now + timedelta(seconds=float(seconds))).strftime("%H:%M")
+
+    @staticmethod
     def _offset_to_iso(now: datetime, seconds: int | float) -> str:
         from datetime import timedelta
         return (now + timedelta(seconds=float(seconds))).isoformat()
