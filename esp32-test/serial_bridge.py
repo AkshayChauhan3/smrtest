@@ -1,69 +1,37 @@
 #!/usr/bin/env python3
 """
-ESP32 → SmartRail-OS Serial Bridge (Directional Passenger IN / OUT)
-==================================================================
-Reads real-time passenger occupancy and crossing events (IN / OUT) from the
-ESP32 sensor via USB serial and forwards them to the backend ingestion API.
-
-Usage
------
-    # Auto-detect port and broadcast to ALL stations:
-    python serial_bridge.py
-
-    # Attach to a specific station (e.g. Old High Court BL08):
-    python serial_bridge.py --station BL08
-
-    # Override port & backend URL:
-    python serial_bridge.py --port /dev/ttyUSB0 --backend http://localhost:8000
+SmartRail OS — ESP32 Directional Serial Bridge
+Reads directional crossing pulses and telemetry from the ESP32 over USB Serial
+and forward-propagates them to the SmartRail OS FastAPI backend in real time.
 """
 
 import argparse
 import glob
 import json
 import re
+import sys
 import time
-from datetime import datetime
-
-import requests
+import urllib.request
+import urllib.error
 import serial
 
 
-# ─── Defaults ──────────────────────────────────────────────────────────────
-BAUD_RATE     = 115200
-BACKEND_URL   = "http://localhost:8000"
-COACH_CAP     = 400
-RETRY_DELAY   = 3
-POST_COOLDOWN = 0.05  # minimum seconds between consecutive POSTs
+# ─── Configuration Defaults ──────────────────────────────────────────────────
+DEFAULT_PORT = None
+DEFAULT_BAUD = 115200
+DEFAULT_BACKEND = "http://localhost:8000"
+RETRY_DELAY = 3.0
+POST_COOLDOWN = 0.5
 
 
-# ─── Auto-detect serial port ─────────────────────────────────────────────────
-def detect_serial_port() -> str:
-    candidates = sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*"))
-    if candidates:
-        print(f"  Auto-detected serial ports: {candidates}")
-        print(f"  Using: {candidates[0]}")
-        return candidates[0]
-    print("  ⚠  No /dev/ttyUSB* or /dev/ttyACM* found — defaulting to /dev/ttyUSB0")
+def find_serial_port() -> str:
+    """Auto-detect connected USB serial devices."""
+    ports = sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*"))
+    if ports:
+        return ports[0]
     return "/dev/ttyUSB0"
 
 
-# ─── CLI ────────────────────────────────────────────────────────────────────
-def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="ESP32 → SmartRail-OS directional serial bridge")
-    p.add_argument("--port",    default=None,       help="Serial port (auto-detected if omitted)")
-    p.add_argument("--baud",    default=BAUD_RATE,  type=int, help="Baud rate (default: 115200)")
-    p.add_argument("--backend", default=BACKEND_URL, help="Backend base URL")
-    p.add_argument(
-        "--station",
-        default=None,
-        help="Station ID to attach dummy train to (e.g. BL08). Omit for all stations.",
-    )
-    p.add_argument("--coach", default="C1", help="Coach ID (default: C1)")
-    p.add_argument("--capacity", default=COACH_CAP, type=int, help="Coach capacity (default: 400)")
-    return p.parse_args()
-
-
-# ─── HTTP helpers ────────────────────────────────────────────────────────────
 def post_telemetry(
     backend: str,
     direction: str,
@@ -93,43 +61,56 @@ def post_telemetry(
         "coach_id": coach_id,
         "coach_capacity": capacity,
     }
+
     try:
-        r = requests.post(url, json=payload, timeout=2)
-        if r.status_code == 200:
-            data = r.json()
-            ts = datetime.now().strftime("%H:%M:%S")
-            pct = data.get("occupancy_pct", "?")
-            sid = data.get("station_id") or "ALL STATIONS"
-            icon = "🟢 [IN ]" if direction == "IN" else "🟠 [OUT]" if direction == "OUT" else "🔄 [SYNC]"
-            print(f"[{ts}] {icon} Occupancy: {occupancy:3d} ({pct}%) | Totals: IN={data.get('total_in', '?')} OUT={data.get('total_out', '?')} → {sid} ✓")
-            return True
-        else:
-            print(f"  ⚠  HTTP {r.status_code}: {r.text[:120]}")
-            return False
-    except requests.exceptions.ConnectionError:
-        print("  ✗  Backend unreachable — is the FastAPI server running?")
-        return False
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            if resp.status == 200:
+                pct = (occupancy / capacity) * 100.0
+                ts = time.strftime("%H:%M:%S")
+                icon = "🟢" if direction == "IN" else ("🟠" if direction == "OUT" else "🔄")
+                tot_str = f"Totals: IN={total_in} OUT={total_out}" if total_in is not None else ""
+                dist_str = f"| S1: {distance_s1:.1f}cm S2: {distance_s2:.1f}cm" if (distance_s1 is not None and distance_s1 < 900) else ""
+                print(f"[{ts}] {icon} [{direction:<4}] Occupancy: {occupancy:>3} ({pct:4.1f}%) | {tot_str} {dist_str} → {station_id or 'ALL'} ✓")
+                return True
+    except urllib.error.HTTPError as exc:
+        print(f"  [HTTP {exc.code}] Telemetry rejected: {exc.reason}")
+    except urllib.error.URLError as exc:
+        print(f"  [HTTP ERROR] Backend connection failed at {url}: {exc.reason}")
     except Exception as exc:
-        print(f"  ✗  POST failed: {exc}")
-        return False
+        print(f"  [ERROR] {exc}")
+
+    return False
 
 
-# ─── Main loop ───────────────────────────────────────────────────────────────
-def main() -> None:
-    args = parse_args()
+def main():
+    parser = argparse.ArgumentParser(description="SmartRail OS ESP32 Directional Serial Bridge")
+    parser.add_argument("--port", default=DEFAULT_PORT, help="Serial port (e.g. /dev/ttyUSB0)")
+    parser.add_argument("--baud", type=int, default=DEFAULT_BAUD, help="Baud rate (default 115200)")
+    parser.add_argument("--backend", default=DEFAULT_BACKEND, help="Backend URL (default http://localhost:8000)")
+    parser.add_argument("--station", default=None, help="Target station ID (e.g. BL08)")
+    parser.add_argument("--coach", default="C1", help="Coach identifier (default C1)")
+    parser.add_argument("--capacity", type=int, default=400, help="Coach capacity (default 400)")
+    args = parser.parse_args()
 
     if args.port is None:
-        args.port = detect_serial_port()
+        args.port = find_serial_port()
 
     station_label = args.station if args.station else "ALL stations"
-    print("=" * 60)
-    print("  SmartRail-OS  ·  ESP32 Directional Serial Bridge")
-    print("=" * 60)
+    print("=" * 62)
+    print("  SmartRail OS  ·  ESP32 Directional Serial Bridge")
+    print("=" * 62)
     print(f"  Port    : {args.port}  @  {args.baud} baud")
     print(f"  Backend : {args.backend}")
     print(f"  Station : {station_label}")
     print(f"  Coach   : {args.coach} (Capacity: {args.capacity} pax)")
-    print("=" * 60)
+    print("=" * 62)
     print()
 
     last_occupancy = -1
@@ -138,16 +119,8 @@ def main() -> None:
     while True:
         try:
             ser = serial.Serial(args.port, args.baud, timeout=1)
-            # Pulse DTR/RTS to reset ESP32 and initiate clean startup
-            ser.dtr = False
-            ser.rts = False
-            time.sleep(0.1)
-            ser.dtr = True
-            ser.rts = True
-            time.sleep(0.1)
-
-            print(f"✓  Connected to {args.port}")
-            print("   Listening for live sensor readings & telemetry…\n")
+            print(f"✓ Connected to {args.port}")
+            print("  Listening for directional passenger crossings…\n")
 
             while True:
                 raw = ser.readline()
@@ -158,7 +131,7 @@ def main() -> None:
                 if not line:
                     continue
 
-                # 1. Try parsing structured JSON
+                # 1. Structured JSON (Preferred)
                 if line.startswith("{") and line.endswith("}"):
                     try:
                         pkt = json.loads(line)
@@ -191,11 +164,11 @@ def main() -> None:
                     except json.JSONDecodeError:
                         pass
 
-                # 2. Parse human-readable crossing markers
-                if "PASSENGER IN" in line:
+                # 2. Human-readable logs
+                if "BOARDING" in line or "PASSENGER IN" in line:
                     post_telemetry(args.backend, "IN", 1, 0, max(0, last_occupancy + 1), station_id=args.station, coach_id=args.coach, capacity=args.capacity)
                     last_occupancy += 1
-                elif "PASSENGER OUT" in line:
+                elif "ALIGHTING" in line or "PASSENGER OUT" in line:
                     occ = max(0, last_occupancy - 1)
                     post_telemetry(args.backend, "OUT", 0, 1, occ, station_id=args.station, coach_id=args.coach, capacity=args.capacity)
                     last_occupancy = occ
@@ -208,20 +181,17 @@ def main() -> None:
                             post_telemetry(args.backend, "SYNC", 0, 0, occ, station_id=args.station, coach_id=args.coach, capacity=args.capacity)
                             last_occupancy = occ
                             last_post_time = now
-                else:
-                    # Echo raw ESP32 serial lines (startup banners, diagnostic telemetry)
+                elif "[Sensor Status]" in line or "SmartRail OS" in line or "Threshold" in line:
                     print(f"  [ESP32] {line}")
 
         except serial.SerialException as exc:
-            print(f"\n✗  Serial error: {exc}")
-            print(f"   Retrying in {RETRY_DELAY}s…\n")
+            print(f"✗ Serial port error: {exc}")
+            print(f"  Retrying in {RETRY_DELAY}s…\n")
             time.sleep(RETRY_DELAY)
         except KeyboardInterrupt:
-            print("\n\nBridge stopped by user.  Bye!")
+            print("\n\nBridge stopped by user.")
             break
 
 
 if __name__ == "__main__":
     main()
-
-
