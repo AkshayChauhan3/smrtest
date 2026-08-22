@@ -1,70 +1,163 @@
-# 🚀 SmartRail OS — Complete Startup Guide
+# 🚀 SmartRail OS — Complete Master Startup Guide
 
-This guide gives you the exact terminal commands to launch the entire SmartRail OS stack (Backend, Web Dashboard, Flutter Mobile App, and Sensor Emulator) in under 2 minutes.
+This guide gives you the exact terminal commands and configurations to launch and test the entire SmartRail OS ecosystem:
+1. **FastAPI Backend & Database Engine** (Port 8000)
+2. **Simulated Clock & Dynamic Time Control** (24/7 testing & rush-hour simulation)
+3. **Machine Learning Model Training & Estimation Pipeline** (RandomForest Regressor)
+4. **ESP32 IoT Sensor & Hardware Break-Beam Emulator** (Real-time passenger flow)
+5. **Web Command Center Dashboard** (React + TanStack on Port 8080)
+6. **Commuter Mobile App** (Flutter on Port 8082 / Android)
 
 ---
 
-## ⚡ Quick Start (4-Terminal Setup)
+## ⚡ 1. FastAPI Backend & Simulation Engine (Terminal 1)
 
-### 1️⃣ Terminal 1: FastAPI Backend & Prediction Engine
-
-Runs the core transit physics simulation, ML forecasting engine, and REST/WebSocket API on **Port 8000**.
+Runs the real-time kinematics engine, 24 circulating trains (`BL-01`..`BL-12`, `RL-01`..`RL-12`), SQLite database, and REST/WebSocket APIs on **Port 8000**.
 
 ```bash
 cd backend
 
-python init_db.py
-
-# 1. Install dependencies (if not already installed)
+# 1. Install dependencies
 pip install -r requirements.txt
 
-# 2. Start the Backend Server (auto-seeds database on first launch)
+# 2. Initialize and seed the database (33 stations, 4 routes, 24 rakes, 75 coaches)
+python init_db.py
+
+# 3. Start the Backend Server
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-> **Backend URL**: [http://localhost:8000](http://localhost:8000)  
-> **Interactive Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)  
-> **Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
+> 🌐 **Backend URL**: [http://localhost:8000](http://localhost:8000)  
+> 📖 **Interactive Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)  
+> 💚 **Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
 
-#### 🛠️ Dev Mode — Override Simulation Time
+---
 
-Use this when running **outside service hours** (06:20–22:09). The clock starts at the given time and advances in real-time (e.g. 12:00 → 12:01 → 12:02...).
+## ⏰ 2. Simulated Clock & Time Travel Options
 
-```powershell
-# Windows (PowerShell):
-$env:DEV_SIM_TIME="12:00"; uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+Because revenue metro service runs between **06:00 and 23:00**, SmartRail OS includes a **Simulated Clock** so you can test peak rush hours, crowd surges, or late-night states at any time. The clock advances forward smoothly in real time (e.g. 09:30:00 → 09:30:01 → 09:30:02...).
+
+### Option A: Launch Server with Preset Simulation Time (Environment Variable)
+```bash
+# Linux / macOS (Bash)
+DEV_SIM_TIME=09:30 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+```powershell
+# Windows (PowerShell)
+$env:DEV_SIM_TIME="09:30"; uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### Option B: Change Simulation Time Dynamically at Runtime (REST API)
+You can change the clock time on a running server without restarting:
+
 ```bash
-# Linux / macOS (Bash):
-DEV_SIM_TIME=12:00 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# Set simulation time to 09:30 AM (Morning Rush Hour)
+curl -X POST http://localhost:8000/api/v1/sim/time \
+     -H "Content-Type: application/json" \
+     -d '{"time": "09:30"}'
+
+# Set simulation time to 18:30 PM (Evening Peak)
+curl -X POST http://localhost:8000/api/v1/sim/time \
+     -H "Content-Type: application/json" \
+     -d '{"time": "18:30"}'
+
+# Check current active simulation clock time
+curl http://localhost:8000/api/v1/sim/time
+
+# Reset back to real wall-clock time
+curl -X POST http://localhost:8000/api/v1/sim/time/reset
+```
+
+> 🌙 **Automatic Night Wrap**: If running between 22:15 and 06:15 without manual override, `SimClock` automatically maps to active daytime hours (`12:xx PM`) so the simulation never goes dead during late-night development.
+
+---
+
+## 🧠 3. Machine Learning Estimation & Model Training
+
+SmartRail OS includes a **RandomForest Regressor** trained on historical Ahmedabad Metro telemetry, Gujarat 2026 public holidays, and Open-Meteo live weather data.
+
+### Option A: Retrain the ML Model & Update Serialized Artifacts
+```bash
+cd passenger_estimation
+
+# 1. (Optional) Regenerate full 630,720-row synthetic dataset:
+python3 generate_data.py
+
+# 2. Train Random Forest model and save model.pkl & encoders.pkl:
+python3 estimation.py
+```
+
+### Option B: Test Live Passenger Crowd Predictions
+```bash
+# 1. Get real-time crowd forecast for a station (e.g. Old High Court BL11):
+curl http://localhost:8000/api/v1/stations/BL11/feature
+
+# 2. Get network-wide multi-horizon crowd forecast (+5m, +15m, +30m):
+curl http://localhost:8000/api/v1/analytics/crowd-forecast
+
+# 3. Get hourly passenger inflow/outflow matrix:
+curl http://localhost:8000/api/v1/analytics/hourly-flow
 ```
 
 ---
 
-### 2️⃣ Terminal 2: Web Command Center (TanStack Start + React)
+## 📡 4. ESP32 IoT Sensor & Hardware Break-Beam Emulator (Terminal 2)
 
-Runs the real-time operational control room and digital twin on **Port 8080**.
+Simulates optical IR break-beam passenger entry/exit sensors at turnstiles and coach doors.
+
+```bash
+# 1. Simulate passenger boarding & alighting flow at Old High Court (BL11):
+python3 scripts/sensor_simulator.py --station BL11 --occupancy 220 --boarding 35 --alighting 15
+
+# 2. Simulate continuous rush-hour passenger triggers:
+python3 scripts/sensor_simulator.py --station BL11 --rush-hour
+```
+
+### Direct ESP32 Ingestion REST API:
+```bash
+# Inspect live ESP32 hardware state:
+curl http://localhost:8000/api/v1/esp32/live
+
+# Send entry turnstile pulse (+5 passengers):
+curl -X POST http://localhost:8000/api/v1/esp32/event \
+     -H "Content-Type: application/json" \
+     -d '{"event_type": "ENTRY", "station_id": "BL11", "door_id": "D1", "count": 5}'
+
+# Override live Coach C1 occupancy on the active train:
+curl -X POST http://localhost:8000/api/v1/esp32/override \
+     -H "Content-Type: application/json" \
+     -d '{"occupancy": 310, "station_id": "BL11"}'
+
+# Release ESP32 manual override back to simulation engine:
+curl -X POST http://localhost:8000/api/v1/esp32/reset
+```
+
+---
+
+## 💻 5. Web Command Center Dashboard (Terminal 3)
+
+React + TanStack Router operational control room with live map tracking, coach heatmaps, and station PIDs on **Port 8080**.
 
 ```bash
 cd smartrailos_web
 
-# 1. Install dependencies
+# 1. Install frontend dependencies
 npm install
 
-# 2. Start Vite Dev Server
+# 2. Start the Vite development server
 npm run dev
 ```
 
-> **Web Dashboard**: [http://localhost:8080/dashboard](http://localhost:8080/dashboard)  
-> **Live Trains View**: [http://localhost:8080/dashboard/live-trains](http://localhost:8080/dashboard/live-trains)  
-> **Incoming Forecasts**: [http://localhost:8080/dashboard/incoming](http://localhost:8080/dashboard/incoming)
+> 🖥️ **Web Dashboard**: [http://localhost:8080/dashboard](http://localhost:8080/dashboard)  
+> 🚆 **Live 24-Train Map**: [http://localhost:8080/dashboard/live-trains](http://localhost:8080/dashboard/live-trains)  
+> 📊 **Incoming Forecasts**: [http://localhost:8080/dashboard/incoming](http://localhost:8080/dashboard/incoming)
 
 ---
 
-### 3️⃣ Terminal 3: Commuter Mobile App (Flutter)
+## 📱 6. Commuter Mobile App (Terminal 4)
 
-Runs the commuter passenger app with live coach occupancy, train searches, and platform predictions.
+Flutter passenger mobile app with journey planning, real-time coach occupancy, and station alerts on **Port 8082** or Android phone.
 
 ```bash
 cd smartrailos_app
@@ -72,65 +165,46 @@ cd smartrailos_app
 # 1. Fetch Flutter dependencies
 flutter pub get
 
-# 2. If testing on a physical Android phone over USB, forward backend port:
+# 2. (Optional) If testing on physical Android device over USB:
 ~/Android/Sdk/platform-tools/adb reverse tcp:8000 tcp:8000
 
-# 3. Launch on Chrome, Emulator, or connected Android phone
+# 3. Launch on Web browser (Port 8082) or Emulator:
 flutter run -d chrome --web-port 8082
-# Or run on physical phone:
-
 ```
 
-> **Mobile Web Preview**: [http://localhost:8082](http://localhost:8082)  
-> *(Note: The app starts directly on the Home / Train Search screen with no login required).*
+> 📱 **Mobile Web Preview**: [http://localhost:8082](http://localhost:8082)
 
 ---
 
-### 4️⃣ Terminal 4: IoT Hardware Sensor Emulator (For Demos & Testing)
+## 🧪 7. Automated Test Suite & Health Verification
 
-Simulates passenger boarding/deboarding IR break-beam pulses in real time.
-
-```bash
-# 1. Simulate arrival flow at Old High Court (BL08):
-python3 scripts/sensor_simulator.py --station BL08 --occupancy 120 --boarding 20 --alighting 10
-
-# 2. Simulate live continuous rush-hour triggers:
-python3 scripts/sensor_simulator.py --station BL08 --rush-hour
-```
-
----
-
-## 🧪 Verification & Automated Tests
-
-Run the full backend test suite:
+Run all automated tests across backend, simulation math, and API contracts:
 
 ```bash
+# Run full 23-test Pytest suite
 cd backend
-python3 -m pytest
-```
+PYTHONPATH=. pytest tests/ -v
 
-Check Flutter code health:
-
-```bash
-cd smartrailos_app
-flutter analyze
-```
-
-Check Web production build:
-
-```bash
-cd smartrailos_web
-npm run build
+# Run individual feature tests:
+PYTHONPATH=. pytest tests/test_api_contract.py -v     # API contracts & journey search
+PYTHONPATH=. pytest tests/test_estimation.py -v       # ML model & confidence scoring
+PYTHONPATH=. pytest tests/test_station_tables.py -v   # Real-time station tables
+PYTHONPATH=. pytest tests/test_ingestion.py -v        # ESP32 & telemetry ingestion
+PYTHONPATH=. pytest tests/test_train_prep.py -v       # Timetable transitions & siding
 ```
 
 ---
 
-## 📁 Key File Locations
+## 📂 Key Architecture & File Reference
 
 | Component | Path | Description |
-| --- | --- | --- |
-| **Database** | `backend/smartrailos_dev.db` | SQLite database with station & occupancy snapshots |
-| **Prediction Engine** | `backend/app/services/engine/prediction_service.py` | Multi-horizon ML forecasting with confidence scoring |
-| **TimescaleDB Migration** | `backend/migrations/timescaledb_production_migration.sql` | Production PostgreSQL/TimescaleDB schema |
-| **PRD Compliance Doc** | `docs/PRD_COMPLIANCE_AND_ARCHITECTURE_DECISIONS.md` | Architectural justifications and talking points for judges |
-| **Sensor Simulator** | `scripts/sensor_simulator.py` | Hardware turnstile & coach flow generator |
+| :--- | :--- | :--- |
+| **Physics & Timetable Engine** | `data_api/metro_engine_shared.py` | Continuous circulation math, dwell physics, and zero-collision timetable |
+| **FastAPI Backend Server** | `backend/app/main.py` | REST API, WebSocket streams, and simulation runner |
+| **Database (SQLite)** | `backend/smartrailos_dev.db` | 79 tables (33 stations, 24 trains, 66 station current/feature tables) |
+| **Simulated Clock** | `backend/app/core/sim_clock.py` | Real-time ticking simulated clock with runtime override API |
+| **ML Training Pipeline** | `passenger_estimation/estimation.py` | RandomForestRegressor training and serialization (`model.pkl`) |
+| **Synthetic Dataset** | `passenger_estimation/data/metro.csv` | 630,720 rows with holidays, weather, anomalies, and coach segregation |
+| **IoT Sensor Emulator** | `scripts/sensor_simulator.py` | Turnstile & coach break-beam pulse simulator |
+| **React Web Dashboard** | `smartrailos_web/` | TanStack-powered operations dashboard |
+| **Flutter Mobile App** | `smartrailos_app/` | Commuter cross-platform mobile application |
