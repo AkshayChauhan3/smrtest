@@ -15,10 +15,12 @@ import {
   useKpi,
   useTrains,
   useKpiHistory,
+  useStations,
 } from "@/lib/api/hooks";
 import { computeDelta, occupancyBand } from "@/lib/api/smartrail";
 import { USE_MOCK } from "@/lib/api/client";
 import { jitter, useLiveTick } from "@/lib/use-live-tick";
+import { useAuth } from "@/lib/auth-context";
 import {
   TrainFront,
   Users,
@@ -26,6 +28,8 @@ import {
   AlertTriangle,
   Sparkles,
   Gauge,
+  Building2,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +37,7 @@ export const Route = createFileRoute("/dashboard/")({
   head: () => ({
     meta: [
       { title: "Overview · SmartRail OS Command Center" },
-      { name: "description", content: "Live operations overview for Old High Court Interchange." },
+      { name: "description", content: "Live operations overview for SmartRail OS." },
     ],
   }),
   component: Overview,
@@ -44,6 +48,13 @@ function Overview() {
   const kpiQ = useKpi();
   const alertsQ = useAlerts();
   const histQ = useKpiHistory();
+  const stationsQ = useStations();
+  const { user, isAdmin, isOperator, stationId } = useAuth();
+
+  const assignedStation = stationId
+    ? stationsQ.data?.find((s) => s.id.toLowerCase() === stationId.toLowerCase())
+    : null;
+  const assignedStationName = assignedStation?.name || (stationId === "BL11" ? "Old High Court" : stationId || "Assigned Station");
 
   // Initial skeleton: wait for the first query to resolve when real backend
   // is wired; in mock mode fall back to the original 700ms shimmer so the UX
@@ -115,6 +126,61 @@ function Overview() {
 
   return (
     <div className="animate-fade-in-up space-y-8 px-4 py-6 md:px-8 md:py-8">
+      {/* Role Scoped Mode Banner */}
+      {isOperator && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-cyan-950/40 via-[#060e18] to-[#04070d] p-4 shadow-lg ring-1 ring-cyan-500/20">
+          <div className="flex items-center gap-3">
+            <div className="grid size-10 place-items-center rounded-xl bg-cyan-500/15 text-cyan-400 ring-1 ring-cyan-500/30">
+              <Building2 className="size-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-white">
+                  Station Operator Console Scoped
+                </span>
+                <span className="rounded bg-cyan-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-cyan-300">
+                  {assignedStationName} {stationId ? `(${stationId})` : ""}
+                </span>
+              </div>
+              <div className="mt-0.5 text-xs text-slate-400">
+                Operating in station-scoped mode · Live telemetry, incoming trains &amp; alerts are tailored to your station.
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="font-mono text-xs text-emerald-400 font-bold">Live Scoped Feed</span>
+          </div>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-[#0a0714] to-[#05030a] p-4 shadow-lg ring-1 ring-purple-500/20">
+          <div className="flex items-center gap-3">
+            <div className="grid size-10 place-items-center rounded-xl bg-purple-500/15 text-purple-300 ring-1 ring-purple-500/30">
+              <Shield className="size-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-white">
+                  IT Administrator Network Operations Mode
+                </span>
+                <span className="rounded bg-purple-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-purple-300">
+                  Full Corridor Fleet Access
+                </span>
+              </div>
+              <div className="mt-0.5 text-xs text-slate-400">
+                Complete network telemetry across all 33 stations, 24 rakes &amp; distributed sensor nodes.
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 font-mono text-xs text-purple-300">
+            <span className="size-2 rounded-full bg-purple-400 animate-pulse" />
+            <span className="font-bold">Global Sync: 33 Stations Online</span>
+          </div>
+        </div>
+      )}
+
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         <KpiCard
           label="Current Trains"

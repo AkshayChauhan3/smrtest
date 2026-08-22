@@ -7,6 +7,8 @@ import '../../features/trains/screens/train_results_screen.dart';
 import '../../features/trains/screens/train_detail_screen.dart';
 import '../../features/trains/screens/sensor_telemetry_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import '../../features/auth/screens/login_screen.dart';
+import '../../features/auth/screens/register_screen.dart';
 
 class AppRouter {
   static final router = GoRouter(
@@ -15,6 +17,14 @@ class AppRouter {
       GoRoute(
         path: '/',
         redirect: (_, __) => '/home',
+      ),
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(
         path: '/home',
@@ -67,3 +77,4 @@ class AppRouter {
     ],
   );
 }
+

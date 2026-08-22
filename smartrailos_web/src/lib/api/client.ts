@@ -20,12 +20,20 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
   const normalized = path.startsWith("/api/") ? path : `${API_V1_PREFIX}${path}`;
   const url = `${API_BASE_URL.replace(/\/$/, "")}${normalized}`;
+  
+  const token = typeof window !== "undefined" ? localStorage.getItem("smartrail_auth_token") : null;
+  const authHeaders: Record<string, string> = {};
+  if (token) {
+    authHeaders["Authorization"] = `Bearer ${token}`;
+  }
+
   const res = await fetch(url, {
     credentials: "include",
     ...init,
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
+      ...authHeaders,
       ...(init.headers ?? {}),
     },
   });

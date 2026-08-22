@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   TrainFront,
@@ -12,8 +12,11 @@ import {
   Boxes,
   Building2,
   Settings,
+  LogOut,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
 import smartRailLogo from "@/assets/smartrail-logo.png";
 
 const NAV: { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean }[] = [
@@ -33,6 +36,14 @@ const NAV: { to: string; label: string; icon: typeof LayoutDashboard; exact?: bo
 
 export function DashboardSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+  const { user, isAdmin, isOperator, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate({ to: "/login" });
+  };
+
   return (
     <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col border-r border-white/[0.06] bg-[#000000] shadow-2xl lg:flex">
       <div className="flex items-center gap-3 border-b border-white/[0.06] px-6 py-5">
@@ -70,23 +81,53 @@ export function DashboardSidebar() {
         })}
       </nav>
 
-      {/* System Health Widget */}
-      <div className="border-t border-white/[0.06] p-4">
-        <div className="rounded-xl border border-white/[0.08] bg-[#080a0f] p-3.5 shadow-inner">
-          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            <span>System Health</span>
-            <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+      {/* User Session Profile & System Health Card */}
+      <div className="border-t border-white/[0.06] p-3.5 space-y-2">
+        {/* User Card */}
+        <div className="rounded-xl border border-white/[0.08] bg-[#080a0f] p-3 shadow-inner">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                {isAdmin ? (
+                  <Shield className="size-3 text-purple-400 shrink-0" />
+                ) : (
+                  <Building2 className="size-3 text-cyan-400 shrink-0" />
+                )}
+                <span className="truncate text-xs font-bold text-white">
+                  {user?.full_name || (isAdmin ? "IT Administrator" : "Station Operator")}
+                </span>
+              </div>
+              <div className="mt-1 flex items-center gap-1.5 font-mono text-[9px] text-slate-400">
+                <span
+                  className={cn(
+                    "rounded px-1.5 py-0.2 font-bold uppercase",
+                    isAdmin ? "bg-purple-500/20 text-purple-300" : "bg-cyan-500/20 text-cyan-300"
+                  )}
+                >
+                  {isAdmin ? "IT ADMIN" : user?.station_id ? `STATION ${user.station_id}` : "OPERATOR"}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              title="Sign Out"
+              className="grid size-7 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/5 text-slate-400 transition-colors hover:border-rose-500/40 hover:bg-rose-500/15 hover:text-rose-300"
+            >
+              <LogOut className="size-3.5" />
+            </button>
           </div>
-          <div className="mt-2 flex items-center justify-between font-mono text-xs">
-            <span className="text-slate-500">Telemetry Link</span>
-            <span className="font-bold text-emerald-400">Online 0ms</span>
-          </div>
-          <div className="mt-1 flex items-center justify-between font-mono text-xs">
-            <span className="text-slate-500">Sensor Fleet</span>
-            <span className="font-bold text-cyan-400">100% Sync</span>
-          </div>
+        </div>
+
+        {/* Telemetry Health */}
+        <div className="flex items-center justify-between px-2 font-mono text-[10px] text-slate-500">
+          <span className="flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Telemetry Online
+          </span>
+          <span className="text-cyan-400 font-bold">100% Sync</span>
         </div>
       </div>
     </aside>
   );
 }
+
