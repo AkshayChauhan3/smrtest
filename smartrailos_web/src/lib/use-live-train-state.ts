@@ -281,7 +281,12 @@ export function computeLiveTrainState(train: Train, nowMs: number): LiveTrainDwe
   };
 }
 
-export function useLiveTrainState(train: Train): LiveTrainDwellState {
+export function useLiveTrainState(train: Train): LiveTrainDwellState;
+export function useLiveTrainState(train: Train | null | undefined): LiveTrainDwellState | null;
+export function useLiveTrainState(train?: Train | null): LiveTrainDwellState | null {
   const nowMs = useGlobalSecondTick();
+  if (!train) return null;
   return computeLiveTrainState(train, nowMs);
 }
+
+
