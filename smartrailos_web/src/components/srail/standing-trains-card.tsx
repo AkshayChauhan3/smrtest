@@ -10,7 +10,7 @@ function StandingTrainRow({ train }: { train: Train }) {
   const state = useLiveTrainState(train);
 
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-white/5 bg-white/[0.02] p-4 transition-all duration-300 hover:border-white/10 hover:bg-white/[0.04]">
+    <div className="group relative overflow-hidden rounded-xl border border-white/[0.06] bg-[#050608] p-4 transition-all duration-300 hover:border-white/10 hover:bg-[#07090e]">
       {/* Top Row: Train ID, Status Pill, Line */}
       <div className="flex items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-2.5">
@@ -181,14 +181,14 @@ export function StandingTrainsCard({ className }: { className?: string }) {
     return (a.etaSeconds ?? 0) - (b.etaSeconds ?? 0);
   });
 
-  const displayTrains = sortedTrains.length > 0 ? sortedTrains.slice(0, 4) : trains.slice(0, 3);
+  const displayTrains = sortedTrains.length > 0 ? sortedTrains.slice(0, 4) : (trains.length > 0 ? trains.slice(0, 3) : []);
   const berthedCount = trains.filter((t) => t.status === "At Station" || t.status === "Departing").length;
   const arrivingCount = trains.filter((t) => t.status === "Approaching" || (t.etaSeconds != null && t.etaSeconds <= 120 && t.status !== "At Station")).length;
 
   return (
     <div
       className={cn(
-        "rounded-2xl border-0 bg-[#141720] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.25)] backdrop-blur-xl",
+        "rounded-2xl border border-white/[0.08] bg-[#080a0f] p-5 shadow-xl",
         className
       )}
     >
@@ -222,7 +222,15 @@ export function StandingTrainsCard({ className }: { className?: string }) {
 
       {/* Train Cards List */}
       <div className="mt-4 space-y-3.5">
-        {displayTrains.length === 0 ? (
+        {trains.length === 0 ? (
+          <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-white/5 bg-[#050608] p-4 text-center">
+            <DoorOpen className="mb-2 size-5 text-slate-500" />
+            <p className="text-xs font-bold text-white">Platform Gates Closed</p>
+            <p className="mt-0.5 text-[11px] text-slate-400">
+              Overnight maintenance active. Platform boarding resumes at 06:00 AM.
+            </p>
+          </div>
+        ) : displayTrains.length === 0 ? (
           <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-obsidian-900/50 text-center">
             <DoorOpen className="mb-2 size-5 text-slate-500" />
             <p className="text-xs font-semibold text-slate-300">Platforms Clear</p>

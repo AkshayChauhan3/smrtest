@@ -75,8 +75,7 @@ function Overview() {
 
   if (loading) return <OverviewSkeleton />;
 
-  const kpi = kpiQ.data ?? mockKpi;
-  const trainsRaw = trainsQ.data ?? TRAINS;
+  const trainsRaw = trainsQ.data ?? [];
   
   // ESP32 visibility: hide during online hours, show during offline hours
   const hasRealTrains = trainsRaw.some(t => t.id !== "ESP32_DEMO");
@@ -89,11 +88,31 @@ function Overview() {
     return 0;
   });
 
-  const alerts = alertsQ.data && alertsQ.data.length > 0 ? alertsQ.data : ALERTS;
+  const alerts = alertsQ.data ?? [];
   const visible = trains.slice(0, 3);
   
   const hist = histQ.data;
   const ago = hist?.hour_ago ?? undefined;
+
+  // Derive real-time corridor metrics from live trains fleet
+  const activeFleetCount = trains.length;
+  const totalFleetPax = trains.reduce((sum, t) => {
+    return sum + (t.coaches || []).reduce((cSum, c) => cSum + (c.passengers ?? Math.round(((c.capacity || 280) * (c.occupancy || 0)) / 100)), 0);
+  }, 0);
+  const totalFleetCap = trains.reduce((sum, t) => {
+    return sum + (t.coaches || []).reduce((cSum, c) => cSum + (c.capacity || 280), 0);
+  }, 0) || 1;
+  const liveAvgOccupancy = Math.min(100, Math.round((totalFleetPax / totalFleetCap) * 100));
+
+  const kpiData = kpiQ.data;
+  const kpi = {
+    currentTrains: USE_MOCK ? mockKpi.currentTrains : (kpiData?.currentTrains ?? activeFleetCount),
+    passengersInTransit: USE_MOCK ? mockKpi.passengersInTransit : (kpiData?.passengersInTransit ?? totalFleetPax),
+    avgOccupancy: USE_MOCK ? mockKpi.avgOccupancy : (kpiData?.avgOccupancy ?? liveAvgOccupancy),
+    activeAlerts: alerts.filter((a) => !a.resolved).length,
+    predictedNextHour: USE_MOCK ? mockKpi.predictedNextHour : (kpiData?.predictedNextHour ?? Math.round(totalFleetPax * 1.18)),
+    passengersInStation: USE_MOCK ? mockKpi.passengersInStation : (kpiData?.passengersInStation ?? 0),
+  };
 
   return (
     <div className="animate-fade-in-up space-y-8 px-4 py-6 md:px-8 md:py-8">
@@ -149,7 +168,7 @@ function Overview() {
           <StandingTrainsCard />
 
           {/* Recent Alerts Feed */}
-          <section className="rounded-2xl border-0 bg-[#141720] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.25)] backdrop-blur-xl">
+          <section className="rounded-2xl border border-white/[0.08] bg-[#080a0f] p-6 shadow-xl">
             <SectionHeader title="Recent Alerts" right="Live Stream" />
             <ul className="mt-5 space-y-3.5">
               {alerts.filter((a) => !a.resolved).slice(0, 4).map((a) => {
@@ -161,7 +180,7 @@ function Overview() {
                       "group relative rounded-xl border p-3.5 transition-all duration-200",
                       isEmergency
                         ? "border-rose-500/30 bg-rose-500/10 hover:border-rose-500/50"
-                        : "border-white/5 bg-white/[0.02] hover:border-white/10 hover:bg-white/[0.04]"
+                        : "border-white/[0.06] bg-[#050608] hover:border-white/10 hover:bg-[#07090e]"
                     )}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -192,18 +211,18 @@ function Overview() {
           </section>
 
           {/* Interchange Status Card */}
-          <section className="rounded-2xl border-0 bg-[#141720] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.25)] backdrop-blur-xl">
+          <section className="rounded-2xl border border-white/[0.08] bg-[#080a0f] p-6 shadow-xl">
             <SectionHeader title="Interchange Hub" right="Platform 1 & 2" />
             <div className="mt-4 space-y-3">
-              <div className="flex items-center justify-between rounded-lg bg-white/[0.03] p-3 text-xs">
+              <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-[#050608] p-3 text-xs">
                 <span className="text-slate-300 font-medium">Blue Line Throughput</span>
                 <span className="font-mono font-bold text-blue-400">99.4% On Time</span>
               </div>
-              <div className="flex items-center justify-between rounded-lg bg-white/[0.03] p-3 text-xs">
+              <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-[#050608] p-3 text-xs">
                 <span className="text-slate-300 font-medium">Red Line Throughput</span>
                 <span className="font-mono font-bold text-rose-400">98.8% On Time</span>
               </div>
-              <div className="flex items-center justify-between rounded-lg bg-white/[0.03] p-3 text-xs">
+              <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-[#050608] p-3 text-xs">
                 <span className="text-slate-300 font-medium">Station Turnstile Gates</span>
                 <span className="font-mono font-bold text-emerald-400">All 12 Active</span>
               </div>

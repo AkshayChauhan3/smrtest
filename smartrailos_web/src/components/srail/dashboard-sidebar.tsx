@@ -34,7 +34,7 @@ const NAV: { to: string; label: string; icon: typeof LayoutDashboard; exact?: bo
 export function DashboardSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   return (
-    <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col border-r border-white/[0.06] bg-[#141821]/75 backdrop-blur-[12px] shadow-2xl lg:flex">
+    <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col border-r border-white/[0.06] bg-[#000000] shadow-2xl lg:flex">
       <div className="flex items-center gap-3 border-b border-white/[0.06] px-6 py-5">
         <div className="grid size-9 place-items-center rounded-md bg-white p-1">
           <img src={smartRailLogo} alt="SmartRail logo" className="size-full object-contain" />
@@ -58,30 +58,33 @@ export function DashboardSidebar() {
               className={cn(
                 "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                 active
-                  ? "bg-accent-cyan/10 text-accent-cyan"
-                  : "text-slate-400 hover:bg-white/5 hover:text-white",
+                  ? "bg-white/[0.06] font-semibold text-accent-cyan"
+                  : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200",
               )}
             >
-              <Icon className={cn("size-4 shrink-0", active ? "text-accent-cyan" : "text-slate-500")} />
-              <span className={cn("font-medium", active && "font-semibold")}>{item.label}</span>
-              {active && <span className="ml-auto size-1.5 rounded-full bg-accent-cyan" />}
+              <Icon className={cn("size-4 shrink-0", active ? "text-accent-cyan" : "text-slate-400 group-hover:text-slate-200")} />
+              <span className="flex-1 truncate">{item.label}</span>
+              {active && <span className="size-1.5 rounded-full bg-accent-cyan" />}
             </Link>
           );
         })}
       </nav>
 
-      <div className="border-t border-white/5 p-4">
-        <div className="rounded-lg border border-white/5 bg-obsidian-800/60 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-            System Health
-          </p>
-          <div className="mt-2 flex gap-1">
-            <div className="h-1 flex-1 rounded-full bg-accent-cyan" />
-            <div className="h-1 flex-1 rounded-full bg-accent-cyan" />
-            <div className="h-1 flex-1 rounded-full bg-accent-cyan" />
-            <div className="h-1 flex-1 rounded-full bg-white/10" />
+      {/* System Health Widget */}
+      <div className="border-t border-white/[0.06] p-4">
+        <div className="rounded-xl border border-white/[0.08] bg-[#080a0f] p-3.5 shadow-inner">
+          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <span>System Health</span>
+            <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
           </div>
-          <p className="mt-2 font-mono text-[10px] text-slate-500">82.4% nominal</p>
+          <div className="mt-2 flex items-center justify-between font-mono text-xs">
+            <span className="text-slate-500">Telemetry Link</span>
+            <span className="font-bold text-emerald-400">Online 0ms</span>
+          </div>
+          <div className="mt-1 flex items-center justify-between font-mono text-xs">
+            <span className="text-slate-500">Sensor Fleet</span>
+            <span className="font-bold text-cyan-400">100% Sync</span>
+          </div>
         </div>
       </div>
     </aside>

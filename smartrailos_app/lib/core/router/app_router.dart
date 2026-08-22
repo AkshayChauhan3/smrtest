@@ -5,6 +5,7 @@ import '../../features/trains/screens/lines_screen.dart';
 import '../../features/trains/screens/live_radar_screen.dart';
 import '../../features/trains/screens/train_results_screen.dart';
 import '../../features/trains/screens/train_detail_screen.dart';
+import '../../features/trains/screens/sensor_telemetry_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 
 class AppRouter {
@@ -29,6 +30,14 @@ class AppRouter {
       GoRoute(
         path: '/live',
         builder: (context, state) => const LiveRadarScreen(),
+      ),
+      GoRoute(
+        path: '/sensors',
+        builder: (context, state) => const SensorTelemetryScreen(),
+      ),
+      GoRoute(
+        path: '/sensor-telemetry',
+        builder: (context, state) => const SensorTelemetryScreen(),
       ),
       GoRoute(
         path: '/results',

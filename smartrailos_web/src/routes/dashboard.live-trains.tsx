@@ -45,7 +45,7 @@ function LiveTrainsPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const trainsQ = useTrains();
-  const trainsRaw = (trainsQ.data && trainsQ.data.length > 0) ? trainsQ.data : TRAINS;
+  const trainsRaw = trainsQ.data ?? [];
 
   // Filter out ESP32 demo during active fleet hours if real trains exist
   const hasRealTrains = trainsRaw.some((t) => t.id !== "ESP32_DEMO");
@@ -230,7 +230,21 @@ function LiveTrainsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {filteredTrains.length === 0 ? (
+              {allTrains.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-16 text-center">
+                    <div className="mx-auto flex max-w-md flex-col items-center justify-center gap-3">
+                      <div className="flex size-12 items-center justify-center rounded-2xl bg-white/[0.04] ring-1 ring-white/10">
+                        <TrainFront className="size-6 text-slate-400" />
+                      </div>
+                      <div className="text-sm font-bold text-white">Metro Service Closed (Overnight Maintenance)</div>
+                      <p className="text-xs text-slate-400">
+                        All 24 train units are securely stabled at Vastral Gam & APMC Depots. Passenger service will resume at 06:00 AM.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredTrains.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-xs text-slate-500">
                     No active train units match the filter criteria.

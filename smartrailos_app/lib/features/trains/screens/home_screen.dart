@@ -84,6 +84,28 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 actions: [
                   IconButton(
+                    onPressed: () => context.push('/sensors'),
+                    icon: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Icon(Icons.sensors_rounded, color: AppTheme.textPrimary),
+                        Positioned(
+                          right: -1,
+                          top: -1,
+                          child: Container(
+                            width: 7,
+                            height: 7,
+                            decoration: const BoxDecoration(
+                              color: AppTheme.signalGreen,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    tooltip: 'ESP32 Sensor Telemetry',
+                  ),
+                  IconButton(
                     onPressed: () => context.push('/profile'),
                     icon: const Icon(Icons.tune_rounded, color: AppTheme.textPrimary),
                     tooltip: 'Commuter Preferences',

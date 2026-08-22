@@ -12,6 +12,9 @@ import 'package:smartrailos_app/features/trains/screens/live_radar_screen.dart';
 import 'package:smartrailos_app/features/profile/screens/profile_screen.dart';
 import 'package:smartrailos_app/features/trains/providers/train_search_provider.dart';
 
+import 'package:smartrailos_app/features/trains/screens/sensor_telemetry_screen.dart';
+import 'package:smartrailos_app/features/trains/widgets/live_sensor_banner.dart';
+
 void main() {
   testWidgets('FloatingNav renders 4 tabs with active label and railway icons', (WidgetTester tester) async {
     int tappedIndex = -1;
@@ -66,10 +69,11 @@ void main() {
 
   testWidgets('MetroDrawer renders network status, corridors, and interchange info', (WidgetTester tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.darkTheme,
-        home: const Scaffold(
-          body: MetroDrawer(),
+      const ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: MetroDrawer(),
+          ),
         ),
       ),
     );
@@ -83,6 +87,11 @@ void main() {
     expect(find.text('Line 2 · Red Line'), findsOneWidget);
     expect(find.text('INTERCHANGE HUB'), findsOneWidget);
     expect(find.text('Old High Court Station'), findsOneWidget);
+
+    // Scroll to reveal Transit Services items
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('ESP32 Sensor Telemetry'), findsOneWidget);
   });
 
   testWidgets('LinesScreen renders line corridors and station sequence', (WidgetTester tester) async {
@@ -202,5 +211,44 @@ void main() {
 
     expect(find.text('Jivraj Park'), findsOneWidget);
     expect(find.text('TO STATION (DESTINATION)'), findsOneWidget);
+    container.dispose();
+  });
+
+  testWidgets('LiveSensorBanner renders live sensor occupancy and flow metrics', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: LiveSensorBanner(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.textContaining('LIVE SENSOR'), findsOneWidget);
+    expect(find.textContaining('IN:'), findsOneWidget);
+    expect(find.textContaining('OUT:'), findsOneWidget);
+    expect(find.text('VIEW SENSOR HUB'), findsOneWidget);
+  });
+
+  testWidgets('SensorTelemetryScreen renders real-time telemetry gauges and controls', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: SensorTelemetryScreen(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('ESP32 SENSOR TELEMETRY'), findsOneWidget);
+    expect(find.text('REAL-TIME COACH OCCUPANCY'), findsOneWidget);
+    expect(find.text('DUAL-BEAM OPTICAL FLOW SENSORS'), findsOneWidget);
+    expect(find.text('PASSENGER FLOW RATES'), findsOneWidget);
+    expect(find.text('TEST HARDWARE SIMULATION'), findsOneWidget);
+    expect(find.text('+1 IN (Board)'), findsOneWidget);
+    expect(find.text('-1 OUT (Alight)'), findsOneWidget);
+    expect(find.text('Reset All Sensor Counters'), findsOneWidget);
   });
 }

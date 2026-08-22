@@ -48,10 +48,10 @@
   --color-sidebar-ring: var(--sidebar-ring);
 
   /* SmartRail OS palette */
-  --color-obsidian-950: #0a0a0c;
-  --color-obsidian-900: #121216;
-  --color-obsidian-800: #1e1e26;
-  --color-obsidian-700: #2a2a35;
+  --color-obsidian-950: #000000;
+  --color-obsidian-900: #080a0f;
+  --color-obsidian-800: #050608;
+  --color-obsidian-700: #121620;
   --color-accent-cyan: #2dd4bf;
   --color-accent-blue: #2563eb;
   --color-accent-blue-2: #3b82f6;
@@ -68,19 +68,19 @@
   --radius: 0.625rem;
 
   /* Dark-first: map shadcn tokens to obsidian palette */
-  --background: #0a0a0c;
+  --background: #000000;
   --foreground: #e2e8f0;
-  --card: #121216;
+  --card: #080a0f;
   --card-foreground: #e2e8f0;
-  --popover: #121216;
+  --popover: #080a0f;
   --popover-foreground: #e2e8f0;
   --primary: #2dd4bf;
-  --primary-foreground: #0a0a0c;
-  --secondary: #1e1e26;
+  --primary-foreground: #000000;
+  --secondary: #050608;
   --secondary-foreground: #e2e8f0;
-  --muted: #1e1e26;
+  --muted: #050608;
   --muted-foreground: #94a3b8;
-  --accent: #1e1e26;
+  --accent: #050608;
   --accent-foreground: #e2e8f0;
   --destructive: #f43f5e;
   --destructive-foreground: #ffffff;
@@ -92,11 +92,11 @@
   --chart-3: #f59e0b;
   --chart-4: #f43f5e;
   --chart-5: #10b981;
-  --sidebar: #121216;
+  --sidebar: #000000;
   --sidebar-foreground: #e2e8f0;
   --sidebar-primary: #2dd4bf;
-  --sidebar-primary-foreground: #0a0a0c;
-  --sidebar-accent: #1e1e26;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #050608;
   --sidebar-accent-foreground: #e2e8f0;
   --sidebar-border: rgba(255, 255, 255, 0.06);
   --sidebar-ring: #2dd4bf;
@@ -109,10 +109,40 @@
 
   html,
   body {
-    background-color: var(--color-obsidian-950);
+    background-color: #000000;
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    color-scheme: dark;
+  }
+
+  /* Universal Dark Stealth Scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
   }
 
   .font-mono,

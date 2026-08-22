@@ -188,11 +188,11 @@ export function computeLiveTrainState(train: Train, nowMs: number): LiveTrainDwe
   const basePax = coachesRaw.reduce(
     (sum, c) => sum + (c.passengers ?? Math.round(((c.capacity || 280) * (c.occupancy || 0)) / 100)),
     0
-  ) || 350;
+  );
 
   // Boarding & Deboarding Metrics
-  const deboardTotal = train.predictedDeboarding || Math.max(12, Math.round(basePax * 0.08));
-  const boardTotal = train.predictedBoarding || Math.max(18, Math.round(basePax * 0.12));
+  const deboardTotal = train.predictedDeboarding ?? (basePax === 0 ? 0 : Math.max(12, Math.round(basePax * 0.08)));
+  const boardTotal = train.predictedBoarding ?? (basePax === 0 ? 0 : Math.max(18, Math.round(basePax * 0.12)));
   const netFlow = boardTotal - deboardTotal;
 
   let liveDeboarded = 0;
@@ -223,10 +223,10 @@ export function computeLiveTrainState(train: Train, nowMs: number): LiveTrainDwe
 
   const totalEstPax =
     train.estimatedDeparturePassengers ??
-    Math.min(totalCapacity, basePax + netFlow);
+    (basePax === 0 ? 0 : Math.min(totalCapacity, basePax + netFlow));
   const estAvgPct =
     train.estimatedDepartureOccupancy ??
-    Math.min(100, Math.round((totalEstPax / totalCapacity) * 100));
+    (basePax === 0 ? 0 : Math.min(100, Math.round((totalEstPax / totalCapacity) * 100)));
 
   const currentStationFullName = formatFullStationName(train.currentStationId, train.line);
   const nextStationFullName = formatFullStationName(train.nextStationId, train.line);
@@ -241,8 +241,8 @@ export function computeLiveTrainState(train: Train, nowMs: number): LiveTrainDwe
       : (isDeparted ? Math.max(0, Math.min(coachCap, Math.round(coachBase + (netFlow * coachShare)))) : coachBase);
     const coachLivePct = Math.min(100, Math.round((coachLive / coachCap) * 100));
 
-    const estPax = c.estimatedPassengers ?? Math.min(coachCap, Math.round(coachBase * 1.08));
-    const estPct = c.estimatedOccupancy ?? Math.min(100, Math.round((estPax / coachCap) * 100));
+    const estPax = c.estimatedPassengers ?? (coachBase === 0 ? 0 : Math.min(coachCap, Math.round(coachBase * 1.08)));
+    const estPct = c.estimatedOccupancy ?? (coachBase === 0 ? 0 : Math.min(100, Math.round((estPax / coachCap) * 100)));
 
     return {
       id: c.id,

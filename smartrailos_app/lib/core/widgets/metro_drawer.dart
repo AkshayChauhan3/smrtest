@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../constants/app_config.dart';
 import '../constants/theme.dart';
+import '../../features/trains/providers/esp_sensor_provider.dart';
 
-class MetroDrawer extends StatelessWidget {
+class MetroDrawer extends ConsumerWidget {
   const MetroDrawer({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final telemetryState = ref.watch(espSensorTelemetryProvider);
+    final sensor = telemetryState.sensor;
+
     return Drawer(
       backgroundColor: AppTheme.surfaceDark,
       child: SafeArea(
@@ -89,6 +93,37 @@ class MetroDrawer extends StatelessWidget {
                     },
                   ),
                   _buildDrawerNavItem(
+                    icon: Icons.sensors_rounded,
+                    label: 'ESP32 Sensor Telemetry',
+                    subtitle: sensor != null && sensor.isActive
+                        ? 'Live flow: ${sensor.occupancy} PAX (${sensor.occupancyPct.toStringAsFixed(0)}%)'
+                        : 'Real-time dual-beam IoT sensor data',
+                    iconColor: AppTheme.signalGreen,
+                    badgeWidget: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.signalGreen.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppTheme.signalGreen.withValues(alpha: 0.4)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.circle, size: 6, color: AppTheme.signalGreen),
+                          SizedBox(width: 4),
+                          Text(
+                            'LIVE',
+                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: AppTheme.signalGreen),
+                          ),
+                        ],
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/sensors');
+                    },
+                  ),
+                  _buildDrawerNavItem(
                     icon: Icons.hub_rounded,
                     label: 'Network & Station Explorer',
                     subtitle: 'Full interactive line map',
@@ -98,9 +133,9 @@ class MetroDrawer extends StatelessWidget {
                     },
                   ),
                   _buildDrawerNavItem(
-                    icon: Icons.sensors_rounded,
-                    label: 'Live Radar & Telemetry',
-                    subtitle: 'ESP32 platform passenger feed',
+                    icon: Icons.radar_rounded,
+                    label: 'Live Platform Radar',
+                    subtitle: 'Hub departure radar & passenger feed',
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/live');
@@ -109,7 +144,7 @@ class MetroDrawer extends StatelessWidget {
                   _buildDrawerNavItem(
                     icon: Icons.tune_rounded,
                     label: 'Commuter Preferences',
-                    subtitle: 'Saved routes & telemetry diagnostics',
+                    subtitle: 'Saved routes & diagnostics',
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/profile');
@@ -119,7 +154,7 @@ class MetroDrawer extends StatelessWidget {
                   const SizedBox(height: 24),
 
                   // Telemetry Diagnostics
-                  _buildTelemetryDiagnosticCard(),
+                  _buildTelemetryDiagnosticCard(context, sensor),
                 ],
               ),
             ),
@@ -379,6 +414,8 @@ class MetroDrawer extends StatelessWidget {
     required String label,
     required String subtitle,
     required VoidCallback onTap,
+    Color? iconColor,
+    Widget? badgeWidget,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -392,10 +429,22 @@ class MetroDrawer extends StatelessWidget {
         child: ListTile(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           dense: true,
-          leading: Icon(icon, color: AppTheme.blueLine, size: 20),
-          title: Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimary),
+          leading: Icon(icon, color: iconColor ?? AppTheme.blueLine, size: 20),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  label,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimary),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (badgeWidget != null) ...[
+                const SizedBox(width: 6),
+                badgeWidget,
+              ],
+            ],
           ),
           subtitle: Text(
             subtitle,
@@ -408,43 +457,79 @@ class MetroDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildTelemetryDiagnosticCard() {
+  Widget _buildTelemetryDiagnosticCard(BuildContext context, dynamic sensor) {
+    final hasSensor = sensor != null;
+    final isActive = hasSensor && (sensor.isActive == true);
+    final statusColor = isActive ? AppTheme.signalGreen : AppTheme.signalAmber;
+
     return Container(
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppTheme.surfaceElevated,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0x14FFFFFF)),
+        border: Border.all(color: statusColor.withValues(alpha: 0.25)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.wifi_tethering_rounded, size: 14, color: AppTheme.signalGreen),
-              SizedBox(width: 6),
-              Text(
-                'LIVE TELEMETRY ENGINE',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 9,
-                  color: AppTheme.signalGreen,
-                  letterSpacing: 0.8,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            Navigator.pop(context);
+            context.push('/sensors');
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.wifi_tethering_rounded, size: 14, color: statusColor),
+                        const SizedBox(width: 6),
+                        Text(
+                          'LIVE TELEMETRY ENGINE',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 9,
+                            color: statusColor,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          'VIEW SENSORS',
+                          style: TextStyle(color: statusColor, fontSize: 8, fontWeight: FontWeight.w900),
+                        ),
+                        Icon(Icons.chevron_right_rounded, size: 14, color: statusColor),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  'Device: ${hasSensor ? sensor.deviceId : "ESP32_COACH_01"} · Coach ${hasSensor ? sensor.coachId : "C1"}',
+                  style: const TextStyle(color: AppTheme.textSecondary, fontSize: 10, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                if (hasSensor)
+                  Text(
+                    'Load: ${sensor.occupancy} PAX (${sensor.occupancyPct.toStringAsFixed(1)}%) · IN: ${sensor.totalIn} / OUT: ${sensor.totalOut}',
+                    style: const TextStyle(color: AppTheme.textMuted, fontSize: 10, fontFamily: 'monospace'),
+                  )
+                else
+                  const Text(
+                    'Sensors: Dual-Beam Optical Inflow & Outflow',
+                    style: TextStyle(color: AppTheme.textMuted, fontSize: 10),
+                  ),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Host: ${AppConfig.baseUrl}',
-            style: const TextStyle(color: AppTheme.textMuted, fontSize: 10, fontFamily: 'monospace'),
-          ),
-          const SizedBox(height: 2),
-          const Text(
-            'Sensors: ESP32 Dual-Beam Optical Inflow',
-            style: TextStyle(color: AppTheme.textMuted, fontSize: 10),
-          ),
-        ],
+        ),
       ),
     );
   }

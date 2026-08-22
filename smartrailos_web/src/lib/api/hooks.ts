@@ -42,12 +42,31 @@ export function useAcknowledgeAlert() {
   return useMutation({
     mutationFn: async (alertId: string) => {
       if (USE_MOCK) return { ok: true };
-      return apiFetch<void>(
+      return apiFetch<{ status: string }>(
         `/alerts/${encodeURIComponent(alertId)}/acknowledge`,
         { method: "POST" },
       );
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.alerts }),
+    onMutate: async (alertId: string) => {
+      await qc.cancelQueries({ queryKey: queryKeys.alerts });
+      const previous = qc.getQueryData<any[]>(queryKeys.alerts);
+      if (previous) {
+        qc.setQueryData<any[]>(
+          queryKeys.alerts,
+          previous.map((a) => (a.id === alertId ? { ...a, acknowledged: true } : a))
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        qc.setQueryData(queryKeys.alerts, context.previous);
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.alerts });
+      qc.invalidateQueries({ queryKey: queryKeys.snapshot });
+    },
   });
 }
 
@@ -70,12 +89,32 @@ export function useResolveAlert() {
   return useMutation({
     mutationFn: async (alertId: string) => {
       if (USE_MOCK) return { ok: true };
-      return apiFetch<void>(
+      return apiFetch<{ status: string }>(
         `/alerts/${encodeURIComponent(alertId)}/resolve`,
         { method: "POST" },
       );
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.alerts }),
+    onMutate: async (alertId: string) => {
+      await qc.cancelQueries({ queryKey: queryKeys.alerts });
+      const previous = qc.getQueryData<any[]>(queryKeys.alerts);
+      if (previous) {
+        qc.setQueryData<any[]>(
+          queryKeys.alerts,
+          previous.map((a) => (a.id === alertId ? { ...a, resolved: true } : a))
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        qc.setQueryData(queryKeys.alerts, context.previous);
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.alerts });
+      qc.invalidateQueries({ queryKey: queryKeys.snapshot });
+      qc.invalidateQueries({ queryKey: queryKeys.kpi });
+    },
   });
 }
 

@@ -29,7 +29,7 @@ export function KpiCard({
   return (
     <div
       className={cn(
-        "group relative overflow-hidden rounded-2xl border-0 bg-[#141720] p-6.5 shadow-[0_4px_20px_rgba(0,0,0,0.25)] transition-all duration-300 hover:-translate-y-1 hover:bg-[#191d29] hover:shadow-[0_8px_25px_rgba(0,0,0,0.35)]",
+        "group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#080a0f] p-6 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/[0.14] hover:bg-[#0c0e16]",
         className,
       )}
     >

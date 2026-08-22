@@ -98,7 +98,7 @@ class ProfileScreen extends ConsumerWidget {
                       ).animate().fadeIn(delay: 300.ms),
                       const SizedBox(height: 12),
 
-                      _buildSystemDiagnostics()
+                      _buildSystemDiagnostics(context)
                           .animate()
                           .fadeIn(delay: 350.ms)
                           .slideY(begin: 0.05, end: 0),
@@ -240,7 +240,7 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSystemDiagnostics() {
+  Widget _buildSystemDiagnostics(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -250,9 +250,12 @@ class ProfileScreen extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          _buildStatusRow('Active API Host', AppConfig.baseUrl),
+          InkWell(
+            onTap: () => context.push('/sensors'),
+            child: _buildStatusRow('Active API Host', '${AppConfig.baseUrl} (Tap to edit)'),
+          ),
           const SizedBox(height: 12),
-          _buildStatusRow('Telemetry Polling Rate', '5.0s (Live Sync)'),
+          _buildStatusRow('Telemetry Polling Rate', '1.2s (Instant Live Sync)'),
           const SizedBox(height: 12),
           _buildStatusRow('Sensor Telemetry Engine', 'ESP32 Real-Time Dual-Beam'),
           const SizedBox(height: 12),
@@ -270,12 +273,16 @@ class ProfileScreen extends ConsumerWidget {
           label,
           style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
         ),
-        Text(
-          value,
-          style: const TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],

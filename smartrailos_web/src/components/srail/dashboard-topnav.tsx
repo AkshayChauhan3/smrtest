@@ -9,7 +9,7 @@ export function DashboardTopNav() {
   const emergencyActive = useEmergencyStatus();
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-white/[0.08] bg-[#0c0d12]/90 px-4 backdrop-blur-xl shadow-md md:px-8">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-white/[0.06] bg-[#000000] px-4 backdrop-blur-xl shadow-md md:px-8">
       {/* Left Group: Station Title & Global Search Bar */}
       <div className="flex min-w-0 items-center gap-4 md:gap-6">
         <div className="min-w-0 shrink-0">

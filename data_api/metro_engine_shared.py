@@ -401,13 +401,30 @@ def build_train_roster(now: datetime) -> list:
 # ══════════════════════════════════════════════
 
 def occupancy_base_factor(dt: datetime, train_id: str) -> float:
-    h          = dt.hour + dt.minute / 60.0
+    h          = dt.hour + dt.minute / 60.0 + dt.second / 3600.0
     is_weekend = dt.weekday() >= 5
     noise      = (_seed_float(train_id, dt, "base") - 0.5) * 0.06
-    if is_weekend: return max(0.15, min(0.95, (0.45 if 10 <= h <= 19 else 0.25) + noise))
-    if 8.0 <= h < 11.0: return max(0.20, min(0.98, 0.60 + 0.35 * (1.0 - abs(h - 9.0) / 1.5) + noise))
-    if 17.0 <= h < 20.0: return max(0.20, min(0.98, 0.55 + 0.40 * (1.0 - abs(h - 18.5) / 1.5) + noise))
-    if 11.0 <= h < 17.0: return max(0.20, min(0.85, 0.35 + noise))
+
+    # 1. Overnight shutdown: 23:00 to 06:00 (Station doors closed, 0 passengers)
+    if h >= 23.0 or h < 6.0:
+        return 0.0
+
+    # 2. Evening Wind-down: 21:30 (9:30 PM) to 23:00 (11:00 PM) -> Smooth cosine decay to 0.0
+    if h >= 21.5:
+        # Wind down factor smoothly goes from 1.0 (at 21.5) to 0.0 (at 23.0)
+        decay = (1.0 + math.cos(math.pi * (h - 21.5) / 1.5)) / 2.0
+        base_demand = (0.22 if is_weekend else 0.20) + noise * 0.5
+        return max(0.0, min(0.60, base_demand * decay))
+
+    # 3. Regular Daytime & Peak Schedules
+    if is_weekend:
+        return max(0.15, min(0.95, (0.45 if 10 <= h <= 19 else 0.25) + noise))
+    if 8.0 <= h < 11.0:
+        return max(0.20, min(0.98, 0.60 + 0.35 * (1.0 - abs(h - 9.0) / 1.5) + noise))
+    if 17.0 <= h < 20.0:
+        return max(0.20, min(0.98, 0.55 + 0.40 * (1.0 - abs(h - 18.5) / 1.5) + noise))
+    if 11.0 <= h < 17.0:
+        return max(0.20, min(0.85, 0.35 + noise))
     return max(0.10, min(0.60, 0.20 + noise * 0.5))
 
 def _crowd_label(pct: float) -> str:
@@ -453,7 +470,11 @@ def get_trip_passenger_profile(train_id: str, schedule: list, direction: str, de
         if i == 0:
             p_arr = 0
             a = 0
-            target = max(60, int(base * math.sin(1.0 / max(n - 1, 1) * math.pi) * 0.85 * TRAIN_CAPACITY))
+            if base <= 0.001:
+                target = 0
+            else:
+                min_floor = int(60 * min(1.0, base / 0.15))
+                target = max(min_floor, int(base * math.sin(1.0 / max(n - 1, 1) * math.pi) * 0.85 * TRAIN_CAPACITY))
             b = target
             p_dep = target
         elif i == n - 1:
@@ -463,15 +484,22 @@ def get_trip_passenger_profile(train_id: str, schedule: list, direction: str, de
             p_dep = 0
         else:
             p_arr = p_prev
-            pos = i / max(n - 1, 1)
-            pos_factor = math.sin(pos * math.pi)
-            station_boost = 1.25 if is_busy else 1.0
-            target = int(base * pos_factor * station_boost * TRAIN_CAPACITY)
-            a = max(10, int(p_arr * 0.12)) if p_arr > 50 else 0
-            p_post_alight = p_arr - a
-            b_desired = max(10, target - p_post_alight)
-            b = max(0, min(b_desired, TRAIN_CAPACITY - p_post_alight))
-            p_dep = p_post_alight + b
+            if base <= 0.001:
+                target = 0
+                a = max(1, int(p_arr * 0.5)) if p_arr > 0 else 0
+                p_post_alight = max(0, p_arr - a)
+                b = 0
+                p_dep = p_post_alight
+            else:
+                pos = i / max(n - 1, 1)
+                pos_factor = math.sin(pos * math.pi)
+                station_boost = 1.25 if is_busy else 1.0
+                target = int(base * pos_factor * station_boost * TRAIN_CAPACITY)
+                a = max(min(p_arr, int(10 * min(1.0, base / 0.15))), int(p_arr * 0.12)) if p_arr > 50 else (p_arr if i == n - 1 else 0)
+                p_post_alight = max(0, p_arr - a)
+                b_desired = max(int(10 * min(1.0, base / 0.15)), target - p_post_alight)
+                b = max(0, min(b_desired, TRAIN_CAPACITY - p_post_alight))
+                p_dep = p_post_alight + b
 
         profile.append({
             "station_idx": i,
@@ -479,7 +507,7 @@ def get_trip_passenger_profile(train_id: str, schedule: list, direction: str, de
             "station_name": st["name"],
             "arr_passengers": p_arr,
             "alighting": a,
-            "post_alight": p_arr - a,
+            "post_alight": p_arr - a if i != 0 else 0,
             "boarding": b,
             "dep_passengers": p_dep,
         })

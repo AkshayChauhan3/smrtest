@@ -1,11 +1,13 @@
 """Database seeder — populates stations, routes, route_stops, and trains on first run."""
 
+from datetime import datetime, timedelta
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.station import Station
 from app.models.route import Route, RouteStop
 from app.models.train import Train, TrainCoach
+from app.models.alert import Alert, AlertType, SeverityLevel
 from app.services.metro_engine import (
     BLUE_LINE_STATIONS,
     RED_LINE_STATIONS,
@@ -121,6 +123,46 @@ async def seed_database(db: AsyncSession) -> None:
             coach_type=coach["type"],
             capacity=coach["capacity"],
         ))
+
+    # ── Operational Alerts ───────────────────────
+    now = datetime.now()
+    default_alerts = [
+        Alert(
+            id="alt-emg-01",
+            alert_type=AlertType.PLATFORM_CONGESTION,
+            severity=SeverityLevel.CRITICAL,
+            title="Critical Crowd Surge at Old High Court",
+            message="Platform 1 & 2 crowd exceeds 850 passengers. Immediate turnstile metering recommended.",
+            station_id="BL11",
+            train_id=None,
+            created_at=now - timedelta(minutes=4),
+            payload={"acknowledged": False},
+        ),
+        Alert(
+            id="alt-wrn-02",
+            alert_type=AlertType.PREDICTION_ALERT,
+            severity=SeverityLevel.HIGH,
+            title="Train Capacity Warning (BL-UP-03)",
+            message="Train BL-UP-03 coach 3 approaching 92% critical occupancy near Kalupur Metro Station.",
+            station_id="BL08",
+            train_id="BL-UP-03",
+            created_at=now - timedelta(minutes=12),
+            payload={"acknowledged": False},
+        ),
+        Alert(
+            id="alt-dly-03",
+            alert_type=AlertType.TRAIN_DELAY,
+            severity=SeverityLevel.MEDIUM,
+            title="Minor Dwell Delay at Motera Stadium",
+            message="Train RL-UP-04 experienced +2m dwell delay due to heavy platform boarding flow.",
+            station_id="RL15",
+            train_id="RL-UP-04",
+            created_at=now - timedelta(minutes=25),
+            payload={"acknowledged": False},
+        ),
+    ]
+    for alert in default_alerts:
+        db.add(alert)
 
     await db.commit()
 

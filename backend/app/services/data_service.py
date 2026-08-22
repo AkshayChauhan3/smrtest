@@ -281,11 +281,11 @@ class DataService:
                     eta_seconds=arr_sec,
                     origin_station_id=train.get("origin_station_id"),
                     destination_station_id=train.get("destination_station_id"),
-                    predicted_boarding_count=max(15, int(max(pax, 180) * 0.12)),
-                    predicted_deboarding_count=max(10, int(max(pax, 180) * 0.08)),
-                    predicted_occupancy=min(100, int((min(capacity, int(pax + max(15, int(max(pax, 180) * 0.12)) - max(10, int(max(pax, 180) * 0.08)))) / max(capacity, 1)) * 100)),
-                    estimated_departure_passengers=int(min(capacity, int(pax + max(15, int(max(pax, 180) * 0.12)) - max(10, int(max(pax, 180) * 0.08))))),
-                    estimated_departure_occupancy=min(100, int((min(capacity, int(pax + max(15, int(max(pax, 180) * 0.12)) - max(10, int(max(pax, 180) * 0.08)))) / max(capacity, 1)) * 100)),
+                    predicted_boarding_count=0 if pax == 0 else max(15, int(pax * 0.12)),
+                    predicted_deboarding_count=0 if pax == 0 else max(10, int(pax * 0.08)),
+                    predicted_occupancy=0 if pax == 0 else min(100, int((min(capacity, int(pax + max(15, int(pax * 0.12)) - max(10, int(pax * 0.08)))) / max(capacity, 1)) * 100)),
+                    estimated_departure_passengers=0 if pax == 0 else int(min(capacity, int(pax + max(15, int(pax * 0.12)) - max(10, int(pax * 0.08))))),
+                    estimated_departure_occupancy=0 if pax == 0 else min(100, int((min(capacity, int(pax + max(15, int(pax * 0.12)) - max(10, int(pax * 0.08)))) / max(capacity, 1)) * 100)),
                 )
             )
         return trains
@@ -375,8 +375,9 @@ class DataService:
             if station_filter and crowd.station_name.lower() != station_filter:
                 continue
             if crowd.current_station_crowd >= 600:
+                alert_id = f"platform-{self._slug(crowd.station_name)}"
                 alerts.append(AlertOut(
-                    id=f"platform-{self._slug(crowd.station_name)}",
+                    id=alert_id,
                     alert_type="platform_congestion",
                     severity="high" if crowd.current_station_crowd < 900 else "critical",
                     title="Platform Congestion",
@@ -384,6 +385,8 @@ class DataService:
                     station_name=crowd.station_name,
                     train_id=None,
                     created_at=now,
+                    acknowledged=alert_id in self.acknowledged_sim_alerts,
+                    resolved=alert_id in self.resolved_sim_alerts,
                 ))
 
         for train in self.engine.all_trains(now):
@@ -391,8 +394,6 @@ class DataService:
                 continue
             if train.get("train_occupancy_pct", 0) >= 85:
                 alert_id = f"train-{train.get('train_id', '').lower()}"
-                if alert_id in self.resolved_sim_alerts:
-                    continue
                 alerts.append(AlertOut(
                     id=alert_id,
                     alert_type="prediction_alert",
@@ -402,7 +403,8 @@ class DataService:
                     station_name=train.get("current_station"),
                     train_id=train.get("train_id"),
                     created_at=now,
-                    acknowledged=alert_id in self.acknowledged_sim_alerts
+                    acknowledged=alert_id in self.acknowledged_sim_alerts,
+                    resolved=alert_id in self.resolved_sim_alerts,
                 ))
         return alerts
 
@@ -462,15 +464,9 @@ class DataService:
             cid = coach.get("coach_id") or f"C{i+1}"
             pax = coach.get("current_passengers", 0)
             occ_pct = coach.get("occupancy_pct", 0)
-            
-            # For terminal stations or newly introduced trains with 0 count, assign realistic baseline
-            if pax == 0 and occ_pct == 0:
-                base_seed = hash(f"{cid}_{i}") % 30
-                pax = 55 + base_seed
-                occ_pct = round((pax / 400.0) * 100.0, 1)
 
-            est_pax = max(0, min(400, int(pax * 1.06)))
-            est_pct = round((est_pax / 400.0) * 100.0, 1)
+            est_pax = 0 if pax == 0 else max(0, min(400, int(pax * 1.06)))
+            est_pct = 0.0 if pax == 0 else round((est_pax / 400.0) * 100.0, 1)
                 
             out.append(
                 TrainCoachOut(

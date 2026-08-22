@@ -246,16 +246,16 @@ export function adaptTrain(t: BackendTrainAtStation): Train {
   const arrivalEtaSeconds = isInTransit ? (t.eta_seconds ?? null) : null;
   const etaSeconds = t.eta_seconds ?? (isAtStation ? 30 : 45);
 
-  const predictedBoarding = t.predicted_boarding_count ?? Math.max(12, Math.round(currentTotalPax * 0.12));
-  const predictedDeboarding = t.predicted_deboarding_count ?? Math.max(10, Math.round(currentTotalPax * 0.08));
+  const predictedBoarding = t.predicted_boarding_count ?? (currentTotalPax === 0 ? 0 : Math.max(12, Math.round(currentTotalPax * 0.12)));
+  const predictedDeboarding = t.predicted_deboarding_count ?? (currentTotalPax === 0 ? 0 : Math.max(10, Math.round(currentTotalPax * 0.08)));
   const netFlow = predictedBoarding - predictedDeboarding;
 
   const totalEstPax =
     t.estimated_departure_passengers ??
-    Math.min(totalCapacity, currentTotalPax + netFlow);
+    (currentTotalPax === 0 ? 0 : Math.min(totalCapacity, currentTotalPax + netFlow));
   const totalEstPct =
     t.estimated_departure_occupancy_pct ??
-    Math.min(100, Math.round((totalEstPax / totalCapacity) * 100));
+    (totalCapacity > 0 ? Math.min(100, Math.round((totalEstPax / totalCapacity) * 100)) : 0);
 
   const predictedOccupancy =
     t.predicted_occupancy_at_station ??
@@ -308,10 +308,18 @@ const TYPE_MAP: Record<string, Alert["severity"]> = {
 };
 
 export function adaptAlert(a: BackendAlert): Alert {
-  const severity =
-    TYPE_MAP[a.alert_type?.toLowerCase()] ??
-    SEVERITY_MAP[a.severity?.toLowerCase()] ??
-    "System Warning";
+  const sevLower = (a.severity || "").toLowerCase();
+  let severity: Alert["severity"] = "System Warning";
+  if (sevLower === "critical" || sevLower === "emergency") {
+    severity = "Emergency";
+  } else if (sevLower === "high") {
+    severity = "Overcrowding";
+  } else if (a.alert_type && TYPE_MAP[a.alert_type.toLowerCase()]) {
+    severity = TYPE_MAP[a.alert_type.toLowerCase()];
+  } else if (SEVERITY_MAP[sevLower]) {
+    severity = SEVERITY_MAP[sevLower];
+  }
+
   const time = a.created_at
     ? new Date(a.created_at).toLocaleTimeString([], {
         hour: "2-digit",
@@ -327,6 +335,8 @@ export function adaptAlert(a: BackendAlert): Alert {
     time,
     resolved: (a as any).resolved ?? false,
     acknowledged: (a as any).acknowledged ?? false,
+    stationName: a.station_name,
+    trainId: a.train_id,
   };
 }
 

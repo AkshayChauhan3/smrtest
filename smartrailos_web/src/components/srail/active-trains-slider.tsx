@@ -159,7 +159,17 @@ export function ActiveTrainsSlider({
       </div>
 
       {/* Main Full-Width Card Display with Smooth Slide Transitions */}
-      {filteredTrains.length === 0 ? (
+      {trains.length === 0 ? (
+        <div className="flex h-44 flex-col items-center justify-center rounded-2xl border border-white/10 bg-[#07090e] p-6 text-center shadow-xl">
+          <div className="flex size-12 items-center justify-center rounded-2xl bg-white/[0.04] ring-1 ring-white/10 mb-3">
+            <TrainFront className="size-6 text-slate-400" />
+          </div>
+          <p className="text-sm font-bold text-white">Metro Service Closed (Overnight Maintenance)</p>
+          <p className="mt-1 text-xs text-slate-400 max-w-md">
+            All train units are securely stabled in terminal depots. Live circulating fleet will resume at 06:00 AM.
+          </p>
+        </div>
+      ) : filteredTrains.length === 0 ? (
         <div className="flex h-36 flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-[#141720]/50 text-center">
           <TrainFront className="mb-2 size-6 text-slate-500" />
           <p className="text-sm font-medium text-slate-300">No Trains on Selected Line</p>
