@@ -447,29 +447,70 @@ function renderPlatformCoaches({
   return (
     <g onClick={() => onSelectTrain(train.id)} style={{ cursor: "pointer" }}>
       {/* Train Info Header Bar inside Platform */}
-      <g transform={`translate(${startX}, ${platformY + 10})`}>
+      <g transform={`translate(${startX}, ${platformY + 8})`}>
         <rect
           x="0"
           y="0"
           width="640"
-          height="22"
+          height="24"
           rx="6"
-          fill="rgba(10, 10, 14, 0.9)"
+          fill="rgba(10, 12, 18, 0.95)"
           stroke={lineColor}
           strokeWidth="1.2"
         />
-        <text x="14" y="15" fill="#ffffff" fontSize="10" fontWeight="700" fontFamily="JetBrains Mono">
-          🚆 Train ID: <tspan fill={lineColor}>{train.id}</tspan> · Direction: {train.direction} · Avg Occupancy: {avgOcc}%
+
+        {/* 1. Train ID */}
+        <text x="12" y="16" fill="#ffffff" fontSize="10" fontWeight="700" fontFamily="JetBrains Mono">
+          🚆 <tspan fill={lineColor}>{train.id}</tspan>
         </text>
 
-        {isApproaching && (
-          <g transform="translate(450, 3)">
-            <rect x="0" y="0" width="175" height="16" rx="4" fill="rgba(245, 158, 11, 0.2)" stroke="#f59e0b" strokeWidth="1" />
-            <circle cx="10" cy="8" r="3" fill="#f59e0b">
+        {/* 2. Direction */}
+        <text x="135" y="16" fill="#cbd5e1" fontSize="9.5" fontWeight="600" fontFamily="JetBrains Mono">
+          ➔ {train.direction.replace(" Bound", "")}
+        </text>
+
+        {/* 3. Avg Occupancy */}
+        <text x="330" y="16" fill="#94a3b8" fontSize="9.5" fontWeight="600" fontFamily="JetBrains Mono">
+          Avg Load: <tspan fill="#ffffff" fontWeight="700">{avgOcc}%</tspan>
+        </text>
+
+        {/* 4. Status Badge (Far Right) */}
+        {isApproaching ? (
+          <g transform="translate(485, 3)">
+            <rect
+              x="0"
+              y="0"
+              width="145"
+              height="18"
+              rx="4"
+              fill="rgba(245, 158, 11, 0.2)"
+              stroke="#f59e0b"
+              strokeWidth="1"
+            />
+            <circle cx="10" cy="9" r="3" fill="#f59e0b">
               <animate attributeName="opacity" values="1;0.2;1" dur="1s" repeatCount="indefinite" />
             </circle>
-            <text x="18" y="11" fill="#f59e0b" fontSize="8.5" fontWeight="700" fontFamily="JetBrains Mono">
-              APPROACHING · ETA {train.etaSeconds ? `${Math.ceil(train.etaSeconds / 60)}m` : "1m"}
+            <text x="18" y="13" fill="#f59e0b" fontSize="8.5" fontWeight="800" fontFamily="JetBrains Mono">
+              APPROACHING · {train.etaSeconds ? `${Math.ceil(train.etaSeconds / 60)}m` : "1m"}
+            </text>
+          </g>
+        ) : (
+          <g transform="translate(525, 3)">
+            <rect
+              x="0"
+              y="0"
+              width="105"
+              height="18"
+              rx="4"
+              fill="rgba(16, 185, 129, 0.2)"
+              stroke="#10b981"
+              strokeWidth="1"
+            />
+            <circle cx="10" cy="9" r="3" fill="#10b981">
+              <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite" />
+            </circle>
+            <text x="18" y="13" fill="#10b981" fontSize="8.5" fontWeight="800" fontFamily="JetBrains Mono">
+              AT PLATFORM
             </text>
           </g>
         )}
