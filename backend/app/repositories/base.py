@@ -154,6 +154,20 @@ class AlertRepository(BaseRepository):
         except OperationalError:
             return []
 
+    async def get_all_recent_alerts(self, limit: int = 100) -> list[Alert]:
+        from datetime import timedelta
+        cutoff = datetime.now() - timedelta(hours=48)
+        try:
+            result = await self.db.execute(
+                select(Alert)
+                .where(Alert.created_at >= cutoff)
+                .order_by(Alert.created_at.desc())
+                .limit(limit)
+            )
+            return list(result.scalars().all())
+        except OperationalError:
+            return []
+
     async def get_by_station(self, station_id: str) -> list[Alert]:
         result = await self.db.execute(select(Alert).where(Alert.station_id == station_id))
         return list(result.scalars().all())
