@@ -5,7 +5,6 @@ import { OccupancyBar } from "@/components/srail/occupancy-bar";
 import { KpiCard } from "@/components/srail/kpi-card";
 import { AnimatedNumber } from "@/components/srail/animated-number";
 import { ActiveTrainsSlider } from "@/components/srail/active-trains-slider";
-import { StandingTrainsCard } from "@/components/srail/standing-trains-card";
 import { LiveTrainTicker } from "@/components/srail/live-train-ticker";
 import { useStations, useTrains, useAlerts, useStationCurrent, useStationFeature } from "@/lib/api/hooks";
 import { findStation, TRAINS, type Train } from "@/lib/mock/data";
@@ -249,11 +248,8 @@ function StationOverviewPage() {
           </section>
         </div>
 
-        {/* Right Column: Platform Berths & Station Alerts Feed */}
+        {/* Right Column: Station Alerts Feed */}
         <aside className="space-y-6 xl:col-span-4">
-          {/* Standing Trains on Station Platform Berths */}
-          <StandingTrainsCard stationId={stationId} stationName={station?.name} />
-
           {/* Recent Station Alerts Feed */}
           <section className="rounded-2xl border border-white/[0.08] bg-[#080a0f] p-6 shadow-xl">
             <SectionHeader title="Station Alerts" right="Live Stream" />

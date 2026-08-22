@@ -23,7 +23,7 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
         )}
       >
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/[0.04] via-transparent to-transparent opacity-60" />
-        
+
         {/* Top Bar: Train ID, Line Badge, Risk Badge, Timer Badge */}
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -35,7 +35,7 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
 
           <div className="flex flex-wrap items-center gap-2">
             <RiskBadge train={train} />
-            
+
             {/* Dynamic Status & Timer Badge */}
             <div
               className={cn(
@@ -43,10 +43,10 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
                 state.isDeparted
                   ? "border-rose-500/50 bg-rose-500/20 text-rose-300 shadow-rose-500/20"
                   : state.isHalting
-                  ? "border-amber-500/40 bg-amber-500/15 text-amber-300 shadow-amber-500/10"
-                  : state.isApproaching
-                  ? "border-amber-500/30 bg-amber-500/10 text-amber-300 shadow-amber-500/10 animate-pulse"
-                  : "border-accent-cyan/30 bg-accent-cyan/10 text-accent-cyan shadow-accent-cyan/10"
+                    ? "border-amber-500/40 bg-amber-500/15 text-amber-300 shadow-amber-500/10"
+                    : state.isApproaching
+                      ? "border-amber-500/30 bg-amber-500/10 text-amber-300 shadow-amber-500/10 animate-pulse"
+                      : "border-accent-cyan/30 bg-accent-cyan/10 text-accent-cyan shadow-accent-cyan/10"
               )}
             >
               <Clock
@@ -55,8 +55,8 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
                   state.isDeparted
                     ? "text-rose-400"
                     : state.isHalting || state.isApproaching
-                    ? "text-amber-400"
-                    : "text-accent-cyan",
+                      ? "text-amber-400"
+                      : "text-accent-cyan",
                   "animate-pulse"
                 )}
               />
@@ -64,10 +64,10 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
                 {state.isDeparted
                   ? "DEPARTED · EN ROUTE"
                   : state.isHalting
-                  ? `STATION HALT · ${state.timerFormatted} LEFT`
-                  : state.isApproaching
-                  ? `ARRIVES IN ${state.timerFormatted}`
-                  : `EN ROUTE · ETA ${state.timerFormatted}`}
+                    ? `STATION HALT · ${state.timerFormatted} LEFT`
+                    : state.isApproaching
+                      ? `ARRIVES IN ${state.timerFormatted}`
+                      : `EN ROUTE · ETA ${state.timerFormatted}`}
               </span>
             </div>
           </div>
@@ -86,10 +86,10 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
                 state.isDeparted
                   ? "border-rose-500/40 bg-rose-500/15 text-rose-400"
                   : state.isHalting
-                  ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
-                  : state.isApproaching
-                  ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
-                  : "border-accent-cyan/30 bg-accent-cyan/10 text-accent-cyan"
+                    ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                    : state.isApproaching
+                      ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                      : "border-accent-cyan/30 bg-accent-cyan/10 text-accent-cyan"
               )}
             >
               <Timer className="size-3 animate-spin" style={{ animationDuration: "6s" }} />
@@ -97,8 +97,8 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
                 {state.isDeparted
                   ? `Departed · Next: ${state.nextStationFullName}`
                   : state.isHalting
-                  ? `Halt: ${state.timerFormatted}`
-                  : `ETA: ${state.timerFormatted}`}
+                    ? `Halt: ${state.timerFormatted}`
+                    : `ETA: ${state.timerFormatted}`}
               </span>
             </div>
             <div className="font-mono text-[11px] text-slate-400">
@@ -113,16 +113,16 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
             {state.isDeparted
               ? `Departed: ${state.currentStationFullName}`
               : state.isHalting
-              ? `At Platform: ${state.currentStationFullName}`
-              : state.currentStationFullName}
+                ? `At Platform: ${state.currentStationFullName}`
+                : state.currentStationFullName}
           </span>
           <ArrowRight className="size-3 text-slate-600" />
           <span className="text-accent-cyan font-semibold">
             {state.isDeparted
               ? `En Route to: ${state.nextStationFullName}`
               : state.isHalting
-              ? `Next Departure: ${state.nextStationFullName}`
-              : `Heading to: ${state.nextStationFullName}`}
+                ? `Next Departure: ${state.nextStationFullName}`
+                : `Heading to: ${state.nextStationFullName}`}
           </span>
         </div>
 
@@ -186,7 +186,7 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
         </div>
 
         {/* Estimated Departure Passenger Count at Old High Court Banner */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent-cyan/15 bg-accent-cyan/[0.04] px-3.5 py-2">
+        {/* <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent-cyan/15 bg-accent-cyan/[0.04] px-3.5 py-2">
           <div className="flex items-center gap-2 text-xs">
             <Sparkles className="size-3.5 text-accent-cyan shrink-0" />
             <span className="text-slate-300 font-medium text-[11px]">
@@ -211,7 +211,7 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
               Est: <strong className="text-accent-cyan font-bold">{state.totalEstPax.toLocaleString()}</strong>
             </span>
           </div>
-        </div>
+        </div> */}
 
         {/* Coach Occupancy Dual-Bar Breakdown (Live Real-Time vs ML Estimated Departure) */}
         <div className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-3">
@@ -263,10 +263,10 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
                       c.estPct < 50
                         ? "bg-gradient-to-r from-emerald-500 to-teal-400"
                         : c.estPct < 75
-                        ? "bg-gradient-to-r from-amber-500 to-yellow-400"
-                        : c.estPct < 90
-                        ? "bg-gradient-to-r from-orange-500 to-amber-500"
-                        : "bg-gradient-to-r from-rose-500 to-red-500",
+                          ? "bg-gradient-to-r from-amber-500 to-yellow-400"
+                          : c.estPct < 90
+                            ? "bg-gradient-to-r from-orange-500 to-amber-500"
+                            : "bg-gradient-to-r from-rose-500 to-red-500",
                     )}
                     style={{ width: `${c.estPct}%` }}
                   />

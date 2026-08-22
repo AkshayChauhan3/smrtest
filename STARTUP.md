@@ -2,11 +2,10 @@
 
 This guide gives you the exact terminal commands and configurations to launch and test the entire SmartRail OS ecosystem:
 1. **FastAPI Backend & Database Engine** (Port 8000)
-2. **Simulated Clock & Dynamic Time Control** (24/7 testing & rush-hour simulation)
-3. **Machine Learning Model Training & Estimation Pipeline** (RandomForest Regressor)
-4. **ESP32 IoT Sensor & Hardware Break-Beam Emulator** (Real-time passenger flow)
-5. **Web Command Center Dashboard** (React + TanStack on Port 8080)
-6. **Commuter Mobile App** (Flutter on Port 8082 / Android)
+2. **Machine Learning Model Training & Estimation Pipeline** (RandomForest Regressor)
+3. **ESP32 IoT Sensor & Hardware Break-Beam Emulator** (Real-time passenger flow)
+4. **Web Command Center Dashboard** (React + TanStack on Port 8080)
+5. **Commuter Mobile App** (Flutter on Port 8082 / Android)
 
 ---
 
@@ -33,47 +32,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ---
 
-## ⏰ 2. Simulated Clock & Time Travel Options
-
-Because revenue metro service runs between **06:00 and 23:00**, SmartRail OS includes a **Simulated Clock** so you can test peak rush hours, crowd surges, or late-night states at any time. The clock advances forward smoothly in real time (e.g. 09:30:00 → 09:30:01 → 09:30:02...).
-
-### Option A: Launch Server with Preset Simulation Time (Environment Variable)
-```bash
-# Linux / macOS (Bash)
-DEV_SIM_TIME=09:30 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-```powershell
-# Windows (PowerShell)
-$env:DEV_SIM_TIME="09:30"; uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-### Option B: Change Simulation Time Dynamically at Runtime (REST API)
-You can change the clock time on a running server without restarting:
-
-```bash
-# Set simulation time to 09:30 AM (Morning Rush Hour)
-curl -X POST http://localhost:8000/api/v1/sim/time \
-     -H "Content-Type: application/json" \
-     -d '{"time": "09:30"}'
-
-# Set simulation time to 18:30 PM (Evening Peak)
-curl -X POST http://localhost:8000/api/v1/sim/time \
-     -H "Content-Type: application/json" \
-     -d '{"time": "18:30"}'
-
-# Check current active simulation clock time
-curl http://localhost:8000/api/v1/sim/time
-
-# Reset back to real wall-clock time
-curl -X POST http://localhost:8000/api/v1/sim/time/reset
-```
-
-> 🌙 **Automatic Night Wrap**: If running between 22:15 and 06:15 without manual override, `SimClock` automatically maps to active daytime hours (`12:xx PM`) so the simulation never goes dead during late-night development.
-
----
-
-## 🧠 3. Machine Learning Estimation & Model Training
+## 🧠 2. Machine Learning Estimation & Model Training
 
 SmartRail OS includes a **RandomForest Regressor** trained on historical Ahmedabad Metro telemetry, Gujarat 2026 public holidays, and Open-Meteo live weather data.
 
@@ -102,7 +61,7 @@ curl http://localhost:8000/api/v1/analytics/hourly-flow
 
 ---
 
-## 📡 4. ESP32 IoT Sensor & Hardware Break-Beam Emulator (Terminal 2)
+## 📡 3. ESP32 IoT Sensor & Hardware Break-Beam Emulator (Terminal 2)
 
 Simulates optical IR break-beam passenger entry/exit sensors at turnstiles and coach doors.
 
@@ -135,7 +94,7 @@ curl -X POST http://localhost:8000/api/v1/esp32/reset
 
 ---
 
-## 💻 5. Web Command Center Dashboard (Terminal 3)
+## 💻 4. Web Command Center Dashboard (Terminal 3)
 
 React + TanStack Router operational control room with live map tracking, coach heatmaps, and station PIDs on **Port 8080**.
 
@@ -155,7 +114,7 @@ npm run dev
 
 ---
 
-## 📱 6. Commuter Mobile App (Terminal 4)
+## 📱 5. Commuter Mobile App (Terminal 4)
 
 Flutter passenger mobile app with journey planning, real-time coach occupancy, and station alerts on **Port 8082** or Android phone.
 
@@ -176,7 +135,7 @@ flutter run -d chrome --web-port 8082
 
 ---
 
-## 🧪 7. Automated Test Suite & Health Verification
+## 🧪 6. Automated Test Suite & Health Verification
 
 Run all automated tests across backend, simulation math, and API contracts:
 
