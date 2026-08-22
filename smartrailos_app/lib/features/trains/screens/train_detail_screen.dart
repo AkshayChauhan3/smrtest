@@ -177,17 +177,19 @@ class TrainDetailScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Active Announcements Banner (if any)
-            announcementsAsync.when(
-              data: (list) {
-                if (list.isEmpty) return const SizedBox.shrink();
-                return _buildAnnouncementBanner(list.first)
+            () {
+              final stationAnnouncements = announcementsAsync.asData?.value ?? [];
+              final effectiveAnnouncements = stationAnnouncements.isNotEmpty
+                  ? stationAnnouncements
+                  : train.announcements;
+              if (effectiveAnnouncements.isNotEmpty) {
+                return _buildAnnouncementBanner(effectiveAnnouncements.first)
                     .animate()
                     .fadeIn()
                     .slideY(begin: -0.2, end: 0);
-              },
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
-            ),
+              }
+              return const SizedBox.shrink();
+            }(),
 
             // ── Section 1: Hero Overview & Schedule ──────────────────────
             _buildScheduleCard(train, lineColor)
@@ -1014,29 +1016,52 @@ class TrainDetailScreen extends ConsumerWidget {
 
   Widget _buildAnnouncementBanner(dynamic announcement) {
     final String message;
+    AnnouncementSeverity severity = AnnouncementSeverity.info;
     if (announcement is AnnouncementModel) {
       message = announcement.message;
+      severity = announcement.severity;
     } else if (announcement is Map) {
       message = announcement['message']?.toString() ?? announcement['text']?.toString() ?? '';
+      final parsed = AnnouncementModel.fromJson(Map<String, dynamic>.from(announcement));
+      severity = parsed.severity;
     } else {
       message = announcement?.toString() ?? '';
+      severity = AnnouncementModel.inferSeverity(null, message, null);
     }
 
     if (message.trim().isEmpty) return const SizedBox.shrink();
+
+    final Color bannerColor;
+    final IconData bannerIcon;
+    switch (severity) {
+      case AnnouncementSeverity.emergency:
+        bannerColor = AppTheme.signalRed;
+        bannerIcon = Icons.emergency_rounded;
+        break;
+      case AnnouncementSeverity.warning:
+        bannerColor = AppTheme.signalAmber;
+        bannerIcon = Icons.warning_amber_rounded;
+        break;
+      case AnnouncementSeverity.info:
+      default:
+        bannerColor = AppTheme.blueLine;
+        bannerIcon = Icons.info_outline_rounded;
+        break;
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.signalRed.withValues(alpha: 0.12),
+        color: bannerColor.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(16),
-        border: const Border(
-          left: BorderSide(color: AppTheme.signalRed, width: 4),
+        border: Border(
+          left: BorderSide(color: bannerColor, width: 4),
         ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: AppTheme.signalRed, size: 24),
+          Icon(bannerIcon, color: bannerColor, size: 24),
           const SizedBox(width: 16),
           Expanded(
             child: Text(

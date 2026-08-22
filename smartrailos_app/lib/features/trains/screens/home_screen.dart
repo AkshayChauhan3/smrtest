@@ -607,7 +607,7 @@ class _LineTile extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              line == MetroLine.blue ? "Thaltej ↔ Vastral" : "APMC ↔ Motera",
+              line == MetroLine.blue ? "Thaltej ↔ Vastral" : "APMC ↔ Motera Stadium",
               style: const TextStyle(color: AppTheme.textMuted, fontSize: 10),
             ),
           ],

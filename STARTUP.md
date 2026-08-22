@@ -13,6 +13,8 @@ Runs the core transit physics simulation, ML forecasting engine, and REST/WebSoc
 ```bash
 cd backend
 
+python init_db.py
+
 # 1. Install dependencies (if not already installed)
 pip install -r requirements.txt
 
@@ -37,7 +39,6 @@ $env:DEV_SIM_TIME="12:00"; uvicorn app.main:app --host 0.0.0.0 --port 8000 --rel
 # Linux / macOS (Bash):
 DEV_SIM_TIME=12:00 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-
 
 ---
 
@@ -75,11 +76,10 @@ flutter pub get
 ~/Android/Sdk/platform-tools/adb reverse tcp:8000 tcp:8000
 
 # 3. Launch on Chrome, Emulator, or connected Android phone
-I
+flutter run -d chrome --web-port 8082
 # Or run on physical phone:
-# flutter run -d ZD222B4K8X
-```
 
+```
 
 > **Mobile Web Preview**: [http://localhost:8082](http://localhost:8082)  
 > *(Note: The app starts directly on the Home / Train Search screen with no login required).*

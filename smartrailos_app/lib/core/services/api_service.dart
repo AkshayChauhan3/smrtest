@@ -68,10 +68,23 @@ class ApiService {
         final isPlatform = item['is_at_platform'] == true;
         final totalPax = item['current_occupancy'] ?? 0;
 
+        final trainLine = (item['line_code'] ?? '').toString().toUpperCase() == 'RL' ? MetroLine.red : MetroLine.blue;
+        final currentStationId = (item['live_current_station_id'] ?? item['current_station_id'] ?? fromStationId).toString();
+        final currentStationName = (item['live_current_station_name'] ?? item['current_station_name'] ?? '').toString();
+        final explicitIdx = item['currentPositionIndex'] is int
+            ? item['currentPositionIndex'] as int
+            : (item['current_position_index'] is int ? item['current_position_index'] as int : null);
+        final posIndex = _resolveStationIndex(
+          trainLine,
+          stationId: currentStationId,
+          stationName: currentStationName,
+          explicitIndex: explicitIdx,
+        );
+
         return TrainModel(
           trainId: item['train_id'] ?? '',
           displayName: item['train_name'] ?? item['train_id'] ?? '',
-          line: (item['line_code'] ?? '').toString().toUpperCase() == 'RL' ? MetroLine.red : MetroLine.blue,
+          line: trainLine,
           direction: item['direction'] ?? 'UP',
           etaMinutes: item['eta_minutes'] ?? 0,
           departureMinutes: (item['eta_minutes'] ?? 0) + 1,
@@ -81,7 +94,7 @@ class ApiService {
               : totalPax >= 600
                   ? TrainStatus.moderate
                   : TrainStatus.normal,
-          currentPositionIndex: 0,
+          currentPositionIndex: posIndex,
           fromStationId: fromStationId,
           toStationId: toStationId,
           announcements: [],
@@ -105,6 +118,19 @@ class ApiService {
     } else {
       throw Exception('Server error searching trains (${resSearch.statusCode}): ${resSearch.body}');
     }
+  }
+
+  int _resolveStationIndex(MetroLine line, {String? stationId, String? stationName, int? explicitIndex}) {
+    if (explicitIndex != null && explicitIndex >= 0) return explicitIndex;
+    final stations = getStationsForLine(line);
+    final sid = (stationId ?? '').trim().toLowerCase();
+    final sname = (stationName ?? '').trim().toLowerCase();
+    if (sid.isEmpty && sname.isEmpty) return 0;
+    final idx = stations.indexWhere(
+      (s) => (sid.isNotEmpty && s.id.toLowerCase() == sid) ||
+             (sname.isNotEmpty && s.name.toLowerCase() == sname),
+    );
+    return idx != -1 ? idx : 0;
   }
 
   Future<TrainModel> getTrainDetail(String trainId) async {
@@ -132,6 +158,17 @@ class ApiService {
           final totalPax = coaches.fold(0, (s, c) => s + c.currentPassengers);
           final line = t['line_name'].toString().toLowerCase().contains('blue') ? MetroLine.blue : MetroLine.red;
           final isPlatform = (t['status'] ?? '').toString().toUpperCase() == 'AT_STATION';
+          final currStationId = (t['current_station_id'] ?? t['live_current_station_id'] ?? '').toString();
+          final currStationName = (t['current_station'] ?? t['live_current_station_name'] ?? '').toString();
+          final explicitIdx = t['currentPositionIndex'] is int
+              ? t['currentPositionIndex'] as int
+              : (t['current_position_index'] is int ? t['current_position_index'] as int : null);
+          final posIndex = _resolveStationIndex(
+            line,
+            stationId: currStationId,
+            stationName: currStationName,
+            explicitIndex: explicitIdx,
+          );
 
           return TrainModel(
             trainId: t['train_id'] ?? trainId,
@@ -146,7 +183,7 @@ class ApiService {
                 : totalPax >= 600
                     ? TrainStatus.moderate
                     : TrainStatus.normal,
-            currentPositionIndex: 0,
+            currentPositionIndex: posIndex,
             fromStationId: t['current_station_id'] ?? t['current_station'] ?? '',
             toStationId: t['next_station_id'] ?? t['next_station'] ?? '',
             announcements: [],
@@ -185,10 +222,23 @@ class ApiService {
         }).toList();
         final totalPax = data['total_occupancy'] ?? coaches.fold(0, (s, c) => s + c.currentPassengers);
         final lineCode = (data['line_code'] ?? '').toString().toUpperCase();
+        final line = lineCode == 'RL' ? MetroLine.red : MetroLine.blue;
+        final currStationId = (data['current_station_id'] ?? data['live_current_station_id'] ?? '').toString();
+        final currStationName = (data['current_station_name'] ?? data['current_station'] ?? data['live_current_station_name'] ?? '').toString();
+        final explicitIdx = data['currentPositionIndex'] is int
+            ? data['currentPositionIndex'] as int
+            : (data['current_position_index'] is int ? data['current_position_index'] as int : null);
+        final posIndex = _resolveStationIndex(
+          line,
+          stationId: currStationId,
+          stationName: currStationName,
+          explicitIndex: explicitIdx,
+        );
+
         return TrainModel(
           trainId: data['train_id'] ?? trainId,
           displayName: data['train_name'] ?? trainId,
-          line: lineCode == 'RL' ? MetroLine.red : MetroLine.blue,
+          line: line,
           direction: data['direction'] ?? 'UP',
           etaMinutes: 0,
           departureMinutes: 2,
@@ -198,7 +248,7 @@ class ApiService {
               : totalPax >= 600
                   ? TrainStatus.moderate
                   : TrainStatus.normal,
-          currentPositionIndex: 0,
+          currentPositionIndex: posIndex,
           fromStationId: data['current_station_id'] ?? '',
           toStationId: data['next_station_id'] ?? '',
           announcements: [],
@@ -232,13 +282,7 @@ class ApiService {
       );
       if (res.statusCode == 200) {
         final list = jsonDecode(res.body) as List;
-        return list.map((e) => AnnouncementModel(
-          message: e['text'] ?? '',
-          severity: AnnouncementSeverity.values.firstWhere(
-            (s) => s.name == (e['severity'] ?? 'info'),
-            orElse: () => AnnouncementSeverity.info,
-          ),
-        )).toList();
+        return list.map((e) => AnnouncementModel.fromJson(Map<String, dynamic>.from(e))).toList();
       }
     } catch (e) {
       debugPrint('Error fetching announcements: $e');

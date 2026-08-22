@@ -34,16 +34,16 @@ class _TrainResultsScreenState extends ConsumerState<TrainResultsScreen> {
     )));
 
     final line = MetroLine.values.firstWhere(
-      (e) => e.name == widget.lineId,
+      (e) => e.name.toLowerCase() == widget.lineId.toLowerCase(),
       orElse: () => MetroLine.blue,
     );
     final stations = getStationsForLine(line);
     final fromStation = stations.firstWhere(
-      (s) => s.id == widget.fromStationId,
+      (s) => s.id.toLowerCase() == widget.fromStationId.toLowerCase() || s.name.toLowerCase() == widget.fromStationId.toLowerCase(),
       orElse: () => stations.first,
     );
     final toStation = stations.firstWhere(
-      (s) => s.id == widget.toStationId,
+      (s) => s.id.toLowerCase() == widget.toStationId.toLowerCase() || s.name.toLowerCase() == widget.toStationId.toLowerCase(),
       orElse: () => stations.last,
     );
 

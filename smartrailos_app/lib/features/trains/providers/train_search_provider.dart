@@ -14,7 +14,10 @@ final toStationProvider = StateProvider<Station?>((ref) => null);
 /// with the Flutter UI automatically — no manual refresh needed.
 final trainResultsProvider = StreamProvider.family<List<TrainModel>, ({String lineId, String fromStationId, String toStationId})>((ref, params) async* {
   final api = ref.read(apiServiceProvider);
-  final line = MetroLine.values.firstWhere((e) => e.name == params.lineId);
+  final line = MetroLine.values.firstWhere(
+    (e) => e.name.toLowerCase() == params.lineId.toLowerCase(),
+    orElse: () => MetroLine.blue,
+  );
 
   // Yield immediately on invocation
   yield await api.getUpcomingTrains(line, params.fromStationId, params.toStationId);

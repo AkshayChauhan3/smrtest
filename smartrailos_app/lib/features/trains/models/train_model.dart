@@ -173,7 +173,20 @@ class TrainModel {
         (e) => e.name == json['status'],
         orElse: () => TrainStatus.normal,
       ),
-      currentPositionIndex: json['currentPositionIndex'] ?? 0,
+      currentPositionIndex: () {
+        if (json['currentPositionIndex'] is int) return json['currentPositionIndex'] as int;
+        if (json['current_position_index'] is int) return json['current_position_index'] as int;
+        final currId = (json['live_current_station_id'] ?? json['liveCurrentStationId'] ?? json['current_station_id'] ?? json['fromStationId'] ?? json['from_station_id'] ?? '').toString().trim();
+        final currName = (json['live_current_station_name'] ?? json['liveCurrentStationName'] ?? json['current_station_name'] ?? json['current_station'] ?? '').toString().trim();
+        final isRed = (json['line'] ?? json['line_name'] ?? json['line_code'] ?? '').toString().toLowerCase().contains('red') || (json['line_code'] ?? '').toString().toUpperCase() == 'RL';
+        final lineEnum = isRed ? MetroLine.red : MetroLine.blue;
+        final stations = getStationsForLine(lineEnum);
+        final idx = stations.indexWhere(
+          (s) => (currId.isNotEmpty && s.id.toLowerCase() == currId.toLowerCase()) ||
+                 (currName.isNotEmpty && s.name.toLowerCase() == currName.toLowerCase()),
+        );
+        return idx != -1 ? idx : 0;
+      }(),
       fromStationId: json['fromStationId'] ?? json['from_station_id'] ?? '',
       toStationId: json['toStationId'] ?? json['to_station_id'] ?? '',
       announcements: (json['announcements'] as List? ?? []).map((e) => AnnouncementModel.fromJson(e)).toList(),
