@@ -63,14 +63,29 @@ function isUpTrain(train: Train, curIdx: number, nextIdx: number): boolean {
   return false;
 }
 
-export function LiveTrainTicker({ className }: { className?: string }) {
+export function LiveTrainTicker({
+  className,
+  defaultLine = "all",
+  stationLine,
+}: {
+  className?: string;
+  defaultLine?: "all" | "blue" | "red";
+  stationLine?: "blue" | "red";
+}) {
   const trainsQ = useTrains();
   const trainsRaw = trainsQ.data ?? [];
   const trains = useMemo(
     () => trainsRaw.filter((t) => t.id !== "ESP32_DEMO"),
     [trainsRaw]
   );
-  const [filterLine, setFilterLine] = useState<"all" | "blue" | "red">("all");
+  const initialLine = stationLine || defaultLine;
+  const [filterLine, setFilterLine] = useState<"all" | "blue" | "red">(initialLine);
+
+  useEffect(() => {
+    if (stationLine) {
+      setFilterLine(stationLine);
+    }
+  }, [stationLine]);
 
   const filteredTrains = useMemo(() => {
     if (filterLine === "all") return trains;
@@ -105,45 +120,59 @@ export function LiveTrainTicker({ className }: { className?: string }) {
           Live Network Position
         </h3>
 
-        {/* Line Filter Tabs */}
-        <div className="flex items-center gap-1 rounded-xl bg-white/[0.03] p-1 ring-1 ring-white/10">
-          <button
-            type="button"
-            onClick={() => setFilterLine("all")}
+        {/* Line Filter Tabs / Static Respected Line Badge */}
+        {stationLine ? (
+          <div
             className={cn(
-              "rounded-lg px-2.5 py-1 font-mono text-[10px] font-bold transition-all",
-              filterLine === "all"
-                ? "bg-accent-cyan/20 text-accent-cyan shadow-sm"
-                : "text-slate-400 hover:text-white"
+              "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wider ring-1 shadow-sm font-mono",
+              stationLine === "blue"
+                ? "bg-blue-500/15 text-blue-400 ring-blue-500/30"
+                : "bg-rose-500/15 text-rose-400 ring-rose-500/30"
             )}
           >
-            All ({trains.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterLine("blue")}
-            className={cn(
-              "rounded-lg px-2.5 py-1 font-mono text-[10px] font-bold transition-all",
-              filterLine === "blue"
-                ? "bg-blue-500/20 text-blue-400 shadow-sm"
-                : "text-slate-400 hover:text-white"
-            )}
-          >
-            Blue ({blueCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterLine("red")}
-            className={cn(
-              "rounded-lg px-2.5 py-1 font-mono text-[10px] font-bold transition-all",
-              filterLine === "red"
-                ? "bg-rose-500/20 text-rose-400 shadow-sm"
-                : "text-slate-400 hover:text-white"
-            )}
-          >
-            Red ({redCount})
-          </button>
-        </div>
+            <span className="size-1.5 rounded-full bg-current animate-pulse" />
+            <span>{stationLine === "blue" ? "Blue Line" : "Red Line"}</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 rounded-xl bg-white/[0.03] p-1 ring-1 ring-white/10">
+            <button
+              type="button"
+              onClick={() => setFilterLine("all")}
+              className={cn(
+                "rounded-lg px-2.5 py-1 font-mono text-[10px] font-bold transition-all",
+                filterLine === "all"
+                  ? "bg-accent-cyan/20 text-accent-cyan shadow-sm"
+                  : "text-slate-400 hover:text-white"
+              )}
+            >
+              All ({trains.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterLine("blue")}
+              className={cn(
+                "rounded-lg px-2.5 py-1 font-mono text-[10px] font-bold transition-all",
+                filterLine === "blue"
+                  ? "bg-blue-500/20 text-blue-400 shadow-sm"
+                  : "text-slate-400 hover:text-white"
+              )}
+            >
+              Blue ({blueCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterLine("red")}
+              className={cn(
+                "rounded-lg px-2.5 py-1 font-mono text-[10px] font-bold transition-all",
+                filterLine === "red"
+                  ? "bg-rose-500/20 text-rose-400 shadow-sm"
+                  : "text-slate-400 hover:text-white"
+              )}
+            >
+              Red ({redCount})
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Train rows list with stealth dark scrollbar */}

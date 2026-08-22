@@ -1,12 +1,27 @@
 import { Bell, Search, AlertOctagon } from "lucide-react";
 import { useClock, formatTime, formatDate } from "@/lib/use-live-tick";
-import { CURRENT_STATION } from "@/lib/mock/data";
+import { CURRENT_STATION, findStation } from "@/lib/mock/data";
 import { useEmergencyStatus } from "@/lib/use-emergency-status";
+import { useStations } from "@/lib/api/hooks";
+import { useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 
 export function DashboardTopNav() {
   const now = useClock();
   const emergencyActive = useEmergencyStatus();
+  const routerState = useRouterState();
+  const stationsQ = useStations();
+
+  // Determine if on a station route (/dashboard/stations/$stationId)
+  const pathname = routerState.location.pathname;
+  const match = pathname.match(/\/dashboard\/stations\/([^/]+)/);
+  const stationId = match ? decodeURIComponent(match[1]) : null;
+
+  const station = stationId
+    ? stationsQ.data?.find((s) => s.id.toLowerCase() === stationId.toLowerCase()) || findStation(stationId)
+    : null;
+
+  const displayTitle = station ? station.name.toUpperCase() : CURRENT_STATION;
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-white/[0.06] bg-[#000000] px-4 backdrop-blur-xl shadow-md md:px-8">
@@ -14,11 +29,8 @@ export function DashboardTopNav() {
       <div className="flex min-w-0 items-center gap-4 md:gap-6">
         <div className="min-w-0 shrink-0">
           <h1 className="truncate text-xs font-extrabold uppercase tracking-wide text-white sm:text-sm md:text-base">
-            {CURRENT_STATION}
+            {displayTitle}
           </h1>
-          <p className="hidden text-[10px] font-semibold uppercase tracking-widest text-slate-400 lg:block">
-            Blue Line · Red Line · Platform 1–2
-          </p>
         </div>
 
         {/* Global Search Bar on the Left */}

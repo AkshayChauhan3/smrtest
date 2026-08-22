@@ -3,7 +3,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { KpiCard } from "@/components/srail/kpi-card";
 import { TrainCard } from "@/components/srail/train-card";
 import { ActiveTrainsSlider } from "@/components/srail/active-trains-slider";
-import { StandingTrainsCard } from "@/components/srail/standing-trains-card";
 import { AnimatedNumber } from "@/components/srail/animated-number";
 import { LiveTrainTicker } from "@/components/srail/live-train-ticker";
 import {
@@ -162,11 +161,8 @@ function Overview() {
           <LiveTrainTicker />
         </div>
 
-        {/* Right Column: Standing Trains At Station & Alerts */}
+        {/* Right Column: Alerts */}
         <aside className="space-y-6 xl:col-span-4">
-          {/* Standing Trains on Stations with Live Passenger Count */}
-          <StandingTrainsCard />
-
           {/* Recent Alerts Feed */}
           <section className="rounded-2xl border border-white/[0.08] bg-[#080a0f] p-6 shadow-xl">
             <SectionHeader title="Recent Alerts" right="Live Stream" />
