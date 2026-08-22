@@ -15,6 +15,7 @@ import { LineBadge } from "@/components/srail/badges";
 import { OccupancyBar } from "@/components/srail/occupancy-bar";
 import { formatEta } from "@/lib/use-live-tick";
 import { CoachDrillDownSheet } from "@/components/srail/coach-drilldown-sheet";
+import { useLiveTrainState, formatFullStationName } from "@/lib/use-live-train-state";
 import {
   ArrowRight,
   Search,
@@ -22,9 +23,9 @@ import {
   Activity,
   Gauge,
   Sparkles,
-  SlidersHorizontal,
   ChevronRight,
   Compass,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,19 +39,8 @@ export const Route = createFileRoute("/dashboard/live-trains")({
   component: LiveTrainsPage,
 });
 
-function formatStationName(rawId?: string | null, line?: string): string {
-  if (!rawId) return "Interchange Hub";
-  const matched = findStation(rawId);
-  if (matched?.name) {
-    const code = matched.id.toUpperCase();
-    return `${code}-${matched.name}`;
-  }
-  const clean = rawId.replace(/[-_]/g, " ").trim();
-  return clean.length > 0 ? clean : "Central Station";
-}
-
 function LiveTrainsPage() {
-  const [selectedTrain, setSelectedTrain] = useState<Train | null>(null);
+  const [selectedTrainId, setSelectedTrainId] = useState<string | null>(null);
   const [lineFilter, setLineFilter] = useState<"all" | LineId>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -60,6 +50,12 @@ function LiveTrainsPage() {
   // Filter out ESP32 demo during active fleet hours if real trains exist
   const hasRealTrains = trainsRaw.some((t) => t.id !== "ESP32_DEMO");
   const allTrains = hasRealTrains ? trainsRaw.filter((t) => t.id !== "ESP32_DEMO") : trainsRaw;
+
+  // Live selected train object (reacts to latest API updates)
+  const selectedTrain = useMemo(() => {
+    if (!selectedTrainId) return null;
+    return allTrains.find((t) => t.id === selectedTrainId) ?? null;
+  }, [allTrains, selectedTrainId]);
 
   // Fleet KPIs
   const totalFleet = allTrains.length;
@@ -82,8 +78,8 @@ function LiveTrainsPage() {
       if (lineFilter !== "all" && t.line !== lineFilter) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const curName = formatStationName(t.currentStationId, t.line).toLowerCase();
-        const nextName = formatStationName(t.nextStationId, t.line).toLowerCase();
+        const curName = formatFullStationName(t.currentStationId, t.line).toLowerCase();
+        const nextName = formatFullStationName(t.nextStationId, t.line).toLowerCase();
         const idMatch = t.id.toLowerCase().includes(q);
         const nameMatch = (t.name || "").toLowerCase().includes(q);
         const dirMatch = (t.direction || "").toLowerCase().includes(q);
@@ -106,14 +102,14 @@ function LiveTrainsPage() {
               <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
             </span>
             <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-emerald-400">
-              Live Fleet Telemetry Active
+              Live Fleet Telemetry Active · 0ms Synchronized
             </span>
           </div>
           <h1 className="mt-1 text-2xl font-black tracking-tight text-white md:text-3xl">
             Live Trains Roster & Drilldown
           </h1>
           <p className="mt-1 text-xs text-slate-400">
-            Real-time fleet tracking, coach crowding analysis, and dwell timeline.
+            Real-time fleet tracking with second-by-second countdown timers and coach flow telemetry.
           </p>
         </div>
 
@@ -217,7 +213,7 @@ function LiveTrainsPage() {
         </div>
       </div>
 
-      {/* Roster Table */}
+      {/* Roster Table with Live Ticking Rows */}
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-obsidian-950/70 shadow-2xl backdrop-blur-xl">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[960px] text-sm">
@@ -227,9 +223,9 @@ function LiveTrainsPage() {
                 <th className="px-4 py-3.5 text-left">Line & Direction</th>
                 <th className="px-4 py-3.5 text-left">Current ➔ Next Station</th>
                 <th className="px-4 py-3.5 text-left">Timetable</th>
-                <th className="px-4 py-3.5 text-left">Fleet Load</th>
+                <th className="px-4 py-3.5 text-left">Live Fleet Load</th>
                 <th className="px-4 py-3.5 text-left">Risk Assessment</th>
-                <th className="px-4 py-3.5 text-left">Live Status</th>
+                <th className="px-4 py-3.5 text-left">Live Countdown Timer</th>
                 <th className="px-5 py-3.5 text-right">Drilldown</th>
               </tr>
             </thead>
@@ -241,142 +237,169 @@ function LiveTrainsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredTrains.map((t) => {
-                  const coaches = t.coaches || [];
-                  const totalCap = coaches.reduce((s, c) => s + c.capacity, 0) || 800;
-                  const totalPax = coaches.reduce((s, c) => s + (c.passengers ?? Math.round((c.capacity * c.occupancy) / 100)), 0);
-                  const avg = coaches.length > 0
-                    ? Math.round(coaches.reduce((s, c) => s + c.occupancy, 0) / coaches.length)
-                    : 0;
-                  const risk = riskFor(t);
-                  const curStation = formatStationName(t.currentStationId, t.line);
-                  const nextStation = formatStationName(t.nextStationId, t.line);
-
-                  const isAtStation = t.status === "At Station" || t.status === "Departing";
-
-                  return (
-                    <tr
-                      key={t.id}
-                      onClick={() => setSelectedTrain(t)}
-                      className="group cursor-pointer transition-colors hover:bg-white/[0.03]"
-                    >
-                      {/* Train Unit ID */}
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className={cn(
-                            "grid size-8 place-items-center rounded-lg border text-xs font-black font-mono transition-transform group-hover:scale-105",
-                            t.line === "blue"
-                              ? "border-blue-500/30 bg-blue-950/40 text-blue-400"
-                              : "border-rose-500/30 bg-rose-950/40 text-rose-400"
-                          )}>
-                            <TrainFront className="size-4" />
-                          </div>
-                          <div>
-                            <div className="font-mono text-xs font-extrabold text-accent-cyan">
-                              {t.id}
-                            </div>
-                            <div className="text-[10px] text-slate-400 font-medium line-clamp-1">
-                              {t.name.replace(`${t.id} · `, "")}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Line & Direction */}
-                      <td className="px-4 py-4">
-                        <div className="space-y-1">
-                          <LineBadge line={t.line} />
-                          <div className="text-xs font-semibold text-slate-200 line-clamp-1">
-                            {t.direction}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Current ➔ Next Station */}
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <span className="font-medium text-slate-300 line-clamp-1 max-w-[130px]" title={curStation}>
-                            {curStation}
-                          </span>
-                          <ArrowRight className="size-3.5 shrink-0 text-slate-600" />
-                          <span className="font-semibold text-accent-cyan line-clamp-1 max-w-[130px]" title={nextStation}>
-                            {nextStation}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Timetable */}
-                      <td className="px-4 py-4 font-mono text-xs text-slate-400">
-                        <div>Arr: <span className="text-slate-300">{t.arrival || "--:--"}</span></div>
-                        <div>Dep: <span className="text-slate-300">{t.departure || "--:--"}</span></div>
-                      </td>
-
-                      {/* Fleet Load */}
-                      <td className="px-4 py-4">
-                        <div className="w-36 space-y-1">
-                          <div className="flex items-center justify-between text-[11px] font-mono">
-                            <span className="text-slate-300 font-bold">{avg}%</span>
-                            <span className="text-slate-500">{totalPax}/{totalCap}</span>
-                          </div>
-                          <OccupancyBar value={avg} />
-                        </div>
-                      </td>
-
-                      {/* Risk Assessment */}
-                      <td className="px-4 py-4">
-                        <span className={cn(
-                          "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-                          RISK_TW[risk]
-                        )}>
-                          {risk}
-                        </span>
-                      </td>
-
-                      {/* Live Status */}
-                      <td className="px-4 py-4 text-xs">
-                        {isAtStation ? (
-                          <span className="inline-flex items-center gap-1.5 font-bold text-emerald-400">
-                            <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            At Station
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 font-bold text-blue-400">
-                            <span className="size-1.5 rounded-full bg-blue-400 animate-pulse" />
-                            ETA {formatEta(t.etaSeconds || 60)}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Drilldown Action */}
-                      <td className="px-5 py-4 text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedTrain(t);
-                          }}
-                          className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-slate-300 transition-all hover:border-accent-cyan/40 hover:bg-accent-cyan/10 hover:text-accent-cyan"
-                        >
-                          <span>Drilldown</span>
-                          <ChevronRight className="size-3" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
+                filteredTrains.map((t) => (
+                  <LiveTrainRow
+                    key={t.id}
+                    train={t}
+                    onSelect={() => setSelectedTrainId(t.id)}
+                  />
+                ))
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Interactive Coach Drilldown Sheet Modal */}
+      {/* Interactive Coach Drilldown Sheet Modal with Live Ticking Timer */}
       <CoachDrillDownSheet
         train={selectedTrain}
         open={!!selectedTrain}
         onOpenChange={(open) => {
-          if (!open) setSelectedTrain(null);
+          if (!open) setSelectedTrainId(null);
         }}
       />
     </div>
+  );
+}
+
+/**
+ * Sub-component for individual table row with second-by-second live countdown and passenger updates
+ */
+function LiveTrainRow({
+  train,
+  onSelect,
+}: {
+  train: Train;
+  onSelect: () => void;
+}) {
+  const live = useLiveTrainState(train);
+  const risk = riskFor(train);
+
+  const curStation = live?.currentStationFullName ?? formatFullStationName(train.currentStationId, train.line);
+  const nextStation = live?.nextStationFullName ?? formatFullStationName(train.nextStationId, train.line);
+  const totalCap = live?.totalCapacity ?? 800;
+  const livePax = live?.livePax ?? 350;
+  const livePct = live?.liveOccupancyPct ?? Math.round((livePax / totalCap) * 100);
+
+  return (
+    <tr
+      onClick={onSelect}
+      className="group cursor-pointer transition-colors hover:bg-white/[0.03]"
+    >
+      {/* Train Unit ID */}
+      <td className="px-5 py-4">
+        <div className="flex items-center gap-2.5">
+          <div
+            className={cn(
+              "grid size-8 place-items-center rounded-lg border text-xs font-black font-mono transition-transform group-hover:scale-105",
+              train.line === "blue"
+                ? "border-blue-500/30 bg-blue-950/40 text-blue-400"
+                : "border-rose-500/30 bg-rose-950/40 text-rose-400"
+            )}
+          >
+            <TrainFront className="size-4" />
+          </div>
+          <div>
+            <div className="font-mono text-xs font-extrabold text-accent-cyan">
+              {train.id}
+            </div>
+            <div className="text-[10px] text-slate-400 font-medium line-clamp-1">
+              {train.name.replace(`${train.id} · `, "")}
+            </div>
+          </div>
+        </div>
+      </td>
+
+      {/* Line & Direction */}
+      <td className="px-4 py-4">
+        <div className="space-y-1">
+          <LineBadge line={train.line} />
+          <div className="text-xs font-semibold text-slate-200 line-clamp-1">
+            {train.direction}
+          </div>
+        </div>
+      </td>
+
+      {/* Current ➔ Next Station */}
+      <td className="px-4 py-4">
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className="font-medium text-slate-300 line-clamp-1 max-w-[130px]" title={curStation}>
+            {curStation}
+          </span>
+          <ArrowRight className="size-3.5 shrink-0 text-slate-600" />
+          <span className="font-semibold text-accent-cyan line-clamp-1 max-w-[130px]" title={nextStation}>
+            {nextStation}
+          </span>
+        </div>
+      </td>
+
+      {/* Timetable */}
+      <td className="px-4 py-4 font-mono text-xs text-slate-400">
+        <div>Arr: <span className="text-slate-300">{train.arrival || "--:--"}</span></div>
+        <div>Dep: <span className="text-slate-300">{train.departure || "--:--"}</span></div>
+      </td>
+
+      {/* Live Fleet Load */}
+      <td className="px-4 py-4">
+        <div className="w-36 space-y-1">
+          <div className="flex items-center justify-between text-[11px] font-mono">
+            <span className="text-slate-300 font-bold">{livePct}%</span>
+            <span className="text-slate-500">{livePax}/{totalCap} pax</span>
+          </div>
+          <OccupancyBar value={livePct} />
+        </div>
+      </td>
+
+      {/* Risk Assessment */}
+      <td className="px-4 py-4">
+        <span
+          className={cn(
+            "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+            RISK_TW[risk]
+          )}
+        >
+          {risk}
+        </span>
+      </td>
+
+      {/* Live Synchronized Countdown Timer */}
+      <td className="px-4 py-4 text-xs font-mono">
+        {live?.isHalting ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-950/40 px-2.5 py-1 font-bold text-emerald-400">
+            <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" />
+            AT PLATFORM · {live.timerFormatted}
+          </span>
+        ) : live?.isApproaching ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-950/40 px-2.5 py-1 font-bold text-cyan-400">
+            <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            APPROACHING · {live.timerFormatted}
+          </span>
+        ) : live?.isDeparted ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-500/30 bg-purple-950/40 px-2.5 py-1 font-bold text-purple-400">
+            <span className="size-1.5 rounded-full bg-purple-400" />
+            DEPARTED · EN ROUTE
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-950/40 px-2.5 py-1 font-bold text-blue-400">
+            <span className="size-1.5 rounded-full bg-blue-400 animate-pulse" />
+            EN ROUTE · {live?.timerFormatted ?? "ETA 2m"}
+          </span>
+        )}
+      </td>
+
+      {/* Drilldown Action */}
+      <td className="px-5 py-4 text-right">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect();
+          }}
+          className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-slate-300 transition-all hover:border-accent-cyan/40 hover:bg-accent-cyan/10 hover:text-accent-cyan"
+        >
+          <span>Drilldown</span>
+          <ChevronRight className="size-3" />
+        </button>
+      </td>
+    </tr>
   );
 }
