@@ -361,8 +361,9 @@ class DataService:
             if station_filter and crowd.station_name.lower() != station_filter:
                 continue
             if crowd.current_station_crowd >= 600:
+                alert_id = f"platform-{self._slug(crowd.station_name)}"
                 alerts.append(AlertOut(
-                    id=f"platform-{self._slug(crowd.station_name)}",
+                    id=alert_id,
                     alert_type="platform_congestion",
                     severity="high" if crowd.current_station_crowd < 900 else "critical",
                     title="Platform Congestion",
@@ -370,6 +371,8 @@ class DataService:
                     station_name=crowd.station_name,
                     train_id=None,
                     created_at=now,
+                    acknowledged=alert_id in self.acknowledged_sim_alerts,
+                    resolved=alert_id in self.resolved_sim_alerts,
                 ))
 
         for train in self.engine.all_trains(now):
@@ -377,8 +380,6 @@ class DataService:
                 continue
             if train.get("train_occupancy_pct", 0) >= 85:
                 alert_id = f"train-{train.get('train_id', '').lower()}"
-                if alert_id in self.resolved_sim_alerts:
-                    continue
                 alerts.append(AlertOut(
                     id=alert_id,
                     alert_type="prediction_alert",
@@ -388,7 +389,8 @@ class DataService:
                     station_name=train.get("current_station"),
                     train_id=train.get("train_id"),
                     created_at=now,
-                    acknowledged=alert_id in self.acknowledged_sim_alerts
+                    acknowledged=alert_id in self.acknowledged_sim_alerts,
+                    resolved=alert_id in self.resolved_sim_alerts,
                 ))
         return alerts
 
