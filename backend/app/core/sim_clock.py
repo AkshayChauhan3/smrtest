@@ -16,7 +16,15 @@ class SimClock:
         if self._override_base is not None and self._set_at is not None:
             elapsed = datetime.now() - self._set_at
             return self._override_base + elapsed
-        return datetime.now()
+        
+        real_now = datetime.now()
+        # If wall clock time is in off-peak night hours (< 06:15 or >= 22:15)
+        # wrap smoothly into active daytime schedule (12:xx PM)
+        # so developers & teammates running anytime 24/7 get live train operations without needing manual simulation variables
+        if real_now.hour < 6 or (real_now.hour == 6 and real_now.minute < 15) or real_now.hour > 22 or (real_now.hour == 22 and real_now.minute >= 15):
+            sim_hour = 12 + (real_now.hour % 6)
+            return real_now.replace(hour=sim_hour)
+        return real_now
 
     def set_time(self, hhmm: str):
         """Set the simulation time using an HH:MM string and advance in real time."""
