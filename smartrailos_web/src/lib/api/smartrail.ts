@@ -226,7 +226,7 @@ export function adaptTrain(t: BackendTrainAtStation): Train {
   ]).map(adaptCoach);
 
   const totalCapacity = coaches.reduce((sum, c) => sum + c.capacity, 0) || 800;
-  const currentTotalPax = coaches.reduce((sum, c) => sum + c.passengers, 0);
+  const currentTotalPax = coaches.reduce((sum, c) => sum + (c.passengers ?? 0), 0);
   const avgOcc = Math.round((currentTotalPax / totalCapacity) * 100);
 
   const st = (t.status || "").toUpperCase();
