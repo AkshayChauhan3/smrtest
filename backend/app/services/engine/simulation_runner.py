@@ -144,14 +144,18 @@ async def run_simulation_step():
                 station_crowds[sid] += pax
 
         from app.models.route import StationCrowdSnapshot
+        is_overnight = (now.hour >= 23 or now.hour < 6)
         for sid, crowd in station_crowds.items():
+            pred_5 = 0 if (is_overnight or crowd == 0) else int(crowd * 1.1)
+            pred_15 = 0 if (is_overnight or crowd == 0) else int(crowd * 1.25)
+            pred_30 = 0 if (is_overnight or crowd == 0) else int(crowd * 1.4)
             db.add(StationCrowdSnapshot(
                 station_id=sid,
                 timestamp=now,
                 current_crowd=crowd,
-                predicted_5_min=int(crowd * 1.1),
-                predicted_15_min=int(crowd * 1.25),
-                predicted_30_min=int(crowd * 1.4),
+                predicted_5_min=pred_5,
+                predicted_15_min=pred_15,
+                predicted_30_min=pred_30,
             ))
 
         # ── Per-Station Current & Feature Snapshots ──────────────────────────
@@ -520,3 +524,34 @@ async def run_simulation_step():
             logger.info("Daily database vacuum completed successfully (reclaimed fragmented space).")
         except Exception as vacuum_exc:
             logger.warning(f"Daily database vacuum failed: {vacuum_exc}")
+
+    # ── Real-Time WebSocket Broadcast (Direct Cache Hydration) ───────────────
+    try:
+        from app.core.websockets import manager
+        if manager.active_connections:
+            from app.services.data_service import data_service
+            live_trains_out = [t.model_dump() for t in data_service.get_all_trains_live(now)]
+            interchange_trains = [t.model_dump() for t in data_service.get_trains_at_station("Old High Court", now)]
+            incoming_trains = [t.model_dump() for t in data_service.get_incoming_trains_at_station("Old High Court", now)]
+            crowd_pred = data_service.get_station_crowd_prediction("Old High Court", now)
+            crowd_dump = crowd_pred.model_dump() if crowd_pred else {
+                "current_station_crowd": 0, "predicted_5_min": 0, "predicted_15_min": 0, "predicted_30_min": 0
+            }
+            
+            await manager.broadcast({
+                "event_type": "simulation_tick",
+                "data": {
+                    "timestamp": now.isoformat(),
+                    "trains": live_trains_out,
+                    "snapshot": {
+                        "current_trains": interchange_trains,
+                        "incoming_trains": incoming_trains,
+                        "crowd_prediction": crowd_dump,
+                        "alerts": [],
+                        "recommendations": []
+                    },
+                    "station_crowds": station_crowds,
+                }
+            })
+    except Exception as ws_broadcast_exc:
+        logger.debug(f"WS simulation_tick broadcast notice: {ws_broadcast_exc}")

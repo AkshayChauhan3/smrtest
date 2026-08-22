@@ -28,7 +28,7 @@ import warnings
 from datetime import datetime, date, timedelta, timezone
 from pathlib import Path
 from typing import Optional
-import requests
+import httpx
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -82,36 +82,68 @@ _WMO_TO_LABEL: dict[int, str] = {
     **{c: "Rainy"  for c in list(range(51, 68)) + list(range(71, 78)) + list(range(80, 83)) + [95, 96, 99]},
 }
 
-# ── Weather cache (refresh every 15 min / 900 s) ──────────────────────────────
+# ── Weather cache (refresh every 30 min / 1800 s) ─────────────────────────────
 _weather_cache: dict = {}
 _weather_cache_ts: Optional[datetime] = None
-_CACHE_TTL_SECONDS = 900
+_CACHE_TTL_SECONDS = 1800
 
 
 def _get_ahmedabad_weather() -> tuple[float, str]:
     """
-    Fetch real-time Ahmedabad weather from Open-Meteo.
+    Fetch real-time Ahmedabad weather from Open-Meteo with 30-minute caching.
+    Uses httpx with a strict 3-second timeout to prevent simulation delays.
     Returns (temperature_celsius, condition_label).
-    Falls back to (32.0, 'Sunny') if the API is unreachable.
+    Falls back to (32.0, 'Sunny') if the API is unreachable or times out.
     """
     global _weather_cache, _weather_cache_ts
 
     now = datetime.now(timezone.utc)
     if _weather_cache_ts and (now - _weather_cache_ts).total_seconds() < _CACHE_TTL_SECONDS:
-        return _weather_cache["temp"], _weather_cache["condition"]
+        return _weather_cache.get("temp", 32.0), _weather_cache.get("condition", "Sunny")
 
     try:
-        resp = requests.get(_WEATHER_URL, timeout=5)
-        resp.raise_for_status()
-        data = resp.json()
-        temp      = float(data["current"]["temperature_2m"])
-        wmo_code  = int(data["current"]["weathercode"])
-        condition = _WMO_TO_LABEL.get(wmo_code, "Sunny")
-        _weather_cache    = {"temp": temp, "condition": condition}
-        _weather_cache_ts = now
-        return temp, condition
+        with httpx.Client(timeout=3.0) as client:
+            resp = client.get(_WEATHER_URL)
+            resp.raise_for_status()
+            data = resp.json()
+            temp      = float(data["current"]["temperature_2m"])
+            wmo_code  = int(data["current"]["weathercode"])
+            condition = _WMO_TO_LABEL.get(wmo_code, "Sunny")
+            _weather_cache    = {"temp": temp, "condition": condition}
+            _weather_cache_ts = now
+            return temp, condition
     except Exception as exc:
-        logger.warning(f"[EstimationService] Weather API failed: {exc}. Using fallback.")
+        logger.warning(f"[EstimationService] Weather API failed ({exc}). Using cached or default fallback.")
+        if _weather_cache:
+            return _weather_cache.get("temp", 32.0), _weather_cache.get("condition", "Sunny")
+        return 32.0, "Sunny"
+
+
+async def _get_ahmedabad_weather_async() -> tuple[float, str]:
+    """
+    Non-blocking async helper to fetch real-time Ahmedabad weather using httpx.AsyncClient.
+    """
+    global _weather_cache, _weather_cache_ts
+
+    now = datetime.now(timezone.utc)
+    if _weather_cache_ts and (now - _weather_cache_ts).total_seconds() < _CACHE_TTL_SECONDS:
+        return _weather_cache.get("temp", 32.0), _weather_cache.get("condition", "Sunny")
+
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(_WEATHER_URL)
+            resp.raise_for_status()
+            data = resp.json()
+            temp      = float(data["current"]["temperature_2m"])
+            wmo_code  = int(data["current"]["weathercode"])
+            condition = _WMO_TO_LABEL.get(wmo_code, "Sunny")
+            _weather_cache    = {"temp": temp, "condition": condition}
+            _weather_cache_ts = now
+            return temp, condition
+    except Exception as exc:
+        logger.warning(f"[EstimationService] Async Weather API failed ({exc}). Using cached or default fallback.")
+        if _weather_cache:
+            return _weather_cache.get("temp", 32.0), _weather_cache.get("condition", "Sunny")
         return 32.0, "Sunny"
 
 

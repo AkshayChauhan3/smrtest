@@ -14,13 +14,18 @@ class AlertService:
         self.sim_service = data_service
 
     async def _ensure_seed_alerts(self):
-        """Seed baseline active operational alerts into SQLite if table is empty."""
+        """Seed baseline active operational alerts into SQLite if table is empty and daytime active."""
         from app.models.alert import Alert, AlertType, SeverityLevel
-        from datetime import datetime, timedelta
+        from datetime import timedelta
+        from app.core.sim_clock import sim_clock
         
+        now = sim_clock.now()
+        is_night = (now.hour >= 23 or now.hour < 6)
+        if is_night:
+            return  # Do not seed daytime congestion alerts during night shutdown
+
         count = await self.db.scalar(select(func.count()).select_from(Alert))
         if not count or count == 0:
-            now = datetime.now()
             default_alerts = [
                 Alert(
                     id="alt-emg-01",
@@ -63,11 +68,16 @@ class AlertService:
     async def list_alerts(self, station_name: str | None = None) -> List[AlertOut]:
         """Fetch active alerts from DB, resolving station names and prioritizing Emergency."""
         await self._ensure_seed_alerts()
-        db_alerts = await self.alert_repo.get_all_recent_alerts(limit=100)
+        db_alerts = await self.alert_repo.get_active_alerts(limit=100)
         
         from app.models.station import Station
         st_res = await self.db.execute(select(Station))
         stations_map = {s.station_id: s.name for s in st_res.scalars().all()}
+
+        from app.core.sim_clock import sim_clock
+        from app.models.alert import AlertType
+        now = sim_clock.now()
+        is_night = (now.hour >= 23 or now.hour < 6)
 
         results = []
         for alert in db_alerts:
@@ -83,7 +93,7 @@ class AlertService:
             if alert.payload and isinstance(alert.payload, dict):
                 is_ack = bool(alert.payload.get("acknowledged", False))
 
-            is_res = alert.resolved_at is not None
+            is_res = alert.resolved_at is not None or (is_night and alert.alert_type in (AlertType.PLATFORM_CONGESTION, AlertType.PREDICTION_ALERT, AlertType.TRAIN_DELAY))
 
             results.append(
                 AlertOut(

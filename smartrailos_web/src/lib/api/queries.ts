@@ -58,7 +58,10 @@ export const queryKeys = {
   esp32Events: ["esp32", "events"] as const,
 };
 
-const LIVE_REFETCH_MS = 5_000; // Match the simulation runner's 5-second tick
+import { isWebSocketConnected } from "@/lib/use-global-ws";
+
+const getLiveRefetchInterval = () => (isWebSocketConnected() ? false : 5_000);
+const getLiveStaleTime = () => (isWebSocketConnected() ? 30_000 : 0);
 
 // ---------- Backend-backed queries ----------
 
@@ -68,8 +71,8 @@ export const snapshotQuery = queryOptions<BackendDashboardSnapshot | null>({
     USE_MOCK
       ? mockAsync(null)
       : apiFetch<BackendDashboardSnapshot>("/dashboard/snapshot").catch(() => null),
-  refetchInterval: LIVE_REFETCH_MS,
-  staleTime: 0,
+  refetchInterval: getLiveRefetchInterval,
+  staleTime: getLiveStaleTime,
 });
 
 export const trainsQuery = queryOptions<Train[]>({
@@ -83,8 +86,8 @@ export const trainsQuery = queryOptions<Train[]>({
       return TRAINS;
     }
   },
-  refetchInterval: LIVE_REFETCH_MS,
-  staleTime: 0,
+  refetchInterval: getLiveRefetchInterval,
+  staleTime: getLiveStaleTime,
 });
 
 export const trainQuery = (id: string) =>
@@ -99,6 +102,8 @@ export const trainQuery = (id: string) =>
         return TRAINS.find((t) => t.id === id);
       }
     },
+    refetchInterval: getLiveRefetchInterval,
+    staleTime: getLiveStaleTime,
   });
 
 export const kpiQuery = queryOptions<typeof KPI>({
@@ -106,25 +111,14 @@ export const kpiQuery = queryOptions<typeof KPI>({
   queryFn: async () => {
     if (USE_MOCK) return mockAsync(KPI);
     try {
-      const hist = await apiFetch<BackendKpiHistory>("/dashboard/kpi-history").catch(() => null);
-      if (hist?.current && hist.current.active_trains > 0) {
-        const cur = hist.current;
-        return {
-          currentTrains: cur.active_trains,
-          passengersInStation: cur.total_station_crowd || 1200,
-          passengersInTransit: cur.passengers_in_transit || 3800,
-          avgOccupancy: Math.min(100, Math.round(cur.avg_occupancy_pct || 55)),
-          activeAlerts: 0,
-          predictedNextHour: Math.round((cur.total_station_crowd || 1800) * 1.2),
-        };
-      }
       const snap = await apiFetch<BackendDashboardSnapshot>("/dashboard/snapshot");
       return kpiFromSnapshot(snap);
     } catch {
       return KPI;
     }
   },
-  refetchInterval: LIVE_REFETCH_MS,
+  refetchInterval: getLiveRefetchInterval,
+  staleTime: getLiveStaleTime,
 });
 
 export const kpiHistoryQuery = queryOptions<BackendKpiHistory | null>({
@@ -144,7 +138,8 @@ export const alertsQuery = queryOptions<Alert[]>({
     const list = await apiFetch<BackendAlert[]>("/alerts").catch(() => [] as BackendAlert[]);
     return list.map(adaptAlert);
   },
-  refetchInterval: LIVE_REFETCH_MS,
+  refetchInterval: getLiveRefetchInterval,
+  staleTime: getLiveStaleTime,
 });
 
 export const recommendationsQuery = queryOptions<Recommendation[]>({
@@ -158,7 +153,8 @@ export const recommendationsQuery = queryOptions<Recommendation[]>({
       return RECOMMENDATIONS;
     }
   },
-  refetchInterval: LIVE_REFETCH_MS,
+  refetchInterval: getLiveRefetchInterval,
+  staleTime: getLiveStaleTime,
 });
 
 export const stationsQuery = queryOptions<Station[]>({
@@ -181,19 +177,19 @@ export const stationCurrentQuery = (stationId: string) =>
     queryFn: () =>
       USE_MOCK
         ? mockAsync({
-            train_id: "BL-UP-01",
-            current_passenger_count: 540,
-            arrival_time: "12:05",
-            departure_time: "12:06",
-          })
+          train_id: "BL-UP-01",
+          current_passenger_count: 540,
+          arrival_time: "12:05",
+          departure_time: "12:06",
+        })
         : apiFetch<StationCurrentData>(`/stations/${stationId}/current`).catch(() => ({
-            train_id: null,
-            current_passenger_count: null,
-            arrival_time: null,
-            departure_time: null,
-          })),
-    refetchInterval: LIVE_REFETCH_MS,
-    staleTime: 0,
+          train_id: null,
+          current_passenger_count: null,
+          arrival_time: null,
+          departure_time: null,
+        })),
+    refetchInterval: getLiveRefetchInterval,
+    staleTime: getLiveStaleTime,
   });
 
 export const stationFeatureQuery = (stationId: string) =>
@@ -202,18 +198,18 @@ export const stationFeatureQuery = (stationId: string) =>
     queryFn: () =>
       USE_MOCK
         ? mockAsync([{
-            train_id: "BL-UP-02",
-            estimated_arrival_time: "12:15",
-            estimated_departure_time: "12:16",
-            estimated_passenger_incoming: 420,
-            estimated_alighting: 120,
-            estimated_boarding: 230,
-            estimated_station_passenger_count: 530,
-            coaches: [],
-          }])
+          train_id: "BL-UP-02",
+          estimated_arrival_time: "12:15",
+          estimated_departure_time: "12:16",
+          estimated_passenger_incoming: 420,
+          estimated_alighting: 120,
+          estimated_boarding: 230,
+          estimated_station_passenger_count: 530,
+          coaches: [],
+        }])
         : apiFetch<StationFeatureData[]>(`/stations/${stationId}/feature`).catch(() => []),
-    refetchInterval: LIVE_REFETCH_MS,
-    staleTime: 0,
+    refetchInterval: getLiveRefetchInterval,
+    staleTime: getLiveStaleTime,
   });
 
 
@@ -234,7 +230,7 @@ export const announcementsQuery = queryOptions<Announcement[]>({
       return [];
     }
   },
-  refetchInterval: LIVE_REFETCH_MS,
+  refetchInterval: getLiveRefetchInterval,
 });
 
 export const notificationsQuery = queryOptions<Notification[]>({

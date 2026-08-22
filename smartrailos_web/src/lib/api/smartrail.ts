@@ -246,16 +246,16 @@ export function adaptTrain(t: BackendTrainAtStation): Train {
   const arrivalEtaSeconds = isInTransit ? (t.eta_seconds ?? null) : null;
   const etaSeconds = t.eta_seconds ?? (isAtStation ? 30 : 45);
 
-  const predictedBoarding = t.predicted_boarding_count ?? Math.max(12, Math.round(currentTotalPax * 0.12));
-  const predictedDeboarding = t.predicted_deboarding_count ?? Math.max(10, Math.round(currentTotalPax * 0.08));
+  const predictedBoarding = t.predicted_boarding_count ?? (currentTotalPax === 0 ? 0 : Math.max(12, Math.round(currentTotalPax * 0.12)));
+  const predictedDeboarding = t.predicted_deboarding_count ?? (currentTotalPax === 0 ? 0 : Math.max(10, Math.round(currentTotalPax * 0.08)));
   const netFlow = predictedBoarding - predictedDeboarding;
 
   const totalEstPax =
     t.estimated_departure_passengers ??
-    Math.min(totalCapacity, currentTotalPax + netFlow);
+    (currentTotalPax === 0 ? 0 : Math.min(totalCapacity, currentTotalPax + netFlow));
   const totalEstPct =
     t.estimated_departure_occupancy_pct ??
-    Math.min(100, Math.round((totalEstPax / totalCapacity) * 100));
+    (totalCapacity > 0 ? Math.min(100, Math.round((totalEstPax / totalCapacity) * 100)) : 0);
 
   const predictedOccupancy =
     t.predicted_occupancy_at_station ??

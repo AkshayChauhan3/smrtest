@@ -75,7 +75,7 @@ function Overview() {
 
   if (loading) return <OverviewSkeleton />;
 
-  const trainsRaw = (trainsQ.data && trainsQ.data.length > 0) ? trainsQ.data : TRAINS;
+  const trainsRaw = trainsQ.data ?? [];
   
   // ESP32 visibility: hide during online hours, show during offline hours
   const hasRealTrains = trainsRaw.some(t => t.id !== "ESP32_DEMO");
@@ -88,7 +88,7 @@ function Overview() {
     return 0;
   });
 
-  const alerts = alertsQ.data && alertsQ.data.length > 0 ? alertsQ.data : ALERTS;
+  const alerts = alertsQ.data ?? [];
   const visible = trains.slice(0, 3);
   
   const hist = histQ.data;
@@ -106,12 +106,12 @@ function Overview() {
 
   const kpiData = kpiQ.data;
   const kpi = {
-    currentTrains: (kpiData?.currentTrains && kpiData.currentTrains > 0) ? kpiData.currentTrains : activeFleetCount,
-    passengersInTransit: (kpiData?.passengersInTransit && kpiData.passengersInTransit > 0) ? kpiData.passengersInTransit : (totalFleetPax > 0 ? totalFleetPax : mockKpi.passengersInTransit),
-    avgOccupancy: (kpiData?.avgOccupancy && kpiData.avgOccupancy > 0) ? kpiData.avgOccupancy : (liveAvgOccupancy > 0 ? liveAvgOccupancy : mockKpi.avgOccupancy),
+    currentTrains: USE_MOCK ? mockKpi.currentTrains : (kpiData?.currentTrains ?? activeFleetCount),
+    passengersInTransit: USE_MOCK ? mockKpi.passengersInTransit : (kpiData?.passengersInTransit ?? totalFleetPax),
+    avgOccupancy: USE_MOCK ? mockKpi.avgOccupancy : (kpiData?.avgOccupancy ?? liveAvgOccupancy),
     activeAlerts: alerts.filter((a) => !a.resolved).length,
-    predictedNextHour: (kpiData?.predictedNextHour && kpiData.predictedNextHour > 0) ? kpiData.predictedNextHour : Math.round((totalFleetPax > 0 ? totalFleetPax : 2000) * 1.18),
-    passengersInStation: (kpiData?.passengersInStation && kpiData.passengersInStation > 0) ? kpiData.passengersInStation : mockKpi.passengersInStation,
+    predictedNextHour: USE_MOCK ? mockKpi.predictedNextHour : (kpiData?.predictedNextHour ?? Math.round(totalFleetPax * 1.18)),
+    passengersInStation: USE_MOCK ? mockKpi.passengersInStation : (kpiData?.passengersInStation ?? 0),
   };
 
   return (
