@@ -63,7 +63,7 @@ class AlertService:
     async def list_alerts(self, station_name: str | None = None) -> List[AlertOut]:
         """Fetch active alerts from DB, resolving station names and prioritizing Emergency."""
         await self._ensure_seed_alerts()
-        db_alerts = await self.alert_repo.get_active_alerts(limit=100)
+        db_alerts = await self.alert_repo.get_all_recent_alerts(limit=100)
         
         from app.models.station import Station
         st_res = await self.db.execute(select(Station))
