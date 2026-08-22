@@ -6,12 +6,16 @@ import '../../../core/constants/theme.dart';
 import '../../../core/constants/app_config.dart';
 import '../../../core/widgets/floating_nav.dart';
 import '../../../core/widgets/metro_drawer.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final user = authState.value;
+
     return Scaffold(
       drawer: const MetroDrawer(),
       body: Stack(
@@ -32,13 +36,13 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 flexibleSpace: FlexibleSpaceBar(
                   title: Text(
-                    'COMMUTER PREFERENCES',
+                    'PASSENGER PROFILE',
                     style: TextStyle(
                       color: AppTheme.textPrimary,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.5,
                       fontFamily: AppTheme.tabularNumberStyle.fontFamily,
-                      fontSize: 16,
+                      fontSize: 15,
                     ),
                   ),
                   centerTitle: true,
@@ -59,6 +63,14 @@ class ProfileScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // ── Passenger Account Card ──────────────────────────────
+                      _buildUserAccountCard(context, ref, user)
+                          .animate()
+                          .fadeIn(delay: 100.ms)
+                          .slideY(begin: 0.05, end: 0),
+
+                      const SizedBox(height: 24),
+
                       // ── Commuter Impact Stats ───────────────────────────────
                       _buildCommuterStats()
                           .animate()
@@ -130,6 +142,161 @@ class ProfileScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _buildUserAccountCard(BuildContext context, WidgetRef ref, dynamic user) {
+    if (user == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceElevated,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.blueLine.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppTheme.blueLine.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.person_outline, color: AppTheme.blueLine, size: 24),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Passenger Guest', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary)),
+                  SizedBox(height: 2),
+                  Text('Sign in to sync saved routes & passes', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                ],
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => context.push('/login'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.blueLine,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('SIGN IN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final displayName = user.name.isNotEmpty ? user.name : 'Commuter Passenger';
+    final passengerId = user.userIdCode ?? user.userId;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceElevated,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.blueLine.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.blueLine, Color(0xFF0072CE)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Center(
+                  child: Icon(Icons.directions_subway_rounded, color: Colors.white, size: 24),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            displayName,
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: AppTheme.textPrimary),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.blueLine.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppTheme.blueLine.withValues(alpha: 0.4)),
+                          ),
+                          child: const Text(
+                            'PASSENGER',
+                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: AppTheme.blueLine),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'ID: $passengerId · ${user.email}',
+                      style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: AppTheme.textMuted),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Divider(height: 1, color: Color(0x14FFFFFF)),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.verified_rounded, size: 14, color: AppTheme.signalGreen),
+                  SizedBox(width: 6),
+                  Text('Active Passenger Metro Pass', style: TextStyle(fontSize: 11, color: AppTheme.signalGreen, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              TextButton.icon(
+                onPressed: () async {
+                  await ref.read(authProvider.notifier).logout();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Signed out successfully')),
+                    );
+                    context.go('/login');
+                  }
+                },
+                icon: const Icon(Icons.logout_rounded, size: 14, color: AppTheme.signalRed),
+                label: const Text('SIGN OUT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.signalRed)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildCommuterStats() {
     return Row(

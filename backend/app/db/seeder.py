@@ -8,6 +8,8 @@ from app.models.station import Station
 from app.models.route import Route, RouteStop
 from app.models.train import Train, TrainCoach
 from app.models.alert import Alert, AlertType, SeverityLevel
+from app.models.user import User
+from app.core.security import hash_password
 from app.services.metro_engine import (
     BLUE_LINE_STATIONS,
     RED_LINE_STATIONS,
@@ -23,8 +25,59 @@ from app.services.metro_engine import (
 )
 
 
+async def seed_default_users(db: AsyncSession) -> None:
+    """Seed initial IT Admin, Station Operators, and Passenger demo users."""
+    user_count = await db.scalar(select(func.count()).select_from(User))
+    if user_count and user_count > 0:
+        return
+
+    default_users = [
+        User(
+            user_id_code="ADMIN01",
+            email="admin@smartrail.os",
+            full_name="IT Administrator",
+            hashed_password=hash_password("admin123"),
+            role="admin",
+            station_id=None,
+            is_active=True,
+        ),
+        User(
+            user_id_code="OP_BL11",
+            email="operator.bl11@smartrail.os",
+            full_name="Old High Court Operator",
+            hashed_password=hash_password("operator123"),
+            role="operator",
+            station_id="BL11",
+            is_active=True,
+        ),
+        User(
+            user_id_code="OP_BL01",
+            email="operator.bl01@smartrail.os",
+            full_name="Vastral Gam Operator",
+            hashed_password=hash_password("operator123"),
+            role="operator",
+            station_id="BL01",
+            is_active=True,
+        ),
+        User(
+            user_id_code="PASS101",
+            email="passenger@smartrail.os",
+            full_name="Rahul Sharma",
+            hashed_password=hash_password("pass123"),
+            role="passenger",
+            station_id=None,
+            is_active=True,
+        ),
+    ]
+    for u in default_users:
+        db.add(u)
+    await db.commit()
+
+
 async def seed_database(db: AsyncSession) -> None:
-    """Populate reference tables if they are empty."""
+    """Populate reference tables and default users if they are empty."""
+    await seed_default_users(db)
+
     count = await db.scalar(select(func.count()).select_from(Station))
     if count and count > 0:
         return  # Already seeded

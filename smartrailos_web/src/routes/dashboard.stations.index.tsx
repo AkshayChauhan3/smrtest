@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Building2, ArrowRight, Loader2, TrainFront, Layers } from "lucide-react";
+import { Building2, ArrowRight, Loader2, TrainFront, Layers, ShieldCheck } from "lucide-react";
 import { useStations, useTrains } from "@/lib/api/hooks";
+import { useAuth } from "@/lib/auth-context";
 import { SectionHeader } from "@/routes/dashboard.index";
 import { cn } from "@/lib/utils";
 
@@ -56,9 +57,14 @@ function StationsIndex() {
   const [lineFilter, setLineFilter] = useState<"all" | "blue" | "red">("all");
   const stationsQ = useStations();
   const trainsQ = useTrains();
+  const { isOperator, stationId } = useAuth();
 
   const stations = stationsQ.data ?? [];
   const trains = trainsQ.data ?? [];
+
+  const assignedStation = stationId
+    ? stations.find((s) => s.id.toLowerCase() === stationId.toLowerCase())
+    : null;
 
   // Count trains per station by matching the train's current station ID to the station ID
   const trainsByStation = new Map<string, number>();
@@ -77,6 +83,38 @@ function StationsIndex() {
 
   return (
     <div className="animate-fade-in-up space-y-8 px-4 py-6 md:px-8 md:py-8">
+      {/* Operator Scoped Station Callout */}
+      {isOperator && stationId && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-cyan-950/40 to-[#040810] p-4 shadow-lg ring-1 ring-cyan-500/20">
+          <div className="flex items-center gap-3">
+            <div className="grid size-10 place-items-center rounded-xl bg-cyan-500/15 text-cyan-400 ring-1 ring-cyan-500/30">
+              <Building2 className="size-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-white">
+                  Your Assigned Console Station
+                </span>
+                <span className="rounded bg-cyan-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-cyan-300">
+                  {assignedStation?.name || stationId} ({stationId})
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-slate-400">
+                You have operator management privileges for {assignedStation?.name || stationId}.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/dashboard/stations/$stationId"
+            params={{ stationId }}
+            className="flex items-center gap-2 rounded-xl border border-cyan-500/50 bg-cyan-500/20 px-4 py-2 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-500/30"
+          >
+            <span>Open Console</span>
+            <ArrowRight className="size-3.5" />
+          </Link>
+        </div>
+      )}
+
       {/* Header with Title and Live Line Slide Filter */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>

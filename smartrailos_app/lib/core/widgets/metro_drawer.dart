@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../constants/theme.dart';
 import '../../features/trains/providers/esp_sensor_provider.dart';
+import '../../features/auth/providers/auth_provider.dart';
 
 class MetroDrawer extends ConsumerWidget {
   const MetroDrawer({super.key});
@@ -12,6 +13,8 @@ class MetroDrawer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final telemetryState = ref.watch(espSensorTelemetryProvider);
     final sensor = telemetryState.sensor;
+    final authState = ref.watch(authProvider);
+    final user = authState.value;
 
     return Drawer(
       backgroundColor: AppTheme.surfaceDark,
@@ -19,8 +22,9 @@ class MetroDrawer extends ConsumerWidget {
         child: Column(
           children: [
             // Header
-            _buildHeader(context),
+            _buildHeader(context, user),
             const Divider(height: 1, color: Color(0x14FFFFFF)),
+
 
             // Scrollable Content
             Expanded(
@@ -160,14 +164,18 @@ class MetroDrawer extends ConsumerWidget {
             ),
 
             // Footer
-            _buildFooter(),
+            _buildFooter(context, ref, user),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, dynamic user) {
+    final hasUser = user != null;
+    final displayName = hasUser ? (user.name.isNotEmpty ? user.name : 'Commuter') : 'Ahmedabad Metro Transit';
+    final passengerId = hasUser ? (user.userIdCode ?? user.userId) : null;
+
     return Container(
       padding: const EdgeInsets.all(20),
       child: Row(
@@ -195,27 +203,30 @@ class MetroDrawer extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'SMARTRAIL OS',
-                  style: TextStyle(
+                  hasUser ? displayName : 'SMARTRAIL OS',
+                  style: const TextStyle(
                     fontWeight: FontWeight.w900,
-                    fontSize: 16,
-                    letterSpacing: 1.0,
+                    fontSize: 15,
+                    letterSpacing: 0.8,
                     color: AppTheme.textPrimary,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'Ahmedabad Metro Transit',
+                  hasUser ? 'Passenger ID: $passengerId' : 'Ahmedabad Metro Transit',
                   style: TextStyle(
                     fontSize: 11,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w500,
+                    fontFamily: hasUser ? 'monospace' : null,
+                    color: hasUser ? AppTheme.blueLine : AppTheme.textMuted,
+                    fontWeight: FontWeight.w600,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -228,6 +239,7 @@ class MetroDrawer extends ConsumerWidget {
       ),
     );
   }
+
 
   Widget _buildNetworkStatusPill() {
     return Container(
@@ -534,26 +546,73 @@ class MetroDrawer extends ConsumerWidget {
     );
   }
 
-  Widget _buildFooter() {
-    return Padding(
+  Widget _buildFooter(BuildContext context, WidgetRef ref, dynamic user) {
+    final hasUser = user != null;
+
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Color(0x14FFFFFF))),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Expanded(
-            child: Text(
-              'SmartRail OS v2.4 (Commuter)',
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: AppTheme.textMuted, fontSize: 10),
-            ),
-          ),
-          const SizedBox(width: 8),
           Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppTheme.blueLine, shape: BoxShape.circle)),
-              const SizedBox(width: 4),
-              Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppTheme.redLine, shape: BoxShape.circle)),
+              if (hasUser)
+                TextButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await ref.read(authProvider.notifier).logout();
+                    if (context.mounted) {
+                      context.go('/login');
+                    }
+                  },
+                  icon: const Icon(Icons.logout_rounded, size: 14, color: AppTheme.signalRed),
+                  label: const Text('Sign Out', style: TextStyle(color: AppTheme.signalRed, fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                )
+              else
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    context.push('/login');
+                  },
+                  icon: const Icon(Icons.login_rounded, size: 14, color: AppTheme.blueLine),
+                  label: const Text('Passenger Sign In', style: TextStyle(color: AppTheme.blueLine, fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppTheme.blueLine, shape: BoxShape.circle)),
+                  const SizedBox(width: 4),
+                  Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppTheme.redLine, shape: BoxShape.circle)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'SmartRail OS v2.4 (Commuter)',
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 9),
+              ),
+              Text(
+                'JWT Secured',
+                style: TextStyle(color: AppTheme.signalGreen, fontSize: 9, fontWeight: FontWeight.w600),
+              ),
             ],
           ),
         ],
@@ -561,3 +620,4 @@ class MetroDrawer extends ConsumerWidget {
     );
   }
 }
+

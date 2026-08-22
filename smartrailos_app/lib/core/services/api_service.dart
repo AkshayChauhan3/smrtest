@@ -439,73 +439,121 @@ class ApiService {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         return UserModel.fromJson(data);
+      } else if (res.statusCode == 401 || res.statusCode == 403) {
+        // Stale or expired token
+        await prefs.remove('auth_token');
+        return null;
       }
     } catch (_) {}
 
-    // Fallback to local session details
+    // Fallback to local session details if network temporarily offline
     final name = prefs.getString('user_name') ?? 'Commuter';
-    final email = prefs.getString('user_email') ?? 'commuter@smartrail.os';
-    final uid = prefs.getString('user_id') ?? 'uid-${email.hashCode}';
-    return UserModel(userId: uid, name: name, email: email);
+    final email = prefs.getString('user_email') ?? 'passenger@smartrail.os';
+    final uid = prefs.getString('user_id') ?? 'PASS101';
+    final uidCode = prefs.getString('user_id_code') ?? 'PASS101';
+    final role = prefs.getString('user_role') ?? 'passenger';
+    return UserModel(userId: uid, userIdCode: uidCode, name: name, email: email, role: role);
   }
 
-  Future<UserModel> login(String email, String password) async {
+  Future<UserModel> login(String identifier, String password) async {
     try {
       final res = await _httpPost('/api/v1/auth/login', body: {
-        'email': email,
+        'identifier': identifier.trim(),
         'password': password,
       });
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final prefs = await SharedPreferences.getInstance();
-        if (data['token'] != null) {
-          await prefs.setString('auth_token', data['token']);
+        
+        final token = data['access_token'] ?? data['token'];
+        if (token != null) {
+          await prefs.setString('auth_token', token.toString());
         }
-        if (data['user_name'] != null || data['name'] != null) {
-          await prefs.setString('user_name', data['user_name'] ?? data['name']);
-        }
-        await prefs.setString('user_email', email);
-        return UserModel.fromJson(data);
-      }
-    } catch (_) {}
 
-    // Mock fallback when offline
-    final prefs = await SharedPreferences.getInstance();
-    final uid = 'uid-${email.hashCode}';
-    final name = email.split('@')[0];
-    await prefs.setString('auth_token', 'mock-token-$uid');
-    await prefs.setString('user_name', name);
-    await prefs.setString('user_email', email);
-    await prefs.setString('user_id', uid);
-    return UserModel(userId: uid, name: name, email: email);
+        final userData = data['user'] is Map<String, dynamic> ? data['user'] as Map<String, dynamic> : data;
+        final userModel = UserModel.fromJson(userData);
+
+        await prefs.setString('user_id', userModel.userId);
+        if (userModel.userIdCode != null) {
+          await prefs.setString('user_id_code', userModel.userIdCode!);
+        }
+        await prefs.setString('user_name', userModel.name);
+        await prefs.setString('user_email', userModel.email);
+        await prefs.setString('user_role', userModel.role);
+
+        return userModel;
+      } else {
+        String errMsg = 'Login failed (${res.statusCode})';
+        try {
+          final errBody = jsonDecode(res.body);
+          if (errBody['detail'] != null) errMsg = errBody['detail'].toString();
+        } catch (_) {}
+        throw Exception(errMsg);
+      }
+    } catch (e) {
+      if (e is Exception && e.toString().contains('Unable to reach backend')) {
+        // Offline demo fallback
+        final prefs = await SharedPreferences.getInstance();
+        final uid = identifier.toUpperCase();
+        final name = identifier.contains('@') ? identifier.split('@')[0] : identifier;
+        await prefs.setString('auth_token', 'offline-token-$uid');
+        await prefs.setString('user_name', name);
+        await prefs.setString('user_email', '$identifier@smartrail.os');
+        await prefs.setString('user_id_code', uid);
+        await prefs.setString('user_id', 'uid-${identifier.hashCode}');
+        await prefs.setString('user_role', 'passenger');
+        return UserModel(
+          userId: 'uid-${identifier.hashCode}',
+          userIdCode: uid,
+          name: name,
+          email: '$identifier@smartrail.os',
+          role: 'passenger',
+        );
+      }
+      rethrow;
+    }
   }
 
-  Future<UserModel> register(String name, String email, String password) async {
+  Future<UserModel> register(String name, String email, String password, {String? userIdCode}) async {
     try {
       final res = await _httpPost('/api/v1/auth/register', body: {
-        'name': name,
-        'email': email,
+        'full_name': name.trim(),
+        'email': email.trim(),
         'password': password,
+        if (userIdCode != null && userIdCode.isNotEmpty) 'user_id_code': userIdCode.trim(),
+        'role': 'passenger',
       });
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        // Automatically login
+        return await login(userIdCode ?? email, password);
+      } else {
+        String errMsg = 'Registration failed (${res.statusCode})';
+        try {
+          final errBody = jsonDecode(res.body);
+          if (errBody['detail'] != null) errMsg = errBody['detail'].toString();
+        } catch (_) {}
+        throw Exception(errMsg);
+      }
+    } catch (e) {
+      if (e is Exception && e.toString().contains('Unable to reach backend')) {
         final prefs = await SharedPreferences.getInstance();
-        if (data['token'] != null) {
-          await prefs.setString('auth_token', data['token']);
-        }
+        final uid = userIdCode ?? 'PASS-${email.hashCode.abs() % 1000}';
+        await prefs.setString('auth_token', 'offline-token-$uid');
         await prefs.setString('user_name', name);
         await prefs.setString('user_email', email);
-        return UserModel.fromJson(data);
+        await prefs.setString('user_id_code', uid);
+        await prefs.setString('user_id', 'uid-${email.hashCode}');
+        await prefs.setString('user_role', 'passenger');
+        return UserModel(
+          userId: 'uid-${email.hashCode}',
+          userIdCode: uid,
+          name: name,
+          email: email,
+          role: 'passenger',
+        );
       }
-    } catch (_) {}
-
-    final prefs = await SharedPreferences.getInstance();
-    final uid = 'uid-${email.hashCode}';
-    await prefs.setString('auth_token', 'mock-token-$uid');
-    await prefs.setString('user_name', name);
-    await prefs.setString('user_email', email);
-    await prefs.setString('user_id', uid);
-    return UserModel(userId: uid, name: name, email: email);
+      rethrow;
+    }
   }
 
   Future<void> logout() async {
@@ -518,6 +566,8 @@ class ApiService {
     await prefs.remove('user_name');
     await prefs.remove('user_email');
     await prefs.remove('user_id');
+    await prefs.remove('user_id_code');
+    await prefs.remove('user_role');
   }
 
   Future<void> saveRoute(Map<String, String> route) async {
