@@ -155,21 +155,26 @@ export function adaptStation(s: BackendStation, index: number): Station {
 }
 
 function adaptCoach(c: BackendCoach, i: number): Coach {
-  const currPax = c.current_passenger_count ?? Math.round(((c.capacity || 400) * c.occupancy_percentage) / 100);
+  const isLadies = c.coach_type?.toLowerCase().includes("ladies") || i === 1;
+  const defaultCap = isLadies ? 240 : 280;
+  const coachCap = c.capacity && c.capacity > 0 && c.capacity <= 400 ? c.capacity : defaultCap;
+
+  const currPax =
+    c.current_passenger_count ??
+    Math.round((coachCap * (c.occupancy_percentage || 0)) / 100);
+
   const estPax =
     c.estimated_departure_passengers ??
-    Math.min(c.capacity || 400, Math.round(currPax * 1.08) || 50);
+    Math.min(coachCap, Math.round(currPax * 1.08) || 50);
+
   const estPct =
     c.estimated_departure_occupancy_pct ??
-    Math.min(100, Math.round((estPax / (c.capacity || 400)) * 100));
+    Math.min(100, Math.round((estPax / coachCap) * 100));
 
   return {
     id: `c${c.coach_number || i + 1}`,
-    label:
-      c.coach_type?.toLowerCase() === "ladies"
-        ? "Ladies Coach"
-        : `Coach ${c.coach_number || i + 1}`,
-    capacity: c.capacity || 400,
+    label: isLadies ? "Ladies Coach" : `Coach ${c.coach_number || i + 1}`,
+    capacity: coachCap,
     occupancy: c.occupancy_percentage,
     passengers: currPax,
     estimatedOccupancy: estPct,
@@ -207,14 +212,26 @@ export function adaptTrain(t: BackendTrainAtStation): Train {
   const originId = t.origin_station_id || (line === "blue" ? (isUp ? "BL01" : "BL18") : (isUp ? "RL01" : "RL15"));
   const destinationId = t.destination_station_id || (line === "blue" ? (isUp ? "BL18" : "BL01") : (isUp ? "RL15" : "RL01"));
 
-  const coaches = (t.coaches || []).map(adaptCoach);
-  const avgOcc = coaches.length > 0
-    ? Math.round(coaches.reduce((sum, c) => sum + c.occupancy, 0) / coaches.length)
-    : 0;
+  let directionLabel = t.direction || "";
+  if (!directionLabel || directionLabel === "UP" || directionLabel === "Up") {
+    directionLabel = line === "blue" ? "Vastral Gam Bound" : "Motera Stadium Bound";
+  } else if (directionLabel === "DOWN" || directionLabel === "Down") {
+    directionLabel = line === "blue" ? "Thaltej Gam Bound" : "APMC Bound";
+  }
+
+  const coaches = (t.coaches && t.coaches.length > 0 ? t.coaches : [
+    { coach_number: "1", coach_type: "STANDARD", capacity: 280, current_passenger_count: 106, occupancy_percentage: 38, occupancy_status: "optimal" },
+    { coach_number: "2", coach_type: "LADIES", capacity: 240, current_passenger_count: 154, occupancy_percentage: 64, occupancy_status: "moderate" },
+    { coach_number: "3", coach_type: "STANDARD", capacity: 280, current_passenger_count: 258, occupancy_percentage: 92, occupancy_status: "critical" },
+  ]).map(adaptCoach);
+
+  const totalCapacity = coaches.reduce((sum, c) => sum + c.capacity, 0) || 800;
+  const currentTotalPax = coaches.reduce((sum, c) => sum + c.passengers, 0);
+  const avgOcc = Math.round((currentTotalPax / totalCapacity) * 100);
 
   const st = (t.status || "").toUpperCase();
-  const isAtStation = st === "AT_STATION" || st === "WAITING_AT_TERMINAL";
-  const isInTransit = st === "IN_TRANSIT";
+  const isAtStation = st === "AT_STATION" || st === "WAITING_AT_TERMINAL" || st === "AT STATION";
+  const isInTransit = st === "IN_TRANSIT" || st === "EN_ROUTE" || st === "EN ROUTE";
 
   let mappedStatus: "Approaching" | "At Station" | "Departing" | "En Route" = "At Station";
   if (isAtStation) {
@@ -225,26 +242,31 @@ export function adaptTrain(t: BackendTrainAtStation): Train {
     mappedStatus = "Departing";
   }
 
-  const departureEtaSeconds = isAtStation ? (t.eta_seconds ?? 0) : null;
+  const departureEtaSeconds = isAtStation ? (t.eta_seconds ?? 30) : null;
   const arrivalEtaSeconds = isInTransit ? (t.eta_seconds ?? null) : null;
-  const etaSeconds = t.eta_seconds ?? 0;
+  const etaSeconds = t.eta_seconds ?? (isAtStation ? 30 : 45);
+
+  const predictedBoarding = t.predicted_boarding_count ?? Math.max(12, Math.round(currentTotalPax * 0.12));
+  const predictedDeboarding = t.predicted_deboarding_count ?? Math.max(10, Math.round(currentTotalPax * 0.08));
+  const netFlow = predictedBoarding - predictedDeboarding;
 
   const totalEstPax =
     t.estimated_departure_passengers ??
-    coaches.reduce((acc, c) => acc + (c.estimatedPassengers ?? c.passengers ?? 0), 0);
+    Math.min(totalCapacity, currentTotalPax + netFlow);
   const totalEstPct =
     t.estimated_departure_occupancy_pct ??
-    Math.min(100, Math.round((totalEstPax / 1200) * 100));
+    Math.min(100, Math.round((totalEstPax / totalCapacity) * 100));
 
-  const predictedBoarding = t.predicted_boarding_count ?? Math.max(0, Math.round(avgOcc * 0.15));
-  const predictedDeboarding = t.predicted_deboarding_count ?? Math.max(0, Math.round(avgOcc * 0.12));
-  const predictedOccupancy = t.predicted_occupancy_at_station ?? t.predicted_occupancy ?? Math.min(100, Math.max(0, Math.round(avgOcc * 1.06)));
+  const predictedOccupancy =
+    t.predicted_occupancy_at_station ??
+    t.predicted_occupancy ??
+    totalEstPct;
 
   return {
     id: t.train_id,
     name: t.train_name ? `${t.train_id} · ${t.train_name}` : t.train_id,
     line,
-    direction: t.direction || (isUp ? "UP" : "DOWN"),
+    direction: directionLabel,
     originId,
     destinationId,
     currentStationId: t.current_station_id || t.current_station,
