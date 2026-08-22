@@ -11,7 +11,7 @@ async def test_estimation_pipeline():
     # 1. Setup mock train states matching simulation format
     mock_train_states = [
         {
-            "train_id": "BL-UP-01",
+            "train_id": "BL-01",
             "line_code": "BL",
             "direction": "UP",
             "current_station_id": "BL05",
@@ -40,7 +40,7 @@ async def test_estimation_pipeline():
     # 3. Assert predictions were generated for all 3 coaches
     assert len(results) == 3
     for row in results:
-        assert row["train_id"] == "BL-UP-01"
+        assert row["train_id"] == "BL-01"
         assert row["line_id"] == "BL"
         assert row["direction"] == "UP"
         assert row["current_station_id"] == "BL05"
@@ -61,11 +61,11 @@ async def test_estimation_pipeline():
 
     # 5. Retrieve from DB and verify fields
     async with SessionLocal() as db:
-        stmt = select(Estimation).where(Estimation.train_id == "BL-UP-01")
+        stmt = select(Estimation).where(Estimation.train_id == "BL-01")
         db_rows = (await db.execute(stmt)).scalars().all()
         assert len(db_rows) == 3
         for row in db_rows:
-            assert row.train_id == "BL-UP-01"
+            assert row.train_id == "BL-01"
             assert row.coach_id in {"C1", "C2", "C3"}
             assert row.estimated_alighting is not None
             assert row.estimated_boarding is not None
@@ -78,7 +78,7 @@ from app.main import app
 
 @pytest.mark.anyio
 async def test_dashboard_snapshot_with_estimations():
-    # 1. Create dummy estimations in the database for BL-UP-05 approaching Nirant Cross Road (BL02)
+    # 1. Create dummy estimations in the database for BL-11 approaching Nirant Cross Road (BL02)
     async with SessionLocal() as db:
         from app.models.estimation import Estimation
         from sqlalchemy import delete
@@ -86,7 +86,7 @@ async def test_dashboard_snapshot_with_estimations():
         now = datetime(2026, 6, 14, 8, 17, 0)
         for coach in ["C1", "C2", "C3"]:
             db.add(Estimation(
-                train_id="BL-UP-05",
+                train_id="BL-11",
                 line_id="BL",
                 direction="UP",
                 current_station_id="BL01",
@@ -125,14 +125,14 @@ async def test_dashboard_snapshot_with_estimations():
             assert response.status_code == 200
             data = response.json()
 
-            # Check if the incoming train BL-UP-05 has the summed predictions from the DB:
+            # Check if the incoming train BL-11 has the summed predictions from the DB:
             # Boarding: 10 + 10 + 10 = 30
             # Deboarding: 5 + 5 + 5 = 15
             # Next Total Pax: 105 + 105 + 105 = 315
             # Predicted Occupancy % = int((315 / 1200) * 100) = 26%
             train_data = None
             for t in data["incoming_trains"]:
-                if t["train_id"] == "BL-UP-05":
+                if t["train_id"] == "BL-11":
                     train_data = t
                     break
 
@@ -140,3 +140,4 @@ async def test_dashboard_snapshot_with_estimations():
             assert train_data["predicted_boarding_count"] == 30
             assert train_data["predicted_deboarding_count"] == 15
             assert train_data["predicted_occupancy_at_station"] == 26
+
