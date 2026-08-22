@@ -18,7 +18,7 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
         onClick={() => setOpen(true)}
         aria-label={`View coach details for train ${train.id}`}
         className={cn(
-          "group relative block w-full overflow-hidden rounded-2xl border border-white/10 bg-obsidian-900/60 p-6 text-left shadow-xl backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-accent-cyan/40 hover:shadow-2xl hover:shadow-accent-cyan/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-cyan/60",
+          "group relative block w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-[#080a0f] p-6 text-left shadow-xl transition-all duration-300 hover:-translate-y-1 hover:border-accent-cyan/40 hover:shadow-2xl hover:shadow-accent-cyan/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-cyan/60",
           className,
         )}
       >
@@ -218,7 +218,7 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
           {state.coaches.map((c) => (
             <div
               key={c.id}
-              className="space-y-2 rounded-lg border border-white/5 bg-obsidian-800/40 p-3"
+              className="space-y-2 rounded-xl border border-white/[0.06] bg-[#050608] p-3 shadow-inner"
             >
               <div className="flex items-center justify-between text-[11px] font-semibold text-white">
                 <span>{c.label}</span>

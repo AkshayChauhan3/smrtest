@@ -168,7 +168,7 @@ function Overview() {
           <StandingTrainsCard />
 
           {/* Recent Alerts Feed */}
-          <section className="rounded-2xl border-0 bg-[#141720] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.25)] backdrop-blur-xl">
+          <section className="rounded-2xl border border-white/[0.08] bg-[#080a0f] p-6 shadow-xl">
             <SectionHeader title="Recent Alerts" right="Live Stream" />
             <ul className="mt-5 space-y-3.5">
               {alerts.filter((a) => !a.resolved).slice(0, 4).map((a) => {
@@ -180,7 +180,7 @@ function Overview() {
                       "group relative rounded-xl border p-3.5 transition-all duration-200",
                       isEmergency
                         ? "border-rose-500/30 bg-rose-500/10 hover:border-rose-500/50"
-                        : "border-white/5 bg-white/[0.02] hover:border-white/10 hover:bg-white/[0.04]"
+                        : "border-white/[0.06] bg-[#050608] hover:border-white/10 hover:bg-[#07090e]"
                     )}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -211,18 +211,18 @@ function Overview() {
           </section>
 
           {/* Interchange Status Card */}
-          <section className="rounded-2xl border-0 bg-[#141720] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.25)] backdrop-blur-xl">
+          <section className="rounded-2xl border border-white/[0.08] bg-[#080a0f] p-6 shadow-xl">
             <SectionHeader title="Interchange Hub" right="Platform 1 & 2" />
             <div className="mt-4 space-y-3">
-              <div className="flex items-center justify-between rounded-lg bg-white/[0.03] p-3 text-xs">
+              <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-[#050608] p-3 text-xs">
                 <span className="text-slate-300 font-medium">Blue Line Throughput</span>
                 <span className="font-mono font-bold text-blue-400">99.4% On Time</span>
               </div>
-              <div className="flex items-center justify-between rounded-lg bg-white/[0.03] p-3 text-xs">
+              <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-[#050608] p-3 text-xs">
                 <span className="text-slate-300 font-medium">Red Line Throughput</span>
                 <span className="font-mono font-bold text-rose-400">98.8% On Time</span>
               </div>
-              <div className="flex items-center justify-between rounded-lg bg-white/[0.03] p-3 text-xs">
+              <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-[#050608] p-3 text-xs">
                 <span className="text-slate-300 font-medium">Station Turnstile Gates</span>
                 <span className="font-mono font-bold text-emerald-400">All 12 Active</span>
               </div>

@@ -10,7 +10,7 @@ function StandingTrainRow({ train }: { train: Train }) {
   const state = useLiveTrainState(train);
 
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-white/5 bg-white/[0.02] p-4 transition-all duration-300 hover:border-white/10 hover:bg-white/[0.04]">
+    <div className="group relative overflow-hidden rounded-xl border border-white/[0.06] bg-[#050608] p-4 transition-all duration-300 hover:border-white/10 hover:bg-[#07090e]">
       {/* Top Row: Train ID, Status Pill, Line */}
       <div className="flex items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-2.5">
@@ -188,7 +188,7 @@ export function StandingTrainsCard({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "rounded-2xl border-0 bg-[#141720] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.25)] backdrop-blur-xl",
+        "rounded-2xl border border-white/[0.08] bg-[#080a0f] p-5 shadow-xl",
         className
       )}
     >
