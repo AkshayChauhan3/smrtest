@@ -6,7 +6,7 @@ client = TestClient(app)
 def test_ingestion_endpoint():
     payload = {
         "timestamp": "2026-06-10T14:31:00Z",
-        "train_id": "BL-UP-01",
+        "train_id": "BL-01",
         "station_id": "BL05",
         "event_type": "occupancy_update",
         "coaches": [
