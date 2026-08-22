@@ -75,8 +75,7 @@ function Overview() {
 
   if (loading) return <OverviewSkeleton />;
 
-  const kpi = kpiQ.data ?? mockKpi;
-  const trainsRaw = trainsQ.data ?? TRAINS;
+  const trainsRaw = (trainsQ.data && trainsQ.data.length > 0) ? trainsQ.data : TRAINS;
   
   // ESP32 visibility: hide during online hours, show during offline hours
   const hasRealTrains = trainsRaw.some(t => t.id !== "ESP32_DEMO");
@@ -94,6 +93,26 @@ function Overview() {
   
   const hist = histQ.data;
   const ago = hist?.hour_ago ?? undefined;
+
+  // Derive real-time corridor metrics from live trains fleet
+  const activeFleetCount = trains.length;
+  const totalFleetPax = trains.reduce((sum, t) => {
+    return sum + (t.coaches || []).reduce((cSum, c) => cSum + (c.passengers ?? Math.round(((c.capacity || 280) * (c.occupancy || 0)) / 100)), 0);
+  }, 0);
+  const totalFleetCap = trains.reduce((sum, t) => {
+    return sum + (t.coaches || []).reduce((cSum, c) => cSum + (c.capacity || 280), 0);
+  }, 0) || 1;
+  const liveAvgOccupancy = Math.min(100, Math.round((totalFleetPax / totalFleetCap) * 100));
+
+  const kpiData = kpiQ.data;
+  const kpi = {
+    currentTrains: (kpiData?.currentTrains && kpiData.currentTrains > 0) ? kpiData.currentTrains : activeFleetCount,
+    passengersInTransit: (kpiData?.passengersInTransit && kpiData.passengersInTransit > 0) ? kpiData.passengersInTransit : (totalFleetPax > 0 ? totalFleetPax : mockKpi.passengersInTransit),
+    avgOccupancy: (kpiData?.avgOccupancy && kpiData.avgOccupancy > 0) ? kpiData.avgOccupancy : (liveAvgOccupancy > 0 ? liveAvgOccupancy : mockKpi.avgOccupancy),
+    activeAlerts: alerts.filter((a) => !a.resolved).length,
+    predictedNextHour: (kpiData?.predictedNextHour && kpiData.predictedNextHour > 0) ? kpiData.predictedNextHour : Math.round((totalFleetPax > 0 ? totalFleetPax : 2000) * 1.18),
+    passengersInStation: (kpiData?.passengersInStation && kpiData.passengersInStation > 0) ? kpiData.passengersInStation : mockKpi.passengersInStation,
+  };
 
   return (
     <div className="animate-fade-in-up space-y-8 px-4 py-6 md:px-8 md:py-8">
