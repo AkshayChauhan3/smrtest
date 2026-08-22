@@ -48,7 +48,7 @@ export const RED_LINE: Station[] = [
 ];
 
 export const STATIONS = [...BLUE_LINE, ...RED_LINE];
-export const CURRENT_STATION = "Old High Court Interchange";
+export const CURRENT_STATION = "COMMAND CENTER";
 
 export type CoachStatus = "low" | "moderate" | "high" | "critical";
 export interface Coach {
