@@ -100,6 +100,8 @@ class DataService:
                     arrival_time=self._time_to_iso(now, mt.get("arrived_at_station")),
                     departure_time=self._time_to_iso(now, mt.get("departs_station_at")),
                     current_occupancy=mt.get("train_current_passengers", 0),
+                    platform_number=mt.get("platform_number"),
+                    platform_name=mt.get("platform_name"),
                     coaches=coaches,
                 )
             )
@@ -136,6 +138,8 @@ class DataService:
                     station_name=mt.get("current_station", ""),
                     line_name=self._line_name(mt),
                     direction=self._direction_label(mt.get("direction", "")),
+                    platform_number=mt.get("platform_number"),
+                    platform_name=mt.get("platform_name"),
                     current_station_crowd=self._station_crowd(mt.get("current_station", ""), metro_trains),
                     coaches=coaches,
                     updated_at=now,
@@ -169,6 +173,8 @@ class DataService:
             station_name=metro_train.get("current_station", ""),
             line_name=self._line_name(metro_train),
             direction=self._direction_label(metro_train.get("direction", "")),
+            platform_number=metro_train.get("platform_number"),
+            platform_name=metro_train.get("platform_name"),
             current_station_crowd=self._station_crowd(metro_train.get("current_station", ""), self.engine.all_trains(now)),
             coaches=coaches,
             updated_at=now
@@ -231,6 +237,8 @@ class DataService:
                 eta_minutes=int(eta_min),
                 route=self._route_label(train, station_name),
                 current_occupancy=current_pax,
+                platform_number=train.get("platform_number"),
+                platform_name=train.get("platform_name"),
                 predicted_occupancy_at_station=pred_pct,
                 predicted_boarding_count=max(0, int(self._crowd_at_station(station_name, now) * 0.08)),
                 predicted_deboarding_count=max(0, int(current_pax * 0.06)),
@@ -263,6 +271,9 @@ class DataService:
                     current_station_id=train.get("current_station_id"),
                     next_station=train.get("next_station") or "",
                     next_station_id=train.get("next_station_id"),
+                    platform_number=train.get("platform_number"),
+                    platform_name=train.get("platform_name"),
+                    platform_level=train.get("platform_level"),
                     coaches=self._train_coaches(train.get("coaches", [])),
                     journey_completed_pct=train.get("journey_completed_pct"),
                     current_position=train.get("current_position"),
@@ -315,6 +326,9 @@ class DataService:
                     current_station_id=train.get("current_station_id"),
                     next_station=train.get("next_station") or "",
                     next_station_id=train.get("next_station_id"),
+                    platform_number=train.get("platform_number"),
+                    platform_name=train.get("platform_name"),
+                    platform_level=train.get("platform_level"),
                     status=status_val,
                     eta_seconds=eta_sec,
                     coaches=self._train_coaches(train.get("coaches", [])),
@@ -473,11 +487,14 @@ class DataService:
         return out
 
     @staticmethod
-    def _time_to_iso(now: datetime, hhmm: str | None) -> str:
-        if not hhmm:
+    def _time_to_iso(now: datetime, time_str: str | None) -> str:
+        if not time_str:
             return now.isoformat()
-        hour, minute = [int(part) for part in hhmm.split(":", 1)]
-        return datetime(now.year, now.month, now.day, hour, minute).isoformat()
+        parts = [int(part) for part in str(time_str).strip().split(":")]
+        hour = parts[0]
+        minute = parts[1] if len(parts) > 1 else 0
+        second = parts[2] if len(parts) > 2 else 0
+        return datetime(now.year, now.month, now.day, hour, minute, second).isoformat()
 
     @staticmethod
     def _time_to_hhmm(now: datetime, hhmm: str | None) -> str:
@@ -535,32 +552,31 @@ class DataService:
 
         results = []
         for train_cfg in self.engine._trains:
-            sched = train_cfg["schedule"]
-            # Find indices of from_station and to_station in this route
-            from_idx = next(
-                (i for i, seg in enumerate(sched)
-                 if seg["station"]["id"] == from_sid or seg["station"]["name"].lower() == from_station.lower()),
-                None
-            )
-            to_idx = next(
-                (i for i, seg in enumerate(sched)
-                 if seg["station"]["id"] == to_sid or seg["station"]["name"].lower() == to_station.lower()),
-                None
-            )
+            for trip in train_cfg.get("trip_instances", []):
+                sched = trip["schedule"]
+                # Find indices of from_station and to_station in this trip schedule
+                from_idx = next(
+                    (i for i, seg in enumerate(sched)
+                     if seg["station"]["id"] == from_sid or seg["station"]["name"].lower() == from_station.lower()),
+                    None
+                )
+                to_idx = next(
+                    (i for i, seg in enumerate(sched)
+                     if seg["station"]["id"] == to_sid or seg["station"]["name"].lower() == to_station.lower()),
+                    None
+                )
 
-            # Must contain both, and from must come strictly BEFORE to (direction check)
-            if from_idx is None or to_idx is None or from_idx >= to_idx:
-                continue
+                # Must contain both, and from must come strictly BEFORE to (direction check)
+                if from_idx is None or to_idx is None or from_idx >= to_idx:
+                    continue
 
-            from_seg = sched[from_idx]
-            to_seg = sched[to_idx]
-            duration_min = max(1, round((to_seg["arrive_offset"] - from_seg["depart_offset"]) / 60))
-            stops_count = to_idx - from_idx
+                from_seg = sched[from_idx]
+                to_seg = sched[to_idx]
+                duration_min = max(1, round((to_seg["arrive_offset"] - from_seg["depart_offset"]) / 60))
+                stops_count = to_idx - from_idx
 
-            # Check all departure slots of this train
-            departures = train_cfg["all_departures"][train_cfg["slot_index"]::train_cfg["n_trains"]]
-            for dep_min in departures:
-                dep_dt = datetime(now.year, now.month, now.day, dep_min // 60, dep_min % 60)
+                dep_sec = trip["dep_sec"]
+                dep_dt = datetime(now.year, now.month, now.day) + timedelta(seconds=dep_sec)
                 dep_from_dt = dep_dt + timedelta(seconds=from_seg["depart_offset"])
                 arr_to_dt = dep_dt + timedelta(seconds=to_seg["arrive_offset"])
 
@@ -637,10 +653,10 @@ class DataService:
 
                 results.append(JourneySearchItemOut(
                     train_id=train_cfg["train_id"],
-                    train_name=train_cfg["display_name"],
+                    train_name=f"{train_cfg['line_name']} · {trip['destination']}",
                     line_name=train_cfg["line_name"],
                     line_code=train_cfg["line_code"],
-                    direction=train_cfg["direction"],
+                    direction=self._direction_label(trip["direction"]),
                     from_station_id=from_seg["station"]["id"],
                     from_station_name=from_seg["station"]["name"],
                     to_station_id=to_seg["station"]["id"],
@@ -668,28 +684,20 @@ class DataService:
         if not results:
             tomorrow = now + timedelta(days=1)
             for train_cfg in self.engine._trains:
-                sched = train_cfg["schedule"]
-                from_idx = next(
-                    (i for i, seg in enumerate(sched)
-                     if seg["station"]["id"] == from_sid or seg["station"]["name"].lower() == from_station.lower()),
-                    None
-                )
-                to_idx = next(
-                    (i for i, seg in enumerate(sched)
-                     if seg["station"]["id"] == to_sid or seg["station"]["name"].lower() == to_station.lower()),
-                    None
-                )
-                if from_idx is None or to_idx is None or from_idx >= to_idx:
-                    continue
+                for trip in train_cfg.get("trip_instances", []):
+                    sched = trip["schedule"]
+                    from_idx = next((i for i, seg in enumerate(sched) if seg["station"]["id"] == from_sid or seg["station"]["name"].lower() == from_station.lower()), None)
+                    to_idx = next((i for i, seg in enumerate(sched) if seg["station"]["id"] == to_sid or seg["station"]["name"].lower() == to_station.lower()), None)
+                    if from_idx is None or to_idx is None or from_idx >= to_idx:
+                        continue
 
-                from_seg = sched[from_idx]
-                to_seg = sched[to_idx]
-                duration_min = max(1, round((to_seg["arrive_offset"] - from_seg["depart_offset"]) / 60))
-                stops_count = to_idx - from_idx
+                    from_seg = sched[from_idx]
+                    to_seg = sched[to_idx]
+                    duration_min = max(1, round((to_seg["arrive_offset"] - from_seg["depart_offset"]) / 60))
+                    stops_count = to_idx - from_idx
 
-                departures = train_cfg["all_departures"][train_cfg["slot_index"]::train_cfg["n_trains"]]
-                for dep_min in departures[:3]:
-                    dep_dt = datetime(tomorrow.year, tomorrow.month, tomorrow.day, dep_min // 60, dep_min % 60)
+                    dep_sec = trip["dep_sec"]
+                    dep_dt = datetime(tomorrow.year, tomorrow.month, tomorrow.day) + timedelta(seconds=dep_sec)
                     dep_from_dt = dep_dt + timedelta(seconds=from_seg["depart_offset"])
                     arr_to_dt = dep_dt + timedelta(seconds=to_seg["arrive_offset"])
                     eta_sec = int((dep_from_dt - now).total_seconds())
@@ -730,10 +738,10 @@ class DataService:
 
                     results.append(JourneySearchItemOut(
                         train_id=train_cfg["train_id"],
-                        train_name=train_cfg["display_name"],
+                        train_name=f"{train_cfg['line_name']} · {trip['destination']}",
                         line_name=train_cfg["line_name"],
                         line_code=train_cfg["line_code"],
-                        direction=train_cfg["direction"],
+                        direction=self._direction_label(trip["direction"]),
                         from_station_id=from_seg["station"]["id"],
                         from_station_name=from_seg["station"]["name"],
                         to_station_id=to_seg["station"]["id"],

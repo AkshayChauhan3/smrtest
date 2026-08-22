@@ -10,9 +10,13 @@ from app.services.metro_engine import (
     BLUE_LINE_STATIONS,
     RED_LINE_STATIONS,
     BL_UP_SCHED,
+    BL_UP_DUR,
     BL_DOWN_SCHED,
+    BL_DOWN_DUR,
     RL_UP_SCHED,
+    RL_UP_DUR,
     RL_DOWN_SCHED,
+    RL_DOWN_DUR,
     COACHES,
 )
 
@@ -47,10 +51,10 @@ async def seed_database(db: AsyncSession) -> None:
 
     # ── Routes & Route Stops ─────────────────────
     route_configs = [
-        ("BL-UP", "BL", "UP", "BL01", "BL18", 45, BL_UP_SCHED),
-        ("BL-DOWN", "BL", "DOWN", "BL18", "BL01", 43, BL_DOWN_SCHED),
-        ("RL-UP", "RL", "UP", "RL01", "RL15", 32, RL_UP_SCHED),
-        ("RL-DOWN", "RL", "DOWN", "RL15", "RL01", 31, RL_DOWN_SCHED),
+        ("BL-UP", "BL", "UP", "BL01", "BL18", max(1, round(BL_UP_DUR / 60)), BL_UP_SCHED),
+        ("BL-DOWN", "BL", "DOWN", "BL18", "BL01", max(1, round(BL_DOWN_DUR / 60)), BL_DOWN_SCHED),
+        ("RL-UP", "RL", "UP", "RL01", "RL15", max(1, round(RL_UP_DUR / 60)), RL_UP_SCHED),
+        ("RL-DOWN", "RL", "DOWN", "RL15", "RL01", max(1, round(RL_DOWN_DUR / 60)), RL_DOWN_SCHED),
     ]
     for route_id, line_id, direction, origin, dest, runtime, schedule in route_configs:
         db.add(Route(
@@ -68,25 +72,22 @@ async def seed_database(db: AsyncSession) -> None:
                 dwell_minutes=max(1, round((seg["depart_offset"] - seg["arrive_offset"]) / 60)),
             ))
 
-    # ── Trains & Coaches ─────────────────────────
-    train_defs = [
-        # (prefix, direction, line_id, count)
-        ("BL-UP", "UP", "BL", 6),
-        ("BL-DO", "DOWN", "BL", 5),
-        ("RL-UP", "UP", "RL", 5),
-        ("RL-DO", "DOWN", "RL", 5),
+    # ── Circulating Trains & Coaches ─────────────
+    # 12 Blue Line rakes (BL-01..BL-12) & 12 Red Line rakes (RL-01..RL-12)
+    line_configs = [
+        ("BL", "Blue Line", 12),
+        ("RL", "Red Line", 12),
     ]
-    line_names = {"BL": "Blue Line", "RL": "Red Line"}
 
-    for prefix, direction, line_id, count in train_defs:
+    for line_id, line_name, count in line_configs:
         for i in range(count):
-            train_id = f"{prefix}-{i + 1:02d}"
-            train_name = f"{line_names[line_id]} · {direction}"
+            train_id = f"{line_id}-{i + 1:02d}"
+            train_name = f"{line_name} Rake {i + 1:02d}"
             train = Train(
                 train_id=train_id,
                 train_name=train_name,
                 line_id=line_id,
-                direction=direction,
+                direction="UP",
                 capacity=1200,
                 status="ACTIVE",
             )

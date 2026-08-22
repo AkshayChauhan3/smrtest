@@ -620,12 +620,12 @@ class TrainService:
 
         upcoming_trips = []
         for train in self.sim_service.engine._trains:
-            sched = train["schedule"]
-            t_idx = next((i for i, seg in enumerate(sched) if seg["station"]["id"] == station_id), None)
-            if t_idx is None:
-                continue
-            for dep_min in train["all_departures"][train["slot_index"]::train["n_trains"]]:
-                dep_dt = datetime(now.year, now.month, now.day, dep_min//60, dep_min%60)
+            for trip in train.get("trip_instances", []):
+                sched = trip["schedule"]
+                t_idx = next((i for i, seg in enumerate(sched) if seg["station"]["id"] == station_id), None)
+                if t_idx is None:
+                    continue
+                dep_dt = datetime(now.year, now.month, now.day) + timedelta(seconds=trip["dep_sec"])
                 arr_dt = dep_dt + timedelta(seconds=sched[t_idx]["arrive_offset"])
                 dep_stn = dep_dt + timedelta(seconds=sched[t_idx]["depart_offset"])
                 eta = int((arr_dt - now).total_seconds())

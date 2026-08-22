@@ -154,10 +154,11 @@ sequenceDiagram
     Judge->>Web: 4. Activate SimClock to 18:30 (Watch AI forecast peak rush in 5 seconds)
 ```
 
-### ⚡ 4-Terminal Startup Commands
+### ⚡ Complete Startup Commands (See [STARTUP.md](file:///home/akshaychauhan/Playground/smrtest/STARTUP.md) for Full Guide)
+
 ```bash
 # 1. Backend & ML Prediction Engine (Port 8000)
-cd backend && DEV_SIM_TIME=08:30 uvicorn app.main:app --port 8000 --reload
+cd backend && DEV_SIM_TIME=09:30 uvicorn app.main:app --port 8000 --reload
 
 # 2. Web Command Center (Port 8080)
 cd smartrailos_web && npm run dev
@@ -165,8 +166,14 @@ cd smartrailos_web && npm run dev
 # 3. Commuter Mobile App (Port 8082)
 cd smartrailos_app && flutter run -d chrome --web-port=8082
 
-# 4. IoT Sensor Pulse Generator (Demo Trigger)
-python3 scripts/sensor_simulator.py --station BL08 --rush-hour
+# 4. IoT Sensor Pulse Generator (Hardware Emulator)
+python3 scripts/sensor_simulator.py --station BL11 --rush-hour
+
+# 5. (Optional) Retrain ML Prediction Model:
+python3 passenger_estimation/estimation.py
+
+# 6. (Optional) Set Simulated Clock Dynamically via REST API:
+curl -X POST http://localhost:8000/api/v1/sim/time -H "Content-Type: application/json" -d '{"time": "09:30"}'
 ```
 
 ---

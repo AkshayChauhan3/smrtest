@@ -39,14 +39,14 @@ def test_catalog_endpoints() -> None:
 def test_train_occupancy_endpoints() -> None:
     with TestClient(app) as client:
         all_trains = client.get("/api/v1/occupancy/trains", params={"sim_time": "09:00"})
-        train = client.get("/api/v1/occupancy/trains/BL-UP-01", params={"sim_time": "09:00"})
+        train = client.get("/api/v1/occupancy/trains/BL-01", params={"sim_time": "09:00"})
         invalid = client.get("/api/v1/occupancy/trains/NOPE", params={"sim_time": "09:00"})
 
     assert all_trains.status_code == 200
     assert train.status_code == 200
     assert invalid.status_code == 404
     payload = train.json()
-    assert payload["train_id"] == "BL-UP-01"
+    assert payload["train_id"] == "BL-01"
     assert payload["coaches"][0]["current_passenger_count"] >= 0
     assert payload["coaches"][0]["occupancy_status"] in {"empty", "low", "moderate", "high", "critical"}
 

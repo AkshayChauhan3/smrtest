@@ -46,6 +46,8 @@ class TrainCatalogueOut(BaseModel):
     departure_time: str
     current_occupancy: int
     coaches: list[CoachOut]
+    platform_number: int | None = None
+    platform_name: str | None = None
     journey_completed_pct: float | None = None
     current_position: float | None = None
 
@@ -72,6 +74,9 @@ class TrainAtStationOut(BaseModel):
     current_station_id: str | None = None
     next_station: str
     next_station_id: str | None = None
+    platform_number: int | None = None
+    platform_name: str | None = None
+    platform_level: str | None = None
     coaches: list[TrainCoachOut]
     journey_completed_pct: float | None = None
     current_position: float | None = None
@@ -93,6 +98,8 @@ class IncomingTrainOut(BaseModel):
     eta_minutes: int
     route: str
     current_occupancy: int
+    platform_number: int | None = None
+    platform_name: str | None = None
     predicted_occupancy_at_station: int
     predicted_boarding_count: int
     predicted_deboarding_count: int
