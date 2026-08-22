@@ -146,8 +146,8 @@ export function LiveTrainTicker({ className }: { className?: string }) {
         </div>
       </div>
 
-      {/* Train rows list with zero horizontal scroll */}
-      <div className="mt-4 max-h-[480px] space-y-3.5 overflow-x-hidden overflow-y-auto pr-1">
+      {/* Train rows list with stealth dark scrollbar */}
+      <div className="mt-4 max-h-[480px] space-y-3.5 overflow-x-hidden overflow-y-auto pr-1.5 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.15)_transparent]">
         {filteredTrains.length === 0 ? (
           <div className="flex h-28 flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-[#050608] text-center">
             <p className="text-sm font-medium text-slate-300">No Trains on Line</p>
@@ -223,7 +223,7 @@ const TrainTickerRow = memo(function TrainTickerRow({
 
   const liveTimerFormatted = formatEta(secondsRemaining);
 
-  // Position interpolation
+  // Position calculation across station stops
   const totalStops = Math.max(stations.length - 1, 1);
   const startPct = (curIdx / totalStops) * 100;
   const targetPct = (nextIdx / totalStops) * 100;
@@ -235,14 +235,18 @@ const TrainTickerRow = memo(function TrainTickerRow({
       ? 1
       : Math.max(0, Math.min(1, 1 - secondsRemaining / totalHopDuration));
 
-  // Clamped 4% to 96% to guarantee the floating tooltip never overflows the container
+  // Continuous interpolated percentage along track line
   const rawPct = startPct + hopProgress * (targetPct - startPct);
-  const pct = Math.max(3, Math.min(97, rawPct));
+  const pct = Math.max(2, Math.min(98, rawPct));
 
-  const lineColor = isBlue ? "bg-blue-500 shadow-blue-500/50" : "bg-rose-500 shadow-rose-500/50";
+  // Vibrant line colors and active glowing gradients
+  const lineColor = isBlue
+    ? "bg-blue-500 shadow-lg shadow-blue-500/80 ring-2 ring-blue-300"
+    : "bg-rose-500 shadow-lg shadow-rose-500/80 ring-2 ring-rose-300";
+
   const lineGlow = isBlue
-    ? "from-blue-500/20 via-blue-500/50 to-blue-400"
-    : "from-rose-500/20 via-rose-500/50 to-rose-400";
+    ? "from-blue-600/40 via-blue-500 to-cyan-400 shadow-[0_0_12px_rgba(59,130,246,0.8)]"
+    : "from-rose-600/40 via-rose-500 to-amber-400 shadow-[0_0_12px_rgba(244,63,94,0.8)]";
 
   const directionLabel = train.direction?.toUpperCase().endsWith("BOUND")
     ? train.direction
@@ -259,7 +263,7 @@ const TrainTickerRow = memo(function TrainTickerRow({
           <LineBadge line={train.line} />
         </div>
 
-        {/* Live Ticking Next Station Pill */}
+        {/* Live Ticking Next Station Pill with Full CODE-Name */}
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 rounded-full border border-accent-cyan/30 bg-accent-cyan/10 px-3 py-1 font-mono text-[11px] font-bold text-accent-cyan shadow-sm">
             <Timer className="size-3 text-accent-cyan animate-pulse" />
@@ -279,80 +283,80 @@ const TrainTickerRow = memo(function TrainTickerRow({
         </div>
       </div>
 
-      {/* Realistic Dynamic Track Line with Clamped Insets */}
-      <div className="relative mt-8 mb-2 h-10 select-none px-4">
+      {/* Realistic Dynamic Track Line with Floating Station Code Label Above Dot */}
+      <div className="relative mt-8 mb-2 h-10 select-none">
         {/* Track Base Rail */}
-        <div className="absolute inset-x-4 bottom-2 h-1.5 rounded-full bg-slate-800/80 shadow-inner" />
+        <div className="absolute inset-x-0 bottom-2 h-2 rounded-full bg-slate-800/90 shadow-inner" />
 
-        {/* Active Filled Progress Rail */}
+        {/* Active Vibrant Illuminated Rail */}
         <div
           className={cn(
-            "absolute bottom-2 h-1.5 rounded-full bg-gradient-to-r transition-all duration-700 ease-out",
+            "absolute bottom-2 h-2 rounded-full bg-gradient-to-r transition-all duration-700 ease-out",
             lineGlow
           )}
           style={
             isUp
-              ? { left: "16px", width: `calc(${pct}% * ((100% - 32px) / 100))` }
-              : { left: `calc(16px + (${pct}% * ((100% - 32px) / 100)))`, right: "16px" }
+              ? { left: 0, width: `${pct}%` }
+              : { left: `${pct}%`, width: `${100 - pct}%` }
           }
         />
 
-        {/* Station Ticks along the Line */}
-        <div className="absolute inset-x-4 bottom-2 h-0">
-          {stations.map((st, idx) => {
-            const stPct = (idx / (stations.length - 1)) * 100;
-            const isPassed = isUp ? stPct <= pct : stPct >= pct;
-            const isNext =
-              nextStationObj?.id === st.id ||
-              normalizeStation(nextStationFullName).includes(normalizeStation(st.id));
+        {/* Station Ticks along the Line with Vivid Active Colors */}
+        {stations.map((st, idx) => {
+          const stPct = (idx / (stations.length - 1)) * 100;
+          const isPassed = isUp ? stPct <= pct : stPct >= pct;
+          const isNext =
+            nextStationObj?.id === st.id ||
+            normalizeStation(nextStationFullName).includes(normalizeStation(st.id));
 
-            return (
-              <div
-                key={st.id}
-                className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-                style={{ left: `${stPct}%` }}
-                title={`${st.id}-${st.name}`}
-              >
-                <span
-                  className={cn(
-                    "block rounded-full transition-colors duration-300",
-                    isNext
-                      ? "size-2.5 bg-accent-cyan ring-4 ring-accent-cyan/30 animate-pulse"
-                      : isPassed
-                      ? "size-1.5 bg-slate-400"
-                      : "size-1 bg-slate-700"
-                  )}
-                />
-              </div>
-            );
-          })}
-
-          {/* Smooth Hardware-Accelerated Train Marker Pod */}
-          <div
-            className="absolute -translate-x-1/2 -translate-y-1/2 z-20 will-change-transform transition-all duration-700 ease-out"
-            style={{ left: `${pct}%` }}
-          >
-            {/* Station CODE-Name Pill Floating Directly Above the Dot */}
-            <div className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none z-30">
-              <div className="flex items-center gap-1.5 rounded-md border border-accent-cyan/30 bg-[#080a0f] px-2 py-0.5 shadow-2xl ring-1 ring-black/60">
-                <span className="size-1.5 rounded-full bg-accent-cyan animate-pulse" />
-                <span className="font-mono text-[10px] font-extrabold text-white tracking-tight">
-                  {curStationFullName}
-                </span>
-              </div>
-              <div className="mx-auto size-0 border-x-4 border-x-transparent border-t-4 border-t-[#080a0f]" />
-            </div>
-
-            {/* Train Dot Icon */}
+          return (
             <div
-              className={cn(
-                "relative flex size-4 items-center justify-center rounded-full shadow-lg ring-4 ring-black/50",
-                lineColor
-              )}
+              key={st.id}
+              className="absolute bottom-2 -translate-x-1/2 translate-y-1/2 flex flex-col items-center z-10"
+              style={{ left: `${stPct}%` }}
+              title={`${st.id}-${st.name}`}
             >
-              <span className={cn("absolute inset-0 animate-ping rounded-full opacity-50", lineColor)} />
-              <span className="size-1.5 rounded-full bg-white" />
+              <span
+                className={cn(
+                  "block rounded-full transition-all duration-300",
+                  isNext
+                    ? "size-3 bg-accent-cyan ring-4 ring-accent-cyan/50 animate-pulse shadow-[0_0_10px_#2dd4bf]"
+                    : isPassed
+                    ? isBlue
+                      ? "size-2 bg-blue-400 ring-2 ring-blue-500/50 shadow-[0_0_8px_#3b82f6]"
+                      : "size-2 bg-rose-400 ring-2 ring-rose-500/50 shadow-[0_0_8px_#f43f5e]"
+                    : "size-1.5 bg-slate-700"
+                )}
+              />
             </div>
+          );
+        })}
+
+        {/* Smooth Moving Train Marker Pod with Full CODE-Name */}
+        <div
+          className="absolute bottom-2 -translate-x-1/2 translate-y-1/2 transition-all duration-700 ease-out z-20 will-change-transform"
+          style={{ left: `${pct}%` }}
+        >
+          {/* Station CODE-Name Floating Badge */}
+          <div className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none z-30">
+            <div className="flex items-center gap-1.5 rounded-md border border-accent-cyan/40 bg-[#080a0f] px-2 py-0.5 shadow-2xl ring-1 ring-black/70">
+              <span className="size-1.5 rounded-full bg-accent-cyan animate-pulse" />
+              <span className="font-mono text-[10px] font-extrabold text-white tracking-tight">
+                {curStationFullName}
+              </span>
+            </div>
+            <div className="mx-auto size-0 border-x-4 border-x-transparent border-t-4 border-t-[#080a0f]" />
+          </div>
+
+          {/* Glowing Beacon Dot Icon */}
+          <div
+            className={cn(
+              "relative flex size-4 items-center justify-center rounded-full ring-4 ring-black/70 shadow-lg",
+              lineColor
+            )}
+          >
+            <span className={cn("absolute inset-0 animate-ping rounded-full opacity-70", lineColor)} />
+            <span className="size-1.5 rounded-full bg-white shadow-sm" />
           </div>
         </div>
       </div>
