@@ -9,6 +9,21 @@ from app.db.session import get_db
 
 router = APIRouter()
 
+def _extract_status(t) -> str:
+    if hasattr(t, "status"):
+        return str(t.status or "")
+    if isinstance(t, dict):
+        return str(t.get("status", "") or "")
+    return ""
+
+def _extract_pax(t) -> int:
+    if hasattr(t, "coaches") and t.coaches:
+        return sum(getattr(c, "current_passenger_count", 0) for c in t.coaches)
+    if isinstance(t, dict):
+        return t.get("train_current_passengers", 0)
+    return 0
+
+
 @router.get("/snapshot", response_model=DashboardSnapshot)
 async def get_dashboard_snapshot(
     station_name: str = Query("Old High Court"),
@@ -70,10 +85,10 @@ async def get_kpi_history(db: AsyncSession = Depends(get_db)) -> KpiHistoryOut:
 
     if current is None:
         live_trains = data_service.get_all_trains_live(now)
-        active_t = [t for t in live_trains if t.get("status") not in ("NOT_IN_SERVICE", "WAITING_AT_TERMINAL")]
+        active_t = [t for t in live_trains if _extract_status(t) not in ("NOT_IN_SERVICE", "WAITING_AT_TERMINAL")]
         n_active = len(active_t)
-        total_pax = sum(t.get("train_current_passengers", 0) for t in active_t)
-        avg_occ = round((total_pax / max(1, n_active) / 1200) * 100, 1)
+        total_pax = sum(_extract_pax(t) for t in active_t)
+        avg_occ = round((total_pax / max(1, n_active) / 1200) * 100, 1) if n_active > 0 else 0.0
         
         station_crowds = data_service.list_station_crowds(now)
         total_crowd = sum(c.current_station_crowd for c in station_crowds)
@@ -89,10 +104,10 @@ async def get_kpi_history(db: AsyncSession = Depends(get_db)) -> KpiHistoryOut:
     if hour_ago is None and current is not None:
         h_ago_dt = now - timedelta(minutes=60)
         h_trains = data_service.get_all_trains_live(h_ago_dt)
-        h_active_t = [t for t in h_trains if t.get("status") not in ("NOT_IN_SERVICE", "WAITING_AT_TERMINAL")]
+        h_active_t = [t for t in h_trains if _extract_status(t) not in ("NOT_IN_SERVICE", "WAITING_AT_TERMINAL")]
         h_n_active = len(h_active_t)
-        h_total_pax = sum(t.get("train_current_passengers", 0) for t in h_active_t)
-        h_avg_occ = round((h_total_pax / max(1, h_n_active) / 1200) * 100, 1)
+        h_total_pax = sum(_extract_pax(t) for t in h_active_t)
+        h_avg_occ = round((h_total_pax / max(1, h_n_active) / 1200) * 100, 1) if h_n_active > 0 else 0.0
         h_crowds = data_service.list_station_crowds(h_ago_dt)
         h_total_crowd = sum(c.current_station_crowd for c in h_crowds)
         hour_ago = KpiSnapshot(
