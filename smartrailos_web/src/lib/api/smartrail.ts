@@ -308,10 +308,18 @@ const TYPE_MAP: Record<string, Alert["severity"]> = {
 };
 
 export function adaptAlert(a: BackendAlert): Alert {
-  const severity =
-    TYPE_MAP[a.alert_type?.toLowerCase()] ??
-    SEVERITY_MAP[a.severity?.toLowerCase()] ??
-    "System Warning";
+  const sevLower = (a.severity || "").toLowerCase();
+  let severity: Alert["severity"] = "System Warning";
+  if (sevLower === "critical" || sevLower === "emergency") {
+    severity = "Emergency";
+  } else if (sevLower === "high") {
+    severity = "Overcrowding";
+  } else if (a.alert_type && TYPE_MAP[a.alert_type.toLowerCase()]) {
+    severity = TYPE_MAP[a.alert_type.toLowerCase()];
+  } else if (SEVERITY_MAP[sevLower]) {
+    severity = SEVERITY_MAP[sevLower];
+  }
+
   const time = a.created_at
     ? new Date(a.created_at).toLocaleTimeString([], {
         hour: "2-digit",
@@ -327,6 +335,8 @@ export function adaptAlert(a: BackendAlert): Alert {
     time,
     resolved: (a as any).resolved ?? false,
     acknowledged: (a as any).acknowledged ?? false,
+    stationName: a.station_name,
+    trainId: a.train_id,
   };
 }
 

@@ -275,6 +275,8 @@ export interface Alert {
   time: string;
   resolved: boolean;
   acknowledged?: boolean;
+  stationName?: string | null;
+  trainId?: string | null;
 }
 
 export const ALERTS: Alert[] = [
