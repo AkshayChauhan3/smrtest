@@ -64,3 +64,19 @@ export function useBroadcastAnnouncement() {
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.announcements }),
   });
 }
+
+export function useResolveAlert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (alertId: string) => {
+      if (USE_MOCK) return { ok: true };
+      return apiFetch<void>(
+        `/alerts/${encodeURIComponent(alertId)}/resolve`,
+        { method: "POST" },
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.alerts }),
+  });
+}
+
+

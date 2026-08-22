@@ -3,10 +3,7 @@ import { SectionHeader } from "./dashboard.index";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Check, X, Loader2 } from "lucide-react";
-import { useAlerts, useAcknowledgeAlert } from "@/lib/api/hooks";
-import { apiFetch } from "@/lib/api/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@/lib/api/queries";
+import { useAlerts, useAcknowledgeAlert, useResolveAlert } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/dashboard/alerts")({
   head: () => ({
@@ -23,18 +20,6 @@ const ALERT_SEVERITY_TW: Record<string, string> = {
   "System Warning": "bg-warning/15 text-warning border-warning/40",
 };
 
-export function useResolveAlert() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (alertId: string) => {
-      return apiFetch<void>(
-        `/alerts/${encodeURIComponent(alertId)}/resolve`,
-        { method: "POST" },
-      );
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.alerts }),
-  });
-}
 
 function AlertsPage() {
   const alertsQ = useAlerts();
