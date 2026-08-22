@@ -160,13 +160,33 @@ function StandingTrainRow({ train }: { train: Train }) {
   );
 }
 
-export function StandingTrainsCard({ className }: { className?: string }) {
+export function StandingTrainsCard({
+  className,
+  stationId,
+  stationName,
+}: {
+  className?: string;
+  stationId?: string;
+  stationName?: string;
+}) {
   const trainsQ = useTrains();
   const trainsRaw = trainsQ.data ?? [];
   const trains = trainsRaw.filter((t) => t.id !== "ESP32_DEMO");
 
+  const isMatchStation = (tStationId?: string | null) => {
+    if (!tStationId) return false;
+    if (stationId && tStationId.toLowerCase() === stationId.toLowerCase()) return true;
+    if (stationName && tStationId.toLowerCase().includes(stationName.toLowerCase())) return true;
+    return false;
+  };
+
   // Filter both docked/berthed trains and arriving/approaching trains
   const relevantTrains = trains.filter((t) => {
+    if (stationId || stationName) {
+      const matchCur = isMatchStation(t.currentStationId);
+      const matchNext = isMatchStation(t.nextStationId);
+      return matchCur || matchNext;
+    }
     const isBerthed = t.status === "At Station" || t.status === "Departing" || (t.etaSeconds !== undefined && t.etaSeconds <= 8);
     const isArriving = t.status === "Approaching" || (t.etaSeconds !== undefined && t.etaSeconds <= 120);
     return isBerthed || isArriving;

@@ -186,10 +186,10 @@ function StationOverviewPage() {
         {/* Left Column: Active Train Units 1st, Live Network Position 2nd, Predictions Table 3rd */}
         <div className="space-y-6 xl:col-span-8">
           {/* Active Train Units Side-Slider Carousel */}
-          <ActiveTrainsSlider trains={stationTrains} />
+          <ActiveTrainsSlider trains={stationTrains} stationLine={station?.line} />
 
           {/* Live Network Position Ticker */}
-          <LiveTrainTicker />
+          <LiveTrainTicker stationLine={station?.line} />
 
           {/* Station Feature & ML Predictions Table */}
           <section className="space-y-4 rounded-2xl border border-white/[0.08] bg-[#080a0f] p-6 shadow-xl">
@@ -252,7 +252,7 @@ function StationOverviewPage() {
         {/* Right Column: Platform Berths & Station Alerts Feed */}
         <aside className="space-y-6 xl:col-span-4">
           {/* Standing Trains on Station Platform Berths */}
-          <StandingTrainsCard />
+          <StandingTrainsCard stationId={stationId} stationName={station?.name} />
 
           {/* Recent Station Alerts Feed */}
           <section className="rounded-2xl border border-white/[0.08] bg-[#080a0f] p-6 shadow-xl">

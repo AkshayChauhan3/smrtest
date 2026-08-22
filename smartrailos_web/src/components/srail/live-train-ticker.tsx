@@ -63,14 +63,29 @@ function isUpTrain(train: Train, curIdx: number, nextIdx: number): boolean {
   return false;
 }
 
-export function LiveTrainTicker({ className }: { className?: string }) {
+export function LiveTrainTicker({
+  className,
+  defaultLine = "all",
+  stationLine,
+}: {
+  className?: string;
+  defaultLine?: "all" | "blue" | "red";
+  stationLine?: "blue" | "red";
+}) {
   const trainsQ = useTrains();
   const trainsRaw = trainsQ.data ?? [];
   const trains = useMemo(
     () => trainsRaw.filter((t) => t.id !== "ESP32_DEMO"),
     [trainsRaw]
   );
-  const [filterLine, setFilterLine] = useState<"all" | "blue" | "red">("all");
+  const initialLine = stationLine || defaultLine;
+  const [filterLine, setFilterLine] = useState<"all" | "blue" | "red">(initialLine);
+
+  useEffect(() => {
+    if (stationLine) {
+      setFilterLine(stationLine);
+    }
+  }, [stationLine]);
 
   const filteredTrains = useMemo(() => {
     if (filterLine === "all") return trains;

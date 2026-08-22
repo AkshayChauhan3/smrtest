@@ -7,12 +7,23 @@ import { ChevronLeft, ChevronRight, TrainFront } from "lucide-react";
 export function ActiveTrainsSlider({
   trains,
   className,
+  defaultLine = "all",
+  stationLine,
 }: {
   trains: Train[];
   className?: string;
+  defaultLine?: "all" | "blue" | "red";
+  stationLine?: "blue" | "red";
 }) {
-  const [selectedLine, setSelectedLine] = useState<"all" | "blue" | "red">("all");
+  const initialLine = stationLine || defaultLine;
+  const [selectedLine, setSelectedLine] = useState<"all" | "blue" | "red">(initialLine);
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    if (stationLine) {
+      setSelectedLine(stationLine);
+    }
+  }, [stationLine]);
 
   // Filter trains based on selected line
   const filteredTrains = useMemo(() => {
