@@ -94,45 +94,59 @@ export function ActiveTrainsSlider({
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Line Filter Tabs */}
-          <div className="flex items-center rounded-lg bg-[#10131c] p-0.5 ring-1 ring-white/10">
-            <button
-              type="button"
-              onClick={() => setSelectedLine("all")}
+          {/* Line Filter Tabs / Static Respected Line Badge */}
+          {stationLine ? (
+            <div
               className={cn(
-                "rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide transition-all",
-                selectedLine === "all"
-                  ? "bg-accent-cyan text-obsidian-950 shadow-sm font-extrabold"
-                  : "text-slate-400 hover:text-white"
+                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-extrabold uppercase tracking-wider ring-1 shadow-sm",
+                stationLine === "blue"
+                  ? "bg-blue-500/15 text-blue-400 ring-blue-500/30"
+                  : "bg-rose-500/15 text-rose-400 ring-rose-500/30"
               )}
             >
-              All ({trains.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedLine("blue")}
-              className={cn(
-                "rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide transition-all",
-                selectedLine === "blue"
-                  ? "bg-blue-500 text-white shadow-sm font-extrabold"
-                  : "text-slate-400 hover:text-white"
-              )}
-            >
-              Blue ({blueCount})
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedLine("red")}
-              className={cn(
-                "rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide transition-all",
-                selectedLine === "red"
-                  ? "bg-rose-500 text-white shadow-sm font-extrabold"
-                  : "text-slate-400 hover:text-white"
-              )}
-            >
-              Red ({redCount})
-            </button>
-          </div>
+              <span className="size-2 rounded-full bg-current animate-pulse" />
+              <span>{stationLine === "blue" ? "Blue Line Corridor" : "Red Line Corridor"}</span>
+            </div>
+          ) : (
+            <div className="flex items-center rounded-lg bg-[#10131c] p-0.5 ring-1 ring-white/10">
+              <button
+                type="button"
+                onClick={() => setSelectedLine("all")}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide transition-all",
+                  selectedLine === "all"
+                    ? "bg-accent-cyan text-obsidian-950 shadow-sm font-extrabold"
+                    : "text-slate-400 hover:text-white"
+                )}
+              >
+                All ({trains.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedLine("blue")}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide transition-all",
+                  selectedLine === "blue"
+                    ? "bg-blue-500 text-white shadow-sm font-extrabold"
+                    : "text-slate-400 hover:text-white"
+                )}
+              >
+                Blue ({blueCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedLine("red")}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide transition-all",
+                  selectedLine === "red"
+                    ? "bg-rose-500 text-white shadow-sm font-extrabold"
+                    : "text-slate-400 hover:text-white"
+                )}
+              >
+                Red ({redCount})
+              </button>
+            </div>
+          )}
 
           {/* Slider Arrow Navigation Buttons */}
           <div className="flex items-center gap-1.5">
