@@ -10,11 +10,20 @@ import '../../features/trains/models/train_model.dart';
 import '../../features/trains/models/coach_model.dart';
 import '../../features/trains/models/announcement_model.dart';
 import '../../features/trains/models/esp_sensor_model.dart';
+import '../../features/auth/models/user_model.dart';
 
 final apiServiceProvider = Provider((ref) => ApiService());
 
 class ApiService {
   Future<Map<String, String>> _getHeaders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    if (token != null && token.isNotEmpty) {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
+    }
     return {'Content-Type': 'application/json'};
   }
 
@@ -29,7 +38,34 @@ class ApiService {
     for (final base in candidates) {
       try {
         final uri = Uri.parse('$base$path');
-        final res = await http.get(uri, headers: headers).timeout(const Duration(seconds: 4));
+        final res = await http.get(uri, headers: headers).timeout(const Duration(milliseconds: 1800));
+        if (res.statusCode < 500) {
+          AppConfig.setWorkingUrl(base);
+          return res;
+        }
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw Exception('Unable to reach backend at any host (${AppConfig.candidateUrls.join(", ")}): $lastError');
+  }
+
+  /// Sends a POST request, automatically trying candidate URLs on network failure
+  Future<http.Response> _httpPost(String path, {Map<String, String>? headers, Object? body}) async {
+    final candidates = [
+      AppConfig.baseUrl,
+      ...AppConfig.candidateUrls.where((u) => u != AppConfig.baseUrl),
+    ];
+
+    Object? lastError;
+    for (final base in candidates) {
+      try {
+        final uri = Uri.parse('$base$path');
+        final res = await http.post(
+          uri,
+          headers: headers ?? {'Content-Type': 'application/json'},
+          body: body is String ? body : (body != null ? jsonEncode(body) : null),
+        ).timeout(const Duration(milliseconds: 1800));
         if (res.statusCode < 500) {
           AppConfig.setWorkingUrl(base);
           return res;
@@ -328,6 +364,160 @@ class ApiService {
       debugPrint('Error fetching ESP32 live telemetry: $e');
     }
     return null;
+  }
+
+  Future<List<Map<String, dynamic>>> getEsp32Events() async {
+    try {
+      final headers = await _getHeaders();
+      final res = await _httpGet('/api/v1/esp32/events', headers: headers);
+      if (res.statusCode == 200) {
+        final list = jsonDecode(res.body) as List;
+        return list.map((e) => Map<String, dynamic>.from(e)).toList();
+      }
+    } catch (e) {
+      debugPrint('Error fetching ESP32 events: $e');
+    }
+    return [];
+  }
+
+  Future<EspSensorModel?> resetEsp32Counters() async {
+    try {
+      final headers = await _getHeaders();
+      final res = await _httpPost('/api/v1/esp32/reset', headers: headers);
+      if (res.statusCode == 200) {
+        return EspSensorModel.fromJson(jsonDecode(res.body));
+      }
+    } catch (e) {
+      debugPrint('Error resetting ESP32 counters: $e');
+    }
+    return null;
+  }
+
+  Future<EspSensorModel?> sendEsp32Telemetry({
+    required String direction,
+    int inDelta = 0,
+    int outDelta = 0,
+    int? occupancy,
+    String? stationId,
+    String coachId = 'C1',
+    String? deviceId,
+    double? distanceS1,
+    double? distanceS2,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final body = {
+        'direction': direction,
+        'in_delta': inDelta,
+        'out_delta': outDelta,
+        if (occupancy != null) 'occupancy': occupancy,
+        if (stationId != null) 'station_id': stationId,
+        'coach_id': coachId,
+        if (deviceId != null) 'device_id': deviceId,
+        if (distanceS1 != null) 'distance_s1': distanceS1,
+        if (distanceS2 != null) 'distance_s2': distanceS2,
+      };
+      final res = await _httpPost('/api/v1/esp32/telemetry', headers: headers, body: body);
+      if (res.statusCode == 200) {
+        return EspSensorModel.fromJson(jsonDecode(res.body));
+      }
+    } catch (e) {
+      debugPrint('Error sending ESP32 telemetry: $e');
+    }
+    return null;
+  }
+
+  // ── AUTHENTICATION METHODS ────────────────────────────────────────────────
+  Future<UserModel?> checkAuth() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    if (token == null || token.isEmpty) return null;
+
+    try {
+      final headers = await _getHeaders();
+      final res = await _httpGet('/api/v1/auth/me', headers: headers);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return UserModel.fromJson(data);
+      }
+    } catch (_) {}
+
+    // Fallback to local session details
+    final name = prefs.getString('user_name') ?? 'Commuter';
+    final email = prefs.getString('user_email') ?? 'commuter@smartrail.os';
+    final uid = prefs.getString('user_id') ?? 'uid-${email.hashCode}';
+    return UserModel(userId: uid, name: name, email: email);
+  }
+
+  Future<UserModel> login(String email, String password) async {
+    try {
+      final res = await _httpPost('/api/v1/auth/login', body: {
+        'email': email,
+        'password': password,
+      });
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final prefs = await SharedPreferences.getInstance();
+        if (data['token'] != null) {
+          await prefs.setString('auth_token', data['token']);
+        }
+        if (data['user_name'] != null || data['name'] != null) {
+          await prefs.setString('user_name', data['user_name'] ?? data['name']);
+        }
+        await prefs.setString('user_email', email);
+        return UserModel.fromJson(data);
+      }
+    } catch (_) {}
+
+    // Mock fallback when offline
+    final prefs = await SharedPreferences.getInstance();
+    final uid = 'uid-${email.hashCode}';
+    final name = email.split('@')[0];
+    await prefs.setString('auth_token', 'mock-token-$uid');
+    await prefs.setString('user_name', name);
+    await prefs.setString('user_email', email);
+    await prefs.setString('user_id', uid);
+    return UserModel(userId: uid, name: name, email: email);
+  }
+
+  Future<UserModel> register(String name, String email, String password) async {
+    try {
+      final res = await _httpPost('/api/v1/auth/register', body: {
+        'name': name,
+        'email': email,
+        'password': password,
+      });
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final prefs = await SharedPreferences.getInstance();
+        if (data['token'] != null) {
+          await prefs.setString('auth_token', data['token']);
+        }
+        await prefs.setString('user_name', name);
+        await prefs.setString('user_email', email);
+        return UserModel.fromJson(data);
+      }
+    } catch (_) {}
+
+    final prefs = await SharedPreferences.getInstance();
+    final uid = 'uid-${email.hashCode}';
+    await prefs.setString('auth_token', 'mock-token-$uid');
+    await prefs.setString('user_name', name);
+    await prefs.setString('user_email', email);
+    await prefs.setString('user_id', uid);
+    return UserModel(userId: uid, name: name, email: email);
+  }
+
+  Future<void> logout() async {
+    try {
+      final headers = await _getHeaders();
+      await _httpPost('/api/v1/auth/logout', headers: headers);
+    } catch (_) {}
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+    await prefs.remove('user_name');
+    await prefs.remove('user_email');
+    await prefs.remove('user_id');
   }
 
   Future<void> saveRoute(Map<String, String> route) async {

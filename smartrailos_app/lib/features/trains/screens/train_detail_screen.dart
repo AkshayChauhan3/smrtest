@@ -1043,7 +1043,6 @@ class TrainDetailScreen extends ConsumerWidget {
         bannerIcon = Icons.warning_amber_rounded;
         break;
       case AnnouncementSeverity.info:
-      default:
         bannerColor = AppTheme.blueLine;
         bannerIcon = Icons.info_outline_rounded;
         break;
