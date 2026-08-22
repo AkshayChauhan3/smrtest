@@ -48,7 +48,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
 
   /* SmartRail OS palette */
-  --color-obsidian-950: #0a0a0c;
+  --color-obsidian-950: #000000;
   --color-obsidian-900: #121216;
   --color-obsidian-800: #1e1e26;
   --color-obsidian-700: #2a2a35;
@@ -68,7 +68,7 @@
   --radius: 0.625rem;
 
   /* Dark-first: map shadcn tokens to obsidian palette */
-  --background: #0a0a0c;
+  --background: #000000;
   --foreground: #e2e8f0;
   --card: #121216;
   --card-foreground: #e2e8f0;
@@ -109,7 +109,7 @@
 
   html,
   body {
-    background-color: var(--color-obsidian-950);
+    background-color: #000000;
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
