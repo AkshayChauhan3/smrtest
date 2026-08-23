@@ -63,7 +63,18 @@ curl http://localhost:8000/api/v1/analytics/hourly-flow
 
 ## 📡 3. ESP32 IoT Sensor & Hardware Break-Beam Emulator (Terminal 2)
 
-Simulates optical IR break-beam passenger entry/exit sensors at turnstiles and coach doors.
+### 
+```bash
+cd esp32-test
+
+# Upload logic to ESP32 board
+pio run -e esp32dev -t upload
+
+# Start counting at BL08 station
+python3 serial_bridge.py --station BL08
+```
+
+### Simulates optical IR break-beam passenger entry/exit sensors at turnstiles and coach doors.
 
 ```bash
 # 1. Simulate passenger boarding & alighting flow at Old High Court (BL11):
