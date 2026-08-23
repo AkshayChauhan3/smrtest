@@ -12,13 +12,14 @@ export function RouteTimeline({ train }: { train: Train }) {
   const trainCurrentNorm = norm(train.currentStationId);
   const trainNextNorm = norm(train.nextStationId);
 
-  let currentIdx = lineStations.findIndex((s) => norm(s.id) === trainCurrentNorm);
+  let currentIdx = lineStations.findIndex((s) => norm(s.id) === trainCurrentNorm || norm(s.name) === trainCurrentNorm);
   if (currentIdx < 0) {
-    currentIdx = lineStations.findIndex((s) => norm(s.id) === trainNextNorm);
+    currentIdx = lineStations.findIndex((s) => norm(s.id) === trainNextNorm || norm(s.name) === trainNextNorm);
   }
   if (currentIdx < 0) {
-    // Default fallback index for Old High Court (BL08 / RL07)
-    currentIdx = isBlue ? 7 : 6;
+    const rawPos = (train as any).currentPosition ?? (train as any).journey_completed_pct;
+    const pct = typeof rawPos === "number" ? rawPos / 100 : 0.5;
+    currentIdx = Math.max(0, Math.min(lineStations.length - 1, Math.floor(pct * (lineStations.length - 1))));
   }
 
   // Display a window of 7 stations around the current train index
@@ -57,9 +58,8 @@ export function RouteTimeline({ train }: { train: Train }) {
             const isCurrent = i === activeIdx;
             const isNext = i === activeIdx + 1;
             const diffStations = i - activeIdx;
-            
-            // Calculate approximate arrival ETA to this upcoming station (approx 2 min per station)
-            const upcomingMinutes = diffStations > 0 ? diffStations * 2 : 0;
+            const nextEtaMin = train.etaSeconds ? Math.max(1, Math.round(train.etaSeconds / 60)) : 2;
+            const upcomingMinutes = isNext ? nextEtaMin : (diffStations > 0 ? nextEtaMin + (diffStations - 1) * 2 : 0);
 
             return (
               <div key={st.id} className="flex w-20 flex-col items-center text-center">

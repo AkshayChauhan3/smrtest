@@ -43,8 +43,8 @@ function IncomingPage() {
         route: `${formatFullStationName(t.currentStationId, t.line)} ➔ ${formatFullStationName(t.nextStationId, t.line)}`,
         current_occupancy: avg,
         predicted_occupancy_at_station: t.predictedOccupancy ?? avg,
-        predicted_boarding_count: t.predictedBoarding || 85,
-        predicted_deboarding_count: t.predictedDeboarding || 60,
+        predicted_boarding_count: t.predictedBoarding ?? 85,
+        predicted_deboarding_count: t.predictedDeboarding ?? 60,
       };
     })
     .sort((a, b) => a.eta_minutes - b.eta_minutes);

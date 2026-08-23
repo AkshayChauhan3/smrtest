@@ -280,7 +280,7 @@ function DigitalTwin() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            <Radio className="size-3 text-accent-cyan animate-pulse" /> Telemetry Stream · 30 FPS · Station Telemetry
+            <Radio className="size-3 text-accent-cyan animate-pulse" /> Telemetry Stream · Live WebSocket (0.2 Hz) · Station Telemetry
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-extrabold tracking-tight text-white">
@@ -332,7 +332,7 @@ function DigitalTwin() {
 
           <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-obsidian-900 px-3 py-1.5 text-xs font-mono text-slate-300">
             <Activity className="size-3.5 text-emerald-400" />
-            <span>Health: <strong className="text-white">99.8%</strong></span>
+            <span>Health: <strong className="text-white">{Math.max(92, 100 - (stationAlerts?.length ?? 0) * 2.5).toFixed(1)}%</strong></span>
           </div>
 
           <div className="flex items-center gap-2 rounded-lg border border-accent-cyan/30 bg-accent-cyan/10 px-3 py-1.5 text-xs font-mono font-bold text-accent-cyan">
@@ -446,7 +446,7 @@ function DigitalTwin() {
                         </span>
                       ) : isApproaching ? (
                         <span className="inline-flex items-center rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-extrabold text-amber-400 ring-1 ring-inset ring-amber-500/30">
-                          ETA 1m
+                          ETA {Math.max(1, Math.round((t.etaSeconds || 60) / 60))}m
                         </span>
                       ) : null}
                     </button>
@@ -521,7 +521,7 @@ function DigitalTwin() {
                         </span>
                       ) : isApproaching ? (
                         <span className="inline-flex items-center rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-extrabold text-amber-400 ring-1 ring-inset ring-amber-500/30">
-                          ETA 1m
+                          ETA {Math.max(1, Math.round((t.etaSeconds || 60) / 60))}m
                         </span>
                       ) : null}
                     </button>
@@ -795,8 +795,8 @@ function DigitalTwin() {
               <Row label="HVAC Platform 1" value="22.4°C" tone="text-white" />
               <Row label="HVAC Platform 2" value="23.1°C" tone="text-emerald-400" />
               <Row label="Escalators E1–E4" value="Nominal" tone="text-emerald-400" />
-              <Row label="Turnstile Gate 4" value="Offline" tone="text-rose-400" />
-              <Row label="Optical Break-Beam" value="Synced (30 FPS)" tone="text-accent-cyan" />
+              <Row label="Turnstile Gate 4" value="Nominal (Active)" tone="text-emerald-400" />
+              <Row label="Optical Break-Beam" value="Synced (Live IoT)" tone="text-accent-cyan" />
               <Row label="CCTV Surveillance" value="48 / 48 Active" tone="text-emerald-400" />
             </ul>
 

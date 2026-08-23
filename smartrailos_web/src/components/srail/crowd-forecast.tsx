@@ -1,13 +1,24 @@
 import { cn } from "@/lib/utils";
 import { TrendingUp } from "lucide-react";
 import { useCrowdForecast, useTrains } from "@/lib/api/hooks";
+import { useMemo } from "react";
 
 export function CrowdForecast({ className }: { className?: string }) {
   const trainsQ = useTrains();
   const trainsRaw = trainsQ.data ?? [];
   const forecastQ = useCrowdForecast();
-  const forecastData = forecastQ.data ?? [];
-  const hasData = forecastData.length > 0 && trainsRaw.length > 0;
+  const rawForecast = forecastQ.data ?? [];
+  const hasData = rawForecast.length > 0 && trainsRaw.length > 0;
+
+  // Normalize data keys (supporting both label/value and time/predicted_passengers)
+  const forecastData = useMemo(() => {
+    return rawForecast.map((f: any) => ({
+      label: f.label ?? f.time ?? "",
+      value: Number(f.value ?? f.predicted_passengers ?? 0),
+      delta: f.delta ?? 0,
+    }));
+  }, [rawForecast]);
+
   const max = Math.max(...forecastData.map((f) => f.value), 1);
   
   return (

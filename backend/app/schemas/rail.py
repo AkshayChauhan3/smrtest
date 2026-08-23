@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class StationOut(BaseModel):
@@ -137,7 +137,17 @@ class ActionExecuteRequest(BaseModel):
 
 class AnnouncementCreate(BaseModel):
     text: str
-    context_info: str
+    context_info: str | None = None
+    context: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_context(cls, values):
+        if isinstance(values, dict):
+            ctx = values.get("context_info") or values.get("context") or "System-Wide"
+            values["context_info"] = ctx
+            values["context"] = ctx
+        return values
 
 class AnnouncementOut(BaseModel):
     id: str

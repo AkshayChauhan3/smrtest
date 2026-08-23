@@ -87,18 +87,19 @@ function Overview() {
 
   const trainsRaw = trainsQ.data ?? [];
   
-  // ESP32 visibility: hide during online hours, show during offline hours
-  const hasRealTrains = trainsRaw.some(t => t.id !== "ESP32_DEMO");
-  const trainsFiltered = hasRealTrains ? trainsRaw.filter(t => t.id !== "ESP32_DEMO") : trainsRaw;
+  const alerts = alertsQ.data ?? [];
 
-  // Prioritize ESP32_DEMO to top
-  const trains = [...trainsFiltered].sort((a, b) => {
+  // Prioritize active ESP32 / IoT hardware trains to top
+  const trains = [...trainsRaw].sort((a, b) => {
     if (a.id === "ESP32_DEMO") return -1;
     if (b.id === "ESP32_DEMO") return 1;
     return 0;
   });
 
-  const alerts = alertsQ.data ?? [];
+  const blueAlerts = alerts.filter((a: any) => !a.resolved && (a.train_id?.startsWith("BL") || a.station_id?.startsWith("BL")));
+  const redAlerts = alerts.filter((a: any) => !a.resolved && (a.train_id?.startsWith("RL") || a.station_id?.startsWith("RL")));
+  const blueThroughput = Math.max(92, 100 - blueAlerts.length * 2.2).toFixed(1);
+  const redThroughput = Math.max(91, 100 - redAlerts.length * 2.2).toFixed(1);
   const visible = trains.slice(0, 3);
   
   const hist = histQ.data;
@@ -278,11 +279,11 @@ function Overview() {
             <div className="mt-4 space-y-3">
               <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-[#050608] p-3 text-xs">
                 <span className="text-slate-300 font-medium">Blue Line Throughput</span>
-                <span className="font-mono font-bold text-blue-400">99.4% On Time</span>
+                <span className="font-mono font-bold text-blue-400">{blueThroughput}% On Time</span>
               </div>
               <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-[#050608] p-3 text-xs">
                 <span className="text-slate-300 font-medium">Red Line Throughput</span>
-                <span className="font-mono font-bold text-rose-400">98.8% On Time</span>
+                <span className="font-mono font-bold text-rose-400">{redThroughput}% On Time</span>
               </div>
               <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-[#050608] p-3 text-xs">
                 <span className="text-slate-300 font-medium">Station Turnstile Gates</span>

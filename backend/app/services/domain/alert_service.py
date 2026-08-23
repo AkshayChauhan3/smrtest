@@ -1,31 +1,33 @@
 from typing import List
+from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from fastapi import Depends
 
+from app.db.session import get_db
 from app.repositories.base import AlertRepository
 from app.schemas.rail import AlertOut
+from app.models.alert import Alert, AlertType, SeverityLevel
+from app.models.station import Station
+from app.core.sim_clock import sim_clock
 from app.services.data_service import data_service
 
 class AlertService:
-    def __init__(self, db: AsyncSession, alert_repo: AlertRepository = Depends()):
+    def __init__(self, db: AsyncSession, alert_repo: AlertRepository | None = None):
         self.db = db
-        self.alert_repo = alert_repo
+        self.alert_repo = alert_repo or AlertRepository(db)
         self.sim_service = data_service
 
     async def _ensure_seed_alerts(self):
         """Seed baseline active operational alerts into SQLite if table is empty and daytime active."""
-        from app.models.alert import Alert, AlertType, SeverityLevel
-        from datetime import timedelta
-        from app.core.sim_clock import sim_clock
-        
         now = sim_clock.now()
         is_night = (now.hour >= 23 or now.hour < 6)
         if is_night:
-            return  # Do not seed daytime congestion alerts during night shutdown
+            return
 
-        count = await self.db.scalar(select(func.count()).select_from(Alert))
-        if not count or count == 0:
+        cnt_res = await self.db.execute(select(func.count(Alert.id)))
+        count = cnt_res.scalar() or 0
+        if count == 0:
             default_alerts = [
                 Alert(
                     id="alt-emg-01",
@@ -70,12 +72,9 @@ class AlertService:
         await self._ensure_seed_alerts()
         db_alerts = await self.alert_repo.get_active_alerts(limit=100)
         
-        from app.models.station import Station
         st_res = await self.db.execute(select(Station))
         stations_map = {s.station_id: s.name for s in st_res.scalars().all()}
 
-        from app.core.sim_clock import sim_clock
-        from app.models.alert import AlertType
         now = sim_clock.now()
         is_night = (now.hour >= 23 or now.hour < 6)
 
@@ -103,6 +102,7 @@ class AlertService:
                     title=alert.title,
                     message=alert.message,
                     station_name=st_name,
+                    station_id=alert.station_id,
                     train_id=alert.train_id,
                     created_at=alert.created_at,
                     acknowledged=is_ack,
@@ -110,13 +110,11 @@ class AlertService:
                 )
             )
             
-        # Include simulated overloaded train alerts
         sim_alerts = self.sim_service.list_alerts(station_name=station_name)
         for sa in sim_alerts:
             if not any(r.id == sa.id or (r.train_id and r.train_id == sa.train_id) for r in results):
                 results.append(sa)
 
-        # Priority sorting: CRITICAL / EMERGENCY first, then HIGH, then MEDIUM / LOW
         severity_rank = {
             "critical": 0,
             "emergency": 0,
@@ -144,43 +142,44 @@ class AlertService:
         return False
 
     async def acknowledge_alert(self, alert_id: str) -> bool:
-        """Mark an alert as acknowledged by an operator and persist to SQLite."""
-        from datetime import datetime
+        """Mark an alert as acknowledged by an operator and persist to SQLite / memory state."""
         alert = await self.alert_repo.get_by_id(alert_id)
-        if not alert:
-            if alert_id.startswith("train-") or alert_id.startswith("platform-"):
+        if alert:
+            meta = dict(alert.payload or {})
+            meta["acknowledged"] = True
+            meta["acknowledged_at"] = datetime.now().isoformat()
+            alert.payload = meta
+            alert.acknowledged_at = datetime.now()
+            self.db.add(alert)
+            await self.db.commit()
+            await self.db.refresh(alert)
+            return True
+
+        sim_alerts = self.sim_service.list_alerts()
+        for sa in sim_alerts:
+            if sa.id == alert_id:
                 self.sim_service.acknowledged_sim_alerts.add(alert_id)
                 return True
-            return False
-        
-        meta = dict(alert.payload or {})
-        meta["acknowledged"] = True
-        meta["acknowledged_at"] = datetime.now().isoformat()
-        alert.payload = meta
-        await self.db.commit()
-        return True
+        return False
 
     async def resolve_alert(self, alert_id: str) -> bool:
-        """Resolve an alert by setting resolved_at to now in SQLite."""
-        from datetime import datetime
+        """Mark an alert as resolved and persist to SQLite / memory state."""
         alert = await self.alert_repo.get_by_id(alert_id)
-        if not alert:
-            if alert_id.startswith("train-") or alert_id.startswith("platform-"):
+        if alert:
+            alert.resolved_at = datetime.now()
+            self.db.add(alert)
+            await self.db.commit()
+            await self.db.refresh(alert)
+            return True
+
+        sim_alerts = self.sim_service.list_alerts()
+        for sa in sim_alerts:
+            if sa.id == alert_id:
                 self.sim_service.resolved_sim_alerts.add(alert_id)
                 return True
-            return False
-        
-        alert.resolved_at = datetime.now()
-        await self.db.commit()
-        return True
-
-
-from app.db.session import get_db
+        return False
 
 async def get_alert_service(
-    db: AsyncSession = Depends(get_db), 
+    db: AsyncSession = Depends(get_db),
 ) -> AlertService:
-    return AlertService(
-        db=db,
-        alert_repo=AlertRepository(db)
-    )
+    return AlertService(db)

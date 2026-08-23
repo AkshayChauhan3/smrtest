@@ -518,7 +518,7 @@ async def run_simulation_step():
             from app.db.session import engine as db_engine
             from sqlalchemy import text
             async with db_engine.connect() as conn:
-                autocommit_conn = await conn.execution_options(isolation_level="AUTOCOMMIT")
+                autocommit_conn = conn.execution_options(isolation_level="AUTOCOMMIT")
                 await autocommit_conn.execute(text("VACUUM"))
             _last_vacuum_date = now.date()
             logger.info("Daily database vacuum completed successfully (reclaimed fragmented space).")

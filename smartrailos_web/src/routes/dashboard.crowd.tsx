@@ -33,9 +33,21 @@ function CrowdPage() {
   const weeklyQ = useWeeklyTrend();
   const heatmapQ = usePlatformHeatmap();
 
-  const hourlyData = hourlyQ.data && hourlyQ.data.length > 0 ? hourlyQ.data : HOURLY_FLOW;
-  const weeklyData = weeklyQ.data && weeklyQ.data.length > 0 ? weeklyQ.data : WEEKLY_TREND;
+  const rawHourly = hourlyQ.data && hourlyQ.data.length > 0 ? hourlyQ.data : HOURLY_FLOW;
+  const rawWeekly = weeklyQ.data && weeklyQ.data.length > 0 ? weeklyQ.data : WEEKLY_TREND;
   const heatmapData = heatmapQ.data && heatmapQ.data.length > 0 ? heatmapQ.data : PLATFORM_HEATMAP;
+
+  const hourlyData = rawHourly.map((d: any) => ({
+    ...d,
+    hour: d.hour ?? d.time ?? "",
+    inflow: d.inflow ?? d.boarding ?? 0,
+    outflow: d.outflow ?? d.alighting ?? 0,
+  }));
+  const weeklyData = rawWeekly.map((d: any) => ({
+    ...d,
+    day: d.day ?? d.label ?? "",
+    passengers: d.passengers ?? d.total ?? d.value ?? 0,
+  }));
 
   return (
     <div className="space-y-6 px-4 py-6 md:px-8 md:py-8">

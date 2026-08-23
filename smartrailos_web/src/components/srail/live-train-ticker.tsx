@@ -75,7 +75,7 @@ export function LiveTrainTicker({
   const trainsQ = useTrains();
   const trainsRaw = trainsQ.data ?? [];
   const trains = useMemo(
-    () => trainsRaw.filter((t) => t.id !== "ESP32_DEMO"),
+    () => trainsRaw,
     [trainsRaw]
   );
   const initialLine = stationLine || defaultLine;

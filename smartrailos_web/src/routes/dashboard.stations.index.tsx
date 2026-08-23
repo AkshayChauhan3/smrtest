@@ -68,10 +68,12 @@ function StationsIndex() {
 
   // Count trains per station by matching the train's current station ID to the station ID
   const trainsByStation = new Map<string, number>();
-  for (const t of trains) {
-    const key = (t.currentStationId || "").toLowerCase();
-    trainsByStation.set(key, (trainsByStation.get(key) ?? 0) + 1);
-  }
+    for (const t of trains) {
+      const curKey = (t.currentStationId || "").toLowerCase();
+      const nextKey = (t.nextStationId || "").toLowerCase();
+      if (curKey) trainsByStation.set(curKey, (trainsByStation.get(curKey) ?? 0) + 1);
+      if (nextKey && nextKey !== curKey) trainsByStation.set(nextKey, (trainsByStation.get(nextKey) ?? 0) + 1);
+    }
 
   const blueCount = stations.filter((s) => s.line === "blue").length;
   const redCount = stations.filter((s) => s.line === "red").length;

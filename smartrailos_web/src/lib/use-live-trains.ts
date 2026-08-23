@@ -5,7 +5,7 @@ import { useTrains } from "@/lib/api/hooks";
 // Live train state. Reads from trains query with local second-by-second countdown ticks.
 export function useLiveTrains(): Train[] {
   const trainsQuery = useTrains();
-  const [trains, setTrains] = useState<Train[]>(TRAINS);
+  const [trains, setTrains] = useState<Train[]>(() => trainsQuery.data && trainsQuery.data.length > 0 ? trainsQuery.data : TRAINS);
 
   useEffect(() => {
     if (trainsQuery.data) {

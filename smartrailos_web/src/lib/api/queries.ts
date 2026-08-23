@@ -235,7 +235,23 @@ export const announcementsQuery = queryOptions<Announcement[]>({
 
 export const notificationsQuery = queryOptions<Notification[]>({
   queryKey: queryKeys.notifications,
-  queryFn: () => mockAsync(NOTIFICATIONS),
+  queryFn: async (): Promise<Notification[]> => {
+    if (USE_MOCK) return mockAsync(NOTIFICATIONS);
+    try {
+      const alerts = await apiFetch<any[]>("/alerts").catch(() => []);
+      if (!alerts || alerts.length === 0) return NOTIFICATIONS;
+      return alerts.slice(0, 10).map((a: any): Notification => ({
+        id: String(a.id),
+        type: (a.alert_type === "platform_congestion" ? "Crowd Alert" : a.alert_type === "train_delay" ? "Delay" : "Service Update"),
+        title: String(a.title || "Transit Alert"),
+        body: String(a.message || ""),
+        time: a.created_at ? new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now",
+      }));
+    } catch {
+      return NOTIFICATIONS;
+    }
+  },
+  refetchInterval: 15_000,
 });
 
 export const crowdForecastQuery = queryOptions<typeof CROWD_FORECAST>({
@@ -317,22 +333,16 @@ export async function sendEsp32Telemetry(payload: {
   distance_s1?: number;
   distance_s2?: number;
 }): Promise<BackendEsp32Live> {
-  const res = await fetch("/api/v1/esp32/telemetry", {
+  return await apiFetch<BackendEsp32Live>("/esp32/telemetry", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`Telemetry POST failed: ${res.statusText}`);
-  return res.json();
 }
 
 export async function resetEsp32Counters(): Promise<BackendEsp32Live> {
-  const res = await fetch("/api/v1/esp32/reset", {
+  return await apiFetch<BackendEsp32Live>("/esp32/reset", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
   });
-  if (!res.ok) throw new Error(`Reset failed: ${res.statusText}`);
-  return res.json();
 }
 
 export async function updateEsp32Config(payload: {
@@ -340,11 +350,8 @@ export async function updateEsp32Config(payload: {
   coach_capacity?: number;
   coach_id?: string;
 }): Promise<BackendEsp32Live> {
-  const res = await fetch("/api/v1/esp32/config", {
+  return await apiFetch<BackendEsp32Live>("/esp32/config", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`Config update failed: ${res.statusText}`);
-  return res.json();
 }

@@ -14,6 +14,8 @@ import {
   Compass,
   TrainFront,
   ShieldAlert,
+  Users,
+  ZapOff,
 } from "lucide-react";
 import { useAlerts, useAcknowledgeAlert, useResolveAlert } from "@/lib/api/hooks";
 import { useQueryClient } from "@tanstack/react-query";
@@ -39,13 +41,55 @@ const ALERT_SEVERITY_STYLES: Record<
     bg: "bg-rose-950/20",
     icon: Flame,
   },
+  Critical: {
+    badge: "bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse",
+    border: "border-rose-500/40 hover:border-rose-500/60",
+    bg: "bg-rose-950/20",
+    icon: Flame,
+  },
   "System Warning": {
     badge: "bg-amber-500/20 text-amber-400 border-amber-500/40",
     border: "border-amber-500/30 hover:border-amber-500/50",
     bg: "bg-amber-950/15",
     icon: AlertTriangle,
   },
+  Warning: {
+    badge: "bg-amber-500/20 text-amber-400 border-amber-500/40",
+    border: "border-amber-500/30 hover:border-amber-500/50",
+    bg: "bg-amber-950/15",
+    icon: AlertTriangle,
+  },
+  Overcrowding: {
+    badge: "bg-rose-500/20 text-rose-300 border-rose-500/40",
+    border: "border-rose-500/30 hover:border-rose-500/50",
+    bg: "bg-rose-950/15",
+    icon: Users,
+  },
+  "Platform Congestion": {
+    badge: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+    border: "border-amber-500/30 hover:border-amber-500/50",
+    bg: "bg-amber-950/15",
+    icon: Users,
+  },
+  "Coach Full": {
+    badge: "bg-purple-500/20 text-purple-300 border-purple-500/40",
+    border: "border-purple-500/30 hover:border-purple-500/50",
+    bg: "bg-purple-950/15",
+    icon: TrainFront,
+  },
+  "Sensor Failure": {
+    badge: "bg-red-500/20 text-red-400 border-red-500/40",
+    border: "border-red-500/30 hover:border-red-500/50",
+    bg: "bg-red-950/15",
+    icon: ZapOff,
+  },
   Advisory: {
+    badge: "bg-accent-cyan/20 text-accent-cyan border-accent-cyan/40",
+    border: "border-accent-cyan/30 hover:border-accent-cyan/50",
+    bg: "bg-accent-cyan/10",
+    icon: Info,
+  },
+  Info: {
     badge: "bg-accent-cyan/20 text-accent-cyan border-accent-cyan/40",
     border: "border-accent-cyan/30 hover:border-accent-cyan/50",
     bg: "bg-accent-cyan/10",

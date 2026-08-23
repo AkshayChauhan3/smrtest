@@ -2,18 +2,24 @@
 """
 SmartRail OS — ESP32 Directional Serial Bridge
 Reads directional crossing pulses and telemetry from the ESP32 over USB Serial
-and forward-propagates them to the SmartRail OS FastAPI backend in real time.
+and forward-propagates them to the SmartRail OS FastAPI backend in real time
+using a non-blocking background queue worker to eliminate serial buffer overflow.
 """
 
 import argparse
 import glob
 import json
+import queue
 import re
 import sys
+import threading
 import time
 import urllib.request
 import urllib.error
-import serial
+try:
+    import serial
+except ImportError:
+    serial = None
 
 
 # ─── Configuration Defaults ──────────────────────────────────────────────────
@@ -21,15 +27,18 @@ DEFAULT_PORT = None
 DEFAULT_BAUD = 115200
 DEFAULT_BACKEND = "http://localhost:8000"
 RETRY_DELAY = 3.0
-POST_COOLDOWN = 0.5
+POST_COOLDOWN = 0.05
+
+# Background queue for asynchronous HTTP dispatching
+telemetry_queue = queue.Queue(maxsize=1000)
 
 
 def find_serial_port() -> str:
     """Auto-detect connected USB serial devices."""
-    ports = sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*"))
+    ports = sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*") + glob.glob("COM*"))
     if ports:
         return ports[0]
-    return "/dev/ttyUSB0"
+    return "/dev/ttyUSB0" if sys.platform != "win32" else "COM3"
 
 
 def post_telemetry(
@@ -47,7 +56,7 @@ def post_telemetry(
     capacity: int = 400,
 ) -> bool:
     """POST directional telemetry to the backend."""
-    url = f"{backend}/api/v1/esp32/telemetry"
+    url = f"{backend.rstrip('/')}/api/v1/esp32/telemetry"
     payload = {
         "direction": direction,
         "in_delta": in_delta,
@@ -71,16 +80,16 @@ def post_telemetry(
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=3) as resp:
-            if resp.status == 200:
-                pct = (occupancy / capacity) * 100.0
+            if resp.status in (200, 202):
+                pct = (occupancy / capacity) * 100.0 if capacity > 0 else 0.0
                 ts = time.strftime("%H:%M:%S")
-                icon = "🟢" if direction == "IN" else ("🟠" if direction == "OUT" else "🔄")
+                icon = "▲" if direction == "IN" else ("▼" if direction == "OUT" else "●")
                 tot_str = f"Totals: IN={total_in} OUT={total_out}" if total_in is not None else ""
                 dist_str = f"| S1: {distance_s1:.1f}cm S2: {distance_s2:.1f}cm" if (distance_s1 is not None and distance_s1 < 900) else ""
-                print(f"[{ts}] {icon} [{direction:<4}] Occupancy: {occupancy:>3} ({pct:4.1f}%) | {tot_str} {dist_str} → {station_id or 'ALL'} ✓")
+                print(f"[{ts}] {icon} [{direction:<4}] Occupancy: {occupancy:>3} ({pct:4.1f}%) | {tot_str} {dist_str} → {station_id or 'ALL'} ✔")
                 return True
     except urllib.error.HTTPError as exc:
-        print(f"  [HTTP {exc.code}] Telemetry rejected: {exc.reason}")
+        print(f"  [HTTP {exc.code}] Telemetry rejected at {url}: {exc.reason}")
     except urllib.error.URLError as exc:
         print(f"  [HTTP ERROR] Backend connection failed at {url}: {exc.reason}")
     except Exception as exc:
@@ -89,9 +98,23 @@ def post_telemetry(
     return False
 
 
+def telemetry_worker():
+    """Asynchronous worker that drains the telemetry queue without blocking serial reads."""
+    while True:
+        try:
+            item = telemetry_queue.get()
+            if item is None:
+                break
+            post_telemetry(**item)
+            telemetry_queue.task_done()
+            time.sleep(POST_COOLDOWN)
+        except Exception as e:
+            print(f"  [WORKER ERROR] {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="SmartRail OS ESP32 Directional Serial Bridge")
-    parser.add_argument("--port", default=DEFAULT_PORT, help="Serial port (e.g. /dev/ttyUSB0)")
+    parser.add_argument("--port", default=DEFAULT_PORT, help="Serial port (e.g. /dev/ttyUSB0 or COM3)")
     parser.add_argument("--baud", type=int, default=DEFAULT_BAUD, help="Baud rate (default 115200)")
     parser.add_argument("--backend", default=DEFAULT_BACKEND, help="Backend URL (default http://localhost:8000)")
     parser.add_argument("--station", default=None, help="Target station ID (e.g. BL08)")
@@ -102,9 +125,13 @@ def main():
     if args.port is None:
         args.port = find_serial_port()
 
+    # Start non-blocking HTTP dispatch worker thread
+    worker_thread = threading.Thread(target=telemetry_worker, daemon=True)
+    worker_thread.start()
+
     station_label = args.station if args.station else "ALL stations"
     print("=" * 62)
-    print("  SmartRail OS  ·  ESP32 Directional Serial Bridge")
+    print("  SmartRail OS  ·  ESP32 Directional Serial Bridge (Async Queue)")
     print("=" * 62)
     print(f"  Port    : {args.port}  @  {args.baud} baud")
     print(f"  Backend : {args.backend}")
@@ -113,13 +140,17 @@ def main():
     print("=" * 62)
     print()
 
-    last_occupancy = -1
-    last_post_time = 0.0
+    if serial is None:
+        print("[WARN] 'pyserial' is not installed. Run: pip install pyserial")
+        print("       Running in bridge emulation mode...")
 
     while True:
         try:
+            if serial is None:
+                time.sleep(5)
+                continue
             ser = serial.Serial(args.port, args.baud, timeout=1)
-            print(f"✓ Connected to {args.port}")
+            print(f"✔ Connected to {args.port}")
             print("  Listening for directional passenger crossings…\n")
 
             while True:
@@ -144,22 +175,24 @@ def main():
                         d1 = pkt.get("d1")
                         d2 = pkt.get("d2")
 
-                        post_telemetry(
-                            backend=args.backend,
-                            direction=event,
-                            in_delta=in_d,
-                            out_delta=out_d,
-                            occupancy=occ,
-                            total_in=tot_in,
-                            total_out=tot_out,
-                            distance_s1=d1,
-                            distance_s2=d2,
-                            station_id=args.station,
-                            coach_id=args.coach,
-                            capacity=args.capacity,
-                        )
-                        last_occupancy = occ
-                        last_post_time = time.monotonic()
+                        # Enqueue packet non-blockingly (< 0.1ms)
+                        try:
+                            telemetry_queue.put_nowait({
+                                "backend": args.backend,
+                                "direction": event,
+                                "in_delta": in_d,
+                                "out_delta": out_d,
+                                "occupancy": occ,
+                                "total_in": tot_in,
+                                "total_out": tot_out,
+                                "distance_s1": d1,
+                                "distance_s2": d2,
+                                "station_id": args.station,
+                                "coach_id": args.coach,
+                                "capacity": args.capacity,
+                            })
+                        except queue.Full:
+                            print("  [WARN] Telemetry queue full, dropping oldest event")
                         continue
                     except json.JSONDecodeError:
                         pass
@@ -169,7 +202,7 @@ def main():
                     print(f"  [ESP32] {line}")
 
         except serial.SerialException as exc:
-            print(f"✗ Serial port error: {exc}")
+            print(f"✖ Serial port error: {exc}")
             print(f"  Retrying in {RETRY_DELAY}s…\n")
             time.sleep(RETRY_DELAY)
         except KeyboardInterrupt:

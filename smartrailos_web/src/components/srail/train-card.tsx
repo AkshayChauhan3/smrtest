@@ -190,7 +190,7 @@ export function TrainCard({ train, className }: { train: Train; className?: stri
           <div className="flex items-center gap-2 text-xs">
             <Sparkles className="size-3.5 text-accent-cyan shrink-0" />
             <span className="text-slate-300 font-medium text-[11px]">
-              Est. Departure <span className="text-slate-500 font-normal">(Old High Court)</span>:
+              Est. Departure <span className="text-slate-500 font-normal">({state.currentStationFullName || state.nextStationFullName || "Next Station"})</span>:
             </span>
             <span className="font-mono text-xs font-bold text-accent-cyan">
               {state.totalEstPax.toLocaleString()} pax

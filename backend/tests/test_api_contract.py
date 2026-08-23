@@ -209,3 +209,31 @@ def test_analytics_and_kpi_history() -> None:
 
 
 
+
+
+def test_alert_acknowledgement_and_station_existence_guard() -> None:
+    """Verify Bug 6 (fast 404 on missing station) and Bug 13 (alert acknowledge persistence)."""
+    with TestClient(app) as client:
+        # 1. Test Bug 6: Immediate 404 for invalid station without pipeline error
+        res_404 = client.get("/api/v1/dashboard/stations/InvalidStationNonExistentXYZ/snapshot")
+        assert res_404.status_code == 404
+        assert "not found" in res_404.json()["detail"].lower()
+
+        # 2. Test Bug 13: Acknowledge alert and verify it is marked acknowledged
+        res_alerts = client.get("/api/v1/alerts")
+        assert res_alerts.status_code == 200
+        alerts = res_alerts.json()
+        assert len(alerts) > 0
+        target_alert = alerts[0]
+        alert_id = target_alert["id"]
+
+        res_ack = client.post(f"/api/v1/alerts/{alert_id}/acknowledge")
+        assert res_ack.status_code == 200
+        assert res_ack.json()["status"] == "success"
+
+        # Verify alert list reflects acknowledged status
+        res_after = client.get("/api/v1/alerts")
+        assert res_after.status_code == 200
+        updated = next((a for a in res_after.json() if a["id"] == alert_id), None)
+        assert updated is not None
+        assert updated["acknowledged"] is True

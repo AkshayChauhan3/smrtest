@@ -3,7 +3,7 @@ import { type Train, BLUE_LINE, RED_LINE, findStation } from "@/lib/mock/data";
 
 // 1. Station Name Formatter with standard [CODE]-[Name] output
 export function formatFullStationName(stIdOrName?: string | null, line?: "blue" | "red" | string): string {
-  if (!stIdOrName) return "Old High Court";
+  if (!stIdOrName) return "En Route";
   const st = findStation(stIdOrName);
   if (st) {
     return `${st.id}-${st.name}`;

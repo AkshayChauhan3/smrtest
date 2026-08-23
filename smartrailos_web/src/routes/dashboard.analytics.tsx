@@ -9,7 +9,7 @@ import { Activity, Clock, TrendingUp, Users } from "lucide-react";
 export const Route = createFileRoute("/dashboard/analytics")({
   head: () => ({
     meta: [
-      { title: "Analytics · SmartRail OS" },
+      { title: "Analytics • SmartRail OS" },
       { name: "description", content: "Operational analytics for station performance and ridership." },
     ],
   }),
@@ -21,13 +21,36 @@ function Analytics() {
   const weeklyQ = useWeeklyTrend();
   const kpiQ = useKpi();
 
-  const hourlyData = hourlyQ.data && hourlyQ.data.length > 0 ? hourlyQ.data : HOURLY_FLOW;
-  const weeklyData = weeklyQ.data && weeklyQ.data.length > 0 ? weeklyQ.data : WEEKLY_TREND;
-  const kpi = kpiQ.data;
+  const rawHourly = hourlyQ.data && hourlyQ.data.length > 0 ? hourlyQ.data : HOURLY_FLOW;
+  const rawWeekly = weeklyQ.data && weeklyQ.data.length > 0 ? weeklyQ.data : WEEKLY_TREND;
+  const kpi = kpiQ.data as any;
 
-  const ridershipFormatted = kpi?.passengersInTransit
-    ? (kpi.passengersInTransit * 65).toLocaleString()
-    : "218,402";
+  // Normalize hourly data to guarantee both inflow & outflow exist
+  const hourlyData = rawHourly.map((d: any) => ({
+    ...d,
+    inflow: d.inflow ?? d.boarding ?? 0,
+    outflow: d.outflow ?? d.alighting ?? 0,
+  }));
+
+  // Normalize weekly data to guarantee passengers / total exist
+  const weeklyData = rawWeekly.map((d: any) => ({
+    ...d,
+    passengers: d.passengers ?? d.total ?? 0,
+    total: d.total ?? d.passengers ?? 0,
+  }));
+
+  // Real Ridership calculation from weekly totals or KPI
+  const totalWeeklyRidership = weeklyData.reduce((acc: number, curr: any) => acc + (Number(curr.passengers) || 0), 0);
+  const ridershipFormatted = totalWeeklyRidership > 0 
+    ? totalWeeklyRidership.toLocaleString() 
+    : kpi?.passengersInTransit 
+      ? (kpi.passengersInTransit * 20).toLocaleString() 
+      : "184,250";
+
+  // Dynamic KPI values from backend snapshot
+  const onTimeVal = kpi?.onTimePerformance ? `${Number(kpi.onTimePerformance).toFixed(1)}%` : "98.4%";
+  const avgDwellVal = kpi?.averageDwellSeconds ? `${Math.round(Number(kpi.averageDwellSeconds))}s` : "38s";
+  const peakLoadVal = kpi?.avgOccupancy ? `${(Number(kpi.avgOccupancy) / 100).toFixed(2)}` : "0.78";
 
   return (
     <div className="space-y-6 px-4 py-6 md:px-8 md:py-8">
@@ -35,9 +58,9 @@ function Analytics() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label="Total Ridership" value={ridershipFormatted} delta="+4.2%" deltaTone="positive" icon={<Users className="size-4" />} />
-        <KpiCard label="On-Time Performance" value="98.4%" delta="+0.6 pp" deltaTone="positive" icon={<Clock className="size-4" />} />
-        <KpiCard label="Avg Dwell Time" value="38s" delta="-3s" deltaTone="positive" icon={<Activity className="size-4" />} />
-        <KpiCard label="Peak Load Factor" value={kpi?.avgOccupancy ? `${(kpi.avgOccupancy / 100).toFixed(2)}` : "0.78"} delta="Stable" deltaTone="neutral" icon={<TrendingUp className="size-4" />} />
+        <KpiCard label="On-Time Performance" value={onTimeVal} delta="+0.6 pp" deltaTone="positive" icon={<Clock className="size-4" />} />
+        <KpiCard label="Avg Dwell Time" value={avgDwellVal} delta="-3s" deltaTone="positive" icon={<Activity className="size-4" />} />
+        <KpiCard label="Peak Load Factor" value={peakLoadVal} delta="Stable" deltaTone="neutral" icon={<TrendingUp className="size-4" />} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -49,12 +72,17 @@ function Analytics() {
                   <stop offset="0%" stopColor="#2dd4bf" stopOpacity={0.55} />
                   <stop offset="100%" stopColor="#2dd4bf" stopOpacity={0} />
                 </linearGradient>
+                <linearGradient id="ag_out" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.4} />
+                  <stop offset="100%" stopColor="#a78bfa" stopOpacity={0} />
+                </linearGradient>
               </defs>
               <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
               <XAxis dataKey="hour" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: "#121216", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 12 }} />
-              <Area type="monotone" dataKey="inflow" stroke="#2dd4bf" strokeWidth={2} fill="url(#ag)" />
+              <Area type="monotone" dataKey="inflow" name="Inflow" stroke="#2dd4bf" strokeWidth={2} fill="url(#ag)" />
+              <Area type="monotone" dataKey="outflow" name="Outflow" stroke="#a78bfa" strokeWidth={2} fill="url(#ag_out)" />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -66,7 +94,7 @@ function Analytics() {
               <XAxis dataKey="day" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: "#121216", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 12 }} />
-              <Bar dataKey="passengers" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="passengers" name="Passengers" fill="#3b82f6" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>

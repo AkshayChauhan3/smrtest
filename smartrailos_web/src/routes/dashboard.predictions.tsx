@@ -37,10 +37,13 @@ function Predictions() {
 
   const mostBoardingTrain = [...trains].sort((a, b) => (b.predictedBoarding || 0) - (a.predictedBoarding || 0))[0];
 
-  const forecast = hourlyFlow.slice(6, 23).map((d, i) => ({
-    ...d,
-    predicted: Math.round(d.inflow * (1.02 + 0.06 * Math.sin((i + 1) / 2.5))),
-  }));
+  const forecast = hourlyFlow.slice(6, 23).map((d: any, i: number) => {
+    const val = Number(d.inflow ?? ((d.boarding ?? 0) + (d.alighting ?? 0)));
+    return {
+      ...d,
+      predicted: Math.round(val * (1.02 + 0.06 * Math.sin((i + 1) / 2.5))),
+    };
+  });
   
   if (trainsQ.isLoading) {
     return <div className="py-20 text-center text-sm text-slate-500">Loading live predictions…</div>;

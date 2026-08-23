@@ -19,14 +19,40 @@ import {
   stationFeatureQuery,
   snapshotQuery,
 } from "./queries";
+import { kpiFromSnapshot, adaptRecommendations } from "./smartrail";
+import { KPI, RECOMMENDATIONS } from "@/lib/mock/data";
 
 export const useTrains = () => useQuery(trainsQuery);
 export const useTrain = (id: string) => useQuery(trainQuery(id));
 export const useDashboardSnapshot = () => useQuery(snapshotQuery);
-export const useKpi = () => useQuery(kpiQuery);
+
+// Derive KPI and Recommendations from shared snapshot to eliminate redundant 3x polling
+export const useKpi = () => {
+  const snap = useDashboardSnapshot();
+  const kpiQ = useQuery(kpiQuery);
+  if (snap.data) {
+    return {
+      ...snap,
+      data: kpiFromSnapshot(snap.data),
+    };
+  }
+  return kpiQ;
+};
+
+export const useRecommendations = () => {
+  const snap = useDashboardSnapshot();
+  const recQ = useQuery(recommendationsQuery);
+  if (snap.data?.recommendations) {
+    return {
+      ...snap,
+      data: adaptRecommendations(snap.data.recommendations),
+    };
+  }
+  return recQ;
+};
+
 export const useKpiHistory = () => useQuery(kpiHistoryQuery);
 export const useAlerts = () => useQuery(alertsQuery);
-export const useRecommendations = () => useQuery(recommendationsQuery);
 export const useAnnouncements = () => useQuery(announcementsQuery);
 export const useNotifications = () => useQuery(notificationsQuery);
 export const useStations = () => useQuery(stationsQuery);
@@ -117,5 +143,3 @@ export function useResolveAlert() {
     },
   });
 }
-
-

@@ -494,6 +494,11 @@ export function findStation(idOrName?: string | null): Station | undefined {
   const byName = STATIONS.find((s) => s.name.toLowerCase() === lower);
   if (byName) return byName;
 
+  // 2b. Clean name match (strip line suffixes e.g. "Old High Court (RL)" -> "Old High Court")
+  const cleanName = lower.replace(/\s*\((rl|bl|red|blue)\)/g, "").replace(/\s*interchange/g, "").trim();
+  const byCleanName = STATIONS.find((s) => s.name.toLowerCase() === cleanName);
+  if (byCleanName) return byCleanName;
+
   // 3. Normalized ID match (e.g. "bl08", "bl-8", "bl-08", "bl8", "rl-7", "rl07")
   const match = lower.match(/^([a-z]{2})[-_]?0*(\d+)$/);
   if (match) {
