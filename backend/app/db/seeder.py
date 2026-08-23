@@ -188,8 +188,9 @@ async def seed_database(db: AsyncSession) -> None:
             message="Platform 1 & 2 crowd exceeds 850 passengers. Immediate turnstile metering recommended.",
             station_id="BL11",
             train_id=None,
-            created_at=now - timedelta(minutes=4),
-            payload={"acknowledged": False},
+            created_at=now - timedelta(minutes=15),
+            resolved_at=now - timedelta(minutes=5),
+            payload={"acknowledged": True},
         ),
         Alert(
             id="alt-wrn-02",
@@ -199,8 +200,9 @@ async def seed_database(db: AsyncSession) -> None:
             message="Train BL-UP-03 coach 3 approaching 92% critical occupancy near Kalupur Metro Station.",
             station_id="BL08",
             train_id="BL-UP-03",
-            created_at=now - timedelta(minutes=12),
-            payload={"acknowledged": False},
+            created_at=now - timedelta(minutes=25),
+            resolved_at=now - timedelta(minutes=10),
+            payload={"acknowledged": True},
         ),
         Alert(
             id="alt-dly-03",
@@ -210,8 +212,9 @@ async def seed_database(db: AsyncSession) -> None:
             message="Train RL-UP-04 experienced +2m dwell delay due to heavy platform boarding flow.",
             station_id="RL15",
             train_id="RL-UP-04",
-            created_at=now - timedelta(minutes=25),
-            payload={"acknowledged": False},
+            created_at=now - timedelta(minutes=45),
+            resolved_at=now - timedelta(minutes=20),
+            payload={"acknowledged": True},
         ),
     ]
     for alert in default_alerts:

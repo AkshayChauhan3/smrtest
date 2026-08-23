@@ -18,65 +18,16 @@ class AlertService:
         self.alert_repo = alert_repo or AlertRepository(db)
         self.sim_service = data_service
 
-    async def _ensure_seed_alerts(self):
-        """Seed baseline active operational alerts into SQLite if table is empty and daytime active."""
-        now = sim_clock.now()
-        is_night = (now.hour >= 23 or now.hour < 6)
-        if is_night:
-            return
-
-        cnt_res = await self.db.execute(select(func.count(Alert.id)))
-        count = cnt_res.scalar() or 0
-        if count == 0:
-            default_alerts = [
-                Alert(
-                    id="alt-emg-01",
-                    alert_type=AlertType.PLATFORM_CONGESTION,
-                    severity=SeverityLevel.CRITICAL,
-                    title="Critical Crowd Surge at Old High Court",
-                    message="Platform 1 & 2 crowd exceeds 850 passengers. Immediate turnstile metering recommended.",
-                    station_id="BL11",
-                    train_id=None,
-                    created_at=now - timedelta(minutes=4),
-                    payload={"acknowledged": False},
-                ),
-                Alert(
-                    id="alt-wrn-02",
-                    alert_type=AlertType.PREDICTION_ALERT,
-                    severity=SeverityLevel.HIGH,
-                    title="Train Capacity Warning (BL-UP-03)",
-                    message="Train BL-UP-03 coach 3 approaching 92% critical occupancy near Kalupur Metro Station.",
-                    station_id="BL08",
-                    train_id="BL-UP-03",
-                    created_at=now - timedelta(minutes=12),
-                    payload={"acknowledged": False},
-                ),
-                Alert(
-                    id="alt-dly-03",
-                    alert_type=AlertType.TRAIN_DELAY,
-                    severity=SeverityLevel.MEDIUM,
-                    title="Minor Dwell Delay at Motera Stadium",
-                    message="Train RL-UP-04 experienced +2m dwell delay due to heavy platform boarding flow.",
-                    station_id="RL15",
-                    train_id="RL-UP-04",
-                    created_at=now - timedelta(minutes=25),
-                    payload={"acknowledged": False},
-                ),
-            ]
-            for a in default_alerts:
-                self.db.add(a)
-            await self.db.commit()
-
     async def list_alerts(self, station_name: str | None = None) -> List[AlertOut]:
-        """Fetch active alerts from DB, resolving station names and prioritizing Emergency."""
-        await self._ensure_seed_alerts()
+        """Fetch active and historical alerts, resolving station names and prioritizing genuine emergencies."""
         db_alerts = await self.alert_repo.get_active_alerts(limit=100)
         
         st_res = await self.db.execute(select(Station))
         stations_map = {s.station_id: s.name for s in st_res.scalars().all()}
 
         now = sim_clock.now()
-        is_night = (now.hour >= 23 or now.hour < 6)
+        # Off-peak hours where crowd surge emergencies cannot physically occur (06:00-07:30, 21:30-23:00, or overnight)
+        is_off_peak = (now.hour < 7 or (now.hour == 7 and now.minute < 30) or now.hour >= 22 or (now.hour == 21 and now.minute >= 30))
 
         results = []
         for alert in db_alerts:
@@ -92,7 +43,11 @@ class AlertService:
             if alert.payload and isinstance(alert.payload, dict):
                 is_ack = bool(alert.payload.get("acknowledged", False))
 
-            is_res = alert.resolved_at is not None or (is_night and alert.alert_type in (AlertType.PLATFORM_CONGESTION, AlertType.PREDICTION_ALERT, AlertType.TRAIN_DELAY))
+            # Auto-resolve stale / off-peak dummy alerts
+            type_val = (getattr(alert.alert_type, "value", str(alert.alert_type)) or "").lower()
+            is_stale = alert.created_at and (now - alert.created_at).total_seconds() > 900
+            is_offpeak_crowd = is_off_peak and type_val in ("platform_congestion", "prediction_alert", "train_delay")
+            is_res = alert.resolved_at is not None or is_stale or is_offpeak_crowd
 
             results.append(
                 AlertOut(
@@ -134,7 +89,7 @@ class AlertService:
         return results
 
     async def get_emergency_status(self) -> bool:
-        """Check if there are any CRITICAL or EMERGENCY severity alerts active."""
+        """Check if there are any CRITICAL or EMERGENCY severity alerts active right now."""
         alerts = await self.list_alerts()
         for alert in alerts:
             if not alert.resolved and alert.severity.lower() in ["critical", "emergency"]:
