@@ -2,26 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // Dark-First Transit Palette
-  static const Color surfaceDark = Color(0xFF0E1116);
-  static const Color surfaceElevated = Color(0xFF171B22);
-  static const Color surfaceCard = Color(0xFF1C212B);
-  static const Color surfaceGlass = Color(0xCC171B22);
-  static const Color surfaceGlassBorder = Color(0x26FFFFFF); // 15% white
+  // SmartRail OS Obsidian Palette (from smartrailos_web)
+  static const Color surfaceDark = Color(0xFF000000); // obsidian-950 / background / sidebar
+  static const Color surfaceCard = Color(0xFF080A0F); // obsidian-900 / card / popover
+  static const Color surfaceMuted = Color(0xFF050608); // obsidian-800 / secondary / muted
+  static const Color surfaceElevated = Color(0xFF121620); // obsidian-700 / elevated
+  static const Color surfaceGlass = Color(0xCC080A0F); // glass-card surface
+  static const Color surfaceGlassBorder = Color(0x14FFFFFF); // 8% white border (--border)
+  static const Color inputBorder = Color(0x1AFFFFFF); // 10% white border (--input)
   
-  static const Color blueLine = Color(0xFF2D7DFF);
-  static const Color blueLineGlow = Color(0x402D7DFF);
-  static const Color redLine = Color(0xFFFF3B5C);
-  static const Color redLineGlow = Color(0x40FF3B5C);
+  // Accents
+  static const Color accentCyan = Color(0xFF2DD4BF); // primary accent (--color-accent-cyan / --primary)
+  static const Color accentCyanGlow = Color(0x662DD4BF); // 40% cyan glow
+  static const Color accentBlue = Color(0xFF2563EB); // --color-accent-blue
+  static const Color accentBlue2 = Color(0xFF3B82F6); // --color-accent-blue-2
+  static const Color accentBlueGlow = Color(0x663B82F6); // 40% blue glow
   
-  static const Color signalGreen = Color(0xFF00E6A0);
-  static const Color signalAmber = Color(0xFFFFC857);
-  static const Color signalRed = Color(0xFFFF4D4D);
-  static const Color ladiesTint = Color(0xFFFF7AB6);
+  // Corridor Lines
+  static const Color blueLine = Color(0xFF2563EB); // --color-line-blue
+  static const Color blueLineGlow = Color(0x402563EB);
+  static const Color redLine = Color(0xFFEF4444); // --color-line-red
+  static const Color redLineGlow = Color(0x40EF4444);
   
-  static const Color textPrimary = Color(0xFFF5F7FA);
-  static const Color textSecondary = Color(0xFFC0C7D5);
-  static const Color textMuted = Color(0xFF8A93A6);
+  // Signals & Status
+  static const Color signalGreen = Color(0xFF10B981); // --color-success
+  static const Color signalAmber = Color(0xFFF59E0B); // --color-warning / --color-alert-amber
+  static const Color signalRed = Color(0xFFEF4444); // --color-danger / --color-alert-red
+  static const Color alertRed = Color(0xFFF43F5E); // --color-alert-red / --destructive
+  static const Color ladiesTint = Color(0xFFF472B6); // Ladies coach pink tint
+  
+  // Typography
+  static const Color textPrimary = Color(0xFFE2E8F0); // --foreground (slate-200)
+  static const Color textSecondary = Color(0xFF94A3B8); // --muted-foreground (slate-400)
+  static const Color textMuted = Color(0xFF64748B); // slate-500
 
   static const double borderRadius = 16.0;
 
@@ -44,7 +57,7 @@ class AppTheme {
     List<BoxShadow>? shadows,
   }) {
     return BoxDecoration(
-      color: color ?? surfaceElevated,
+      color: color ?? surfaceCard,
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(color: borderColor, width: borderWidth),
       boxShadow: shadows ?? [
@@ -63,10 +76,12 @@ class AppTheme {
       brightness: Brightness.dark,
       scaffoldBackgroundColor: surfaceDark,
       colorScheme: const ColorScheme.dark(
-        primary: blueLine,
-        secondary: redLine,
-        surface: surfaceElevated,
+        primary: accentCyan,
+        onPrimary: surfaceDark,
+        secondary: accentBlue,
+        surface: surfaceCard,
         onSurface: textPrimary,
+        error: signalRed,
       ),
       textTheme: GoogleFonts.interTextTheme(
         ThemeData.dark().textTheme.apply(
@@ -82,11 +97,11 @@ class AppTheme {
         headlineSmall: GoogleFonts.spaceGrotesk(color: textPrimary, fontWeight: FontWeight.bold),
       ),
       cardTheme: CardThemeData(
-        color: surfaceElevated,
+        color: surfaceCard,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          side: const BorderSide(color: Color(0x1AFFFFFF)), // 10% white border
+          side: const BorderSide(color: surfaceGlassBorder),
         ),
       ),
       appBarTheme: AppBarTheme(
@@ -106,31 +121,31 @@ class AppTheme {
           elevation: 0,
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          backgroundColor: blueLine,
-          foregroundColor: Colors.white,
+          backgroundColor: accentCyan,
+          foregroundColor: surfaceDark,
           textStyle: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.5),
         ),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        selectedItemColor: blueLine,
+        selectedItemColor: accentCyan,
         unselectedItemColor: textMuted,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surfaceElevated,
+        fillColor: surfaceCard,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0x1AFFFFFF)),
+          borderSide: const BorderSide(color: inputBorder),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0x1AFFFFFF)),
+          borderSide: const BorderSide(color: inputBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: blueLine, width: 2),
+          borderSide: const BorderSide(color: accentCyan, width: 2),
         ),
         labelStyle: const TextStyle(color: textMuted, fontSize: 13),
         hintStyle: const TextStyle(color: textMuted, fontSize: 14),

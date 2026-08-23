@@ -49,7 +49,7 @@ class ProfileScreen extends ConsumerWidget {
                   background: Container(
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Color(0xFF161C27), AppTheme.surfaceDark],
+                        colors: [AppTheme.surfaceElevated, AppTheme.surfaceDark],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                       ),
@@ -214,7 +214,7 @@ class ProfileScreen extends ConsumerWidget {
                 height: 48,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppTheme.blueLine, Color(0xFF0072CE)],
+                    colors: [AppTheme.accentCyan, AppTheme.accentBlue],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),

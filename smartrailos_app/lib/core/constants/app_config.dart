@@ -58,7 +58,10 @@ class AppConfig {
   }
 
   static Future<void> setCustomBaseUrl(String url) async {
-    final clean = url.trim().replaceAll(RegExp(r'/+$'), '');
+    var clean = url.trim().replaceAll(RegExp(r'/+$'), '');
+    if (clean.isNotEmpty && !clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = 'https://$clean';
+    }
     _customUrl = clean.isNotEmpty ? clean : null;
     _workingUrl = _customUrl;
     try {
@@ -71,7 +74,7 @@ class AppConfig {
     } catch (_) {}
   }
 
-  /// Quickly probe candidate URLs in parallel to discover the active backend in <500ms.
+  /// Quickly probe candidate URLs in parallel to discover the active backend.
   static Future<String?> discoverWorkingUrl() async {
     if (_workingUrl != null) {
       if (await _pingUrl(_workingUrl!)) {
@@ -95,15 +98,21 @@ class AppConfig {
     return null;
   }
 
+  static Map<String, String> get defaultHeaders => const {
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
+    'bypass-tunnel-reminder': 'true',
+  };
+
   static Future<bool> _pingUrl(String base) async {
     try {
       final uri = Uri.parse('$base/api/v1/esp32/live');
-      final res = await http.get(uri).timeout(const Duration(milliseconds: 1000));
+      final res = await http.get(uri, headers: defaultHeaders).timeout(const Duration(milliseconds: 3500));
       return res.statusCode < 500;
     } catch (_) {
       try {
         final uriHealth = Uri.parse('$base/health');
-        final res = await http.get(uriHealth).timeout(const Duration(milliseconds: 1000));
+        final res = await http.get(uriHealth, headers: defaultHeaders).timeout(const Duration(milliseconds: 3500));
         return res.statusCode < 500;
       } catch (_) {
         return false;
@@ -112,7 +121,7 @@ class AppConfig {
   }
 
   static Map<String, String> authHeaders(String token) => {
-    'Content-Type': 'application/json',
+    ...defaultHeaders,
     'Authorization': 'Bearer $token',
   };
 }

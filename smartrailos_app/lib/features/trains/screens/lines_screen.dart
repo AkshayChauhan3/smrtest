@@ -72,7 +72,7 @@ class _LinesScreenState extends ConsumerState<LinesScreen> with SingleTickerProv
                     background: Container(
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Color(0xFF141923), AppTheme.surfaceDark],
+                          colors: [AppTheme.surfaceElevated, AppTheme.surfaceDark],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                         ),

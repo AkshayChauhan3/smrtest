@@ -19,13 +19,28 @@ final trainResultsProvider = StreamProvider.family<List<TrainModel>, ({String li
     orElse: () => MetroLine.blue,
   );
 
+  List<TrainModel> lastTrains = [];
+
   // Yield immediately on invocation
-  yield await api.getUpcomingTrains(line, params.fromStationId, params.toStationId);
+  try {
+    lastTrains = await api.getUpcomingTrains(line, params.fromStationId, params.toStationId);
+    yield lastTrains;
+  } catch (e) {
+    if (lastTrains.isEmpty) rethrow;
+  }
 
   // Then poll every 5 seconds
   while (true) {
     await Future.delayed(const Duration(seconds: 5));
-    yield await api.getUpcomingTrains(line, params.fromStationId, params.toStationId);
+    try {
+      lastTrains = await api.getUpcomingTrains(line, params.fromStationId, params.toStationId);
+      yield lastTrains;
+    } catch (_) {
+      // Retain last known state on transient mobile data / tunnel drops
+      if (lastTrains.isNotEmpty) {
+        yield lastTrains;
+      }
+    }
   }
 });
 

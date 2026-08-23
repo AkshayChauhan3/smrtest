@@ -1,14 +1,20 @@
 /**
  * @file main.cpp
- * @brief SmartRail OS — ESP32 Dual-Beam Directional Passenger Counter (0->1 IN, 1->0 OUT)
+ * @brief SmartRail OS — ESP32 Dual-Beam Directional Passenger Counter
  *
- * Mathematical Traversal Model:
- * -----------------------------
- *  Boarding (IN: 0 -> 1):
- *    (0,0) IDLE -> (1,0) S0_Active -> (1,1) Both_Active -> (0,1) S1_Active -> (0,0) [COUNT +1 IN]
+ * Robust Time-Window Directional Traversal Algorithm:
+ * ----------------------------------------------------
+ *  Boarding (IN: Platform S0 -> Coach S1):
+ *    IDLE -> S0 Triggered (STATE_IN_STARTED) -> S1 Triggered (STATE_IN_MIDWAY) -> Both Clear -> COUNT +1 IN
  *
- *  Alighting (OUT: 1 -> 0):
- *    (0,0) IDLE -> (0,1) S1_Active -> (1,1) Both_Active -> (1,0) S0_Active -> (0,0) [COUNT -1 OUT]
+ *  Alighting (OUT: Coach S1 -> Platform S0):
+ *    IDLE -> S1 Triggered (STATE_OUT_STARTED) -> S0 Triggered (STATE_OUT_MIDWAY) -> Both Clear -> COUNT -1 OUT
+ *
+ * Features:
+ *  - 10ms fast pulse timeout to prevent loop blocking
+ *  - Non-blocking state window (preserves counts during fast strides & single-beam gaps)
+ *  - Anti-rebound timeout (aborts if passenger backs away without touching exit beam)
+ *  - Clean JSON serial output for serial_bridge.py
  */
 
 #include <Arduino.h>
@@ -24,24 +30,23 @@ volatile int occupancy = 0;
 volatile int total_in  = 0;
 volatile int total_out = 0;
 
-enum FsmState {
+enum TraversalState {
   STATE_IDLE,
 
-  // Boarding Sequence (0 -> 1)
-  STATE_IN_S0,        // S0 blocked first (1, 0)
-  STATE_IN_BOTH,      // S0 and S1 both blocked (1, 1)
-  STATE_IN_S1_ONLY,   // S0 cleared, S1 still blocked (0, 1)
+  // Boarding Sequence (S0 -> S1)
+  STATE_IN_STARTED,    // S0 triggered first
+  STATE_IN_MIDWAY,     // S1 reached (sequence validated)
 
-  // Alighting Sequence (1 -> 0)
-  STATE_OUT_S1,       // S1 blocked first (0, 1)
-  STATE_OUT_BOTH,     // S1 and S0 both blocked (1, 1)
-  STATE_OUT_S0_ONLY   // S1 cleared, S0 still blocked (1, 0)
+  // Alighting Sequence (S1 -> S0)
+  STATE_OUT_STARTED,   // S1 triggered first
+  STATE_OUT_MIDWAY     // S0 reached (sequence validated)
 };
 
-FsmState state = STATE_IDLE;
+TraversalState state = STATE_IDLE;
 unsigned long stateStartTime    = 0;
 unsigned long lastCountTime     = 0;
 unsigned long lastTelemetrySync = 0;
+unsigned long ledTurnOffTime    = 0;
 
 // Filter history (3-sample median ring buffer)
 float s0_history[3] = {999.0f, 999.0f, 999.0f};
@@ -52,7 +57,7 @@ int sample_idx = 0;
 bool s0_blocked = false;
 bool s1_blocked = false;
 
-// ─── Median Filter & Distance Ping ────────────────────────────────────────────
+// ─── Fast Median Filter & Distance Ping ───────────────────────────────────────
 
 float median3(float a, float b, float c) {
   if ((a <= b && b <= c) || (c <= b && b <= a)) return b;
@@ -68,10 +73,10 @@ float pingUltrasonic(int trigPin, int echoPin) {
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
 
-  // Pulse timeout ~ 25ms (4.3 meters max)
-  long duration = pulseIn(echoPin, HIGH, 25000);
+  // Fast pulse timeout ~ 10ms (approx 1.7 meters max range)
+  long duration = pulseIn(echoPin, HIGH, PULSE_TIMEOUT_US);
 
-  if (duration <= 0 || duration >= 25000) {
+  if (duration <= 0 || duration >= PULSE_TIMEOUT_US) {
     return 999.0f;
   }
 
@@ -93,8 +98,9 @@ void dispatchCrossing(const char* dir, int in_d, int out_d, float d0, float d1) 
   );
   Serial.println(jsonLine);
 
-  // Status LED pulse
+  // Status LED pulse (non-blocking 100ms)
   digitalWrite(LED_PIN, HIGH);
+  ledTurnOffTime = millis() + 100;
 }
 
 // ─── Arduino Lifecycle ────────────────────────────────────────────────────────
@@ -117,21 +123,30 @@ void setup() {
 
   Serial.println();
   Serial.println("==================================================");
-  Serial.println(" SmartRail OS — Dual-Beam Passenger Gate FSM      ");
+  Serial.println(" SmartRail OS — Robust Passenger Gate Counter     ");
   Serial.printf (" S0 (Entry): GPIO %d/%d | S1 (Exit): GPIO %d/%d\n", TRIG1_PIN, ECHO1_PIN, TRIG2_PIN, ECHO2_PIN);
   Serial.printf (" Thresholds: Block < %.1f cm | Clear > %.1f cm\n", THRESHOLD_ENTER_CM, THRESHOLD_LEAVE_CM);
+  Serial.printf (" Max Echo Timeout: %d us | Traversal Window: %d ms\n", PULSE_TIMEOUT_US, TRAVERSAL_TIMEOUT_MS);
   Serial.printf (" Station: %s | Coach: %s | Invert: %d\n", DEFAULT_STATION_ID, DEFAULT_COACH_ID, INVERT_DIRECTION);
   Serial.println("==================================================");
   Serial.println();
 }
 
 void loop() {
+  unsigned long now = millis();
+
+  // 0. Non-blocking LED turn-off
+  if (ledTurnOffTime > 0 && now >= ledTurnOffTime) {
+    digitalWrite(LED_PIN, LOW);
+    ledTurnOffTime = 0;
+  }
+
   // 1. Read ultrasonic pings with cross-talk avoidance delay
   float raw0 = pingUltrasonic(TRIG1_PIN, ECHO1_PIN);
   delay(SENSOR_SPACING_MS);
   float raw1 = pingUltrasonic(TRIG2_PIN, ECHO2_PIN);
 
-  // 2. 3-Sample Median Ring Filter
+  // 2. 3-Sample Median Ring Filter (fast response with glitch rejection)
   s0_history[sample_idx] = raw0;
   s1_history[sample_idx] = raw1;
   sample_idx = (sample_idx + 1) % 3;
@@ -140,141 +155,90 @@ void loop() {
   float d1 = median3(s1_history[0], s1_history[1], s1_history[2]);
 
   // 3. Hysteresis Obstacle Detection
-  bool b0_raw = s0_blocked ? (d0 < THRESHOLD_LEAVE_CM) : (d0 < THRESHOLD_ENTER_CM);
-  bool b1_raw = s1_blocked ? (d1 < THRESHOLD_LEAVE_CM) : (d1 < THRESHOLD_ENTER_CM);
-
-  s0_blocked = b0_raw;
-  s1_blocked = b1_raw;
+  s0_blocked = s0_blocked ? (d0 < THRESHOLD_LEAVE_CM) : (d0 < THRESHOLD_ENTER_CM);
+  s1_blocked = s1_blocked ? (d1 < THRESHOLD_LEAVE_CM) : (d1 < THRESHOLD_ENTER_CM);
 
   // Handle optional physical inversion
   bool b0 = INVERT_DIRECTION ? s1_blocked : s0_blocked;
   bool b1 = INVERT_DIRECTION ? s0_blocked : s1_blocked;
 
-  unsigned long now = millis();
+#if DEBUG_SERIAL
+  Serial.printf("d0: %.1f cm (%d) | d1: %.1f cm (%d) | state: %d\n", d0, b0, d1, b1, state);
+#endif
 
-  // 4. Directional State Machine (0->1 Boarding IN, 1->0 Alighting OUT)
+  // 4. Directional Traversal State Machine
   switch (state) {
 
-    // ── IDLE (0, 0) ──────────────────────────────────────────────────────────
+    // ── IDLE: Waiting for first beam interruption ─────────────────────────────
     case STATE_IDLE:
-      digitalWrite(LED_PIN, LOW);
-
       if (now - lastCountTime < COOLDOWN_MS) {
-        break; // Post-count debounce
+        break; // Post-count debounce cooldown
       }
 
       if (b0 && !b1) {
-        // Sensor 0 tripped first -> Potential IN (0 -> 1)
-        state = STATE_IN_S0;
+        // Sensor 0 triggered first -> Candidate Boarding (IN)
+        state = STATE_IN_STARTED;
         stateStartTime = now;
       }
       else if (b1 && !b0) {
-        // Sensor 1 tripped first -> Potential OUT (1 -> 0)
-        state = STATE_OUT_S1;
+        // Sensor 1 triggered first -> Candidate Alighting (OUT)
+        state = STATE_OUT_STARTED;
         stateStartTime = now;
       }
       break;
 
-    // ── BOARDING SEQUENCE (IN: 0 -> 1) ───────────────────────────────────────
-    case STATE_IN_S0:
-      if (b0 && b1) {
-        state = STATE_IN_BOTH;
+    // ── BOARDING SEQUENCE (IN: S0 -> S1) ───────────────────────────────────────
+    case STATE_IN_STARTED:
+      if (b1) {
+        // Sensor 1 triggered -> Candidate confirmed in progress
+        state = STATE_IN_MIDWAY;
+        stateStartTime = now; // Reset timer for completion phase
       }
-      else if (!b0 && !b1) {
-        // Person walked up to S0 and backed away -> Reset (NO COUNT)
-        state = STATE_IDLE;
-      }
-      else if (now - stateStartTime > TIMEOUT_MS) {
+      else if (now - stateStartTime > TRAVERSAL_TIMEOUT_MS) {
+        // Passenger backed away without reaching S1 -> Reset
         state = STATE_IDLE;
       }
       break;
 
-    case STATE_IN_BOTH:
-      if (!b0 && b1) {
-        state = STATE_IN_S1_ONLY;
-      }
-      else if (b0 && !b1) {
-        // Person stepped back towards S0
-        state = STATE_IN_S0;
-      }
-      else if (!b0 && !b1) {
-        // Fast crossing through both beams -> REGISTER IN
+    case STATE_IN_MIDWAY:
+      if (!b0 && !b1) {
+        // Both beams now completely cleared -> Passenger fully entered!
         total_in++;
         occupancy++;
         lastCountTime = now;
         dispatchCrossing("IN", 1, 0, d0, d1);
         state = STATE_IDLE;
       }
-      else if (now - stateStartTime > TIMEOUT_MS) {
+      else if (now - stateStartTime > TRAVERSAL_TIMEOUT_MS) {
+        // Traversal stalled or person stopped inside doorway too long -> Reset
         state = STATE_IDLE;
       }
       break;
 
-    case STATE_IN_S1_ONLY:
+    // ── ALIGHTING SEQUENCE (OUT: S1 -> S0) ─────────────────────────────────────
+    case STATE_OUT_STARTED:
+      if (b0) {
+        // Sensor 0 triggered -> Candidate confirmed in progress
+        state = STATE_OUT_MIDWAY;
+        stateStartTime = now; // Reset timer for completion phase
+      }
+      else if (now - stateStartTime > TRAVERSAL_TIMEOUT_MS) {
+        // Passenger backed away without reaching S0 -> Reset
+        state = STATE_IDLE;
+      }
+      break;
+
+    case STATE_OUT_MIDWAY:
       if (!b0 && !b1) {
-        // Fully cleared doorway on S1 side -> REGISTER IN (+1)
-        total_in++;
-        occupancy++;
-        lastCountTime = now;
-        dispatchCrossing("IN", 1, 0, d0, d1);
-        state = STATE_IDLE;
-      }
-      else if (b0 && b1) {
-        state = STATE_IN_BOTH;
-      }
-      else if (now - stateStartTime > TIMEOUT_MS) {
-        state = STATE_IDLE;
-      }
-      break;
-
-    // ── ALIGHTING SEQUENCE (OUT: 1 -> 0) ──────────────────────────────────────
-    case STATE_OUT_S1:
-      if (b0 && b1) {
-        state = STATE_OUT_BOTH;
-      }
-      else if (!b0 && !b1) {
-        // Person walked up to S1 and backed away -> Reset (NO COUNT)
-        state = STATE_IDLE;
-      }
-      else if (now - stateStartTime > TIMEOUT_MS) {
-        state = STATE_IDLE;
-      }
-      break;
-
-    case STATE_OUT_BOTH:
-      if (b0 && !b1) {
-        state = STATE_OUT_S0_ONLY;
-      }
-      else if (!b0 && b1) {
-        // Person stepped back towards S1
-        state = STATE_OUT_S1;
-      }
-      else if (!b0 && !b1) {
-        // Fast crossing through both beams -> REGISTER OUT
+        // Both beams now completely cleared -> Passenger fully exited!
         total_out++;
         if (occupancy > 0) occupancy--;
         lastCountTime = now;
         dispatchCrossing("OUT", 0, 1, d0, d1);
         state = STATE_IDLE;
       }
-      else if (now - stateStartTime > TIMEOUT_MS) {
-        state = STATE_IDLE;
-      }
-      break;
-
-    case STATE_OUT_S0_ONLY:
-      if (!b0 && !b1) {
-        // Fully cleared doorway on S0 side -> REGISTER OUT (-1)
-        total_out++;
-        if (occupancy > 0) occupancy--;
-        lastCountTime = now;
-        dispatchCrossing("OUT", 0, 1, d0, d1);
-        state = STATE_IDLE;
-      }
-      else if (b0 && b1) {
-        state = STATE_OUT_BOTH;
-      }
-      else if (now - stateStartTime > TIMEOUT_MS) {
+      else if (now - stateStartTime > TRAVERSAL_TIMEOUT_MS) {
+        // Traversal stalled or person stopped inside doorway too long -> Reset
         state = STATE_IDLE;
       }
       break;
@@ -295,5 +259,6 @@ void loop() {
     }
   }
 
-  delay(15);
+  // Fast loop cadence (~5ms)
+  delay(5);
 }

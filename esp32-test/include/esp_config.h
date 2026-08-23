@@ -34,19 +34,23 @@
 // Status LED (Builtin LED is GPIO 2 on standard ESP32 DevKit)
 #define LED_PIN             2
 
-// ─── Detection Distance Thresholds (Doorway Calibrated) ────────────────────────
-// When a person is in doorway, distance drops to 30-70cm. Background wall is >140cm.
+// ─── Detection Distance Thresholds & Timing Calibration ────────────────────────
+// Doorway setup: normal doorway width is 60-150cm. Max echo timeout 10000us (~171cm).
+#define PULSE_TIMEOUT_US    10000  // 10ms timeout (~171cm max range) avoids long blocking
 #define THRESHOLD_ENTER_CM  75.0   // Blocked when distance < 75 cm
 #define THRESHOLD_LEAVE_CM  85.0   // Cleared when distance > 85 cm
 
 // Maximum time in milliseconds allowed for a full traversal before resetting to IDLE
-#define TIMEOUT_MS          2500
+#define TRAVERSAL_TIMEOUT_MS 1200
 
 // Cooldown in milliseconds after a successful count before next crossing can start
-#define COOLDOWN_MS         400
+#define COOLDOWN_MS         300
 
 // Spacing delay in milliseconds between pinging S0 and S1 to avoid acoustic cross-talk
-#define SENSOR_SPACING_MS   20
+#define SENSOR_SPACING_MS   10
+
+// Debug logging over Serial (0 = Clean JSON only for serial_bridge.py, 1 = Verbose debug)
+#define DEBUG_SERIAL        0
 
 // ─── Transit & Coach Metadata ─────────────────────────────────────────────────
 #define DEVICE_ID           "ESP32_COACH_01"
@@ -55,3 +59,4 @@
 #define COACH_CAPACITY      400
 
 #endif // ESP_CONFIG_H
+
